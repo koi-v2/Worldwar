@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Pixel Platformer — Demo Karakter</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#111827;color:#f8fafc;font-family:system-ui,-apple-system,Segoe UI,sans-serif;touch-action:none}
+#wrap{height:100%;display:flex;flex-direction:column}header{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#0b1220;border-bottom:1px solid #334155;flex-wrap:wrap}
+header strong{font-size:14px}header label{font-size:12px;color:#cbd5e1}input[type=file]{max-width:190px;font-size:12px}button,input{font:inherit}button{border:1px solid #64748b;border-radius:10px;background:#263449;color:white;padding:9px 13px;touch-action:none}button:active,.pressed{background:#475569;transform:translateY(1px)}#game{display:block;flex:1;width:100%;min-height:0;image-rendering:pixelated;background:#91c8df;touch-action:none}
+#help{font-size:12px;color:#cbd5e1;padding:6px 10px;background:#0b1220}#controls{display:none;justify-content:space-between;align-items:end;padding:10px 14px;background:#0b1220;gap:12px}
+.cluster{display:flex;gap:10px}.pad{width:58px;height:54px;font-size:20px;font-weight:700}.action{width:68px;height:60px;font-size:12px;font-weight:800}
+@media(pointer:coarse){#controls{display:flex}#help{font-size:11px}}
+@media(orientation:portrait){header{gap:6px;padding:6px}header strong{font-size:12px}#controls{padding:7px}.pad{width:52px;height:48px}.action{width:60px;height:54px}}
+</style>
+</head>
+<body>
+<div id="wrap">
+<header>
+<strong>Pixel Platformer — Demo</strong>
+<label for="sheet">Pilih sprite sheet:</label><input id="sheet" type="file" accept="image/*">
+<button id="toggleConfig" type="button">Pengaturan frame</button>
+</header>
+<div id="config" hidden style="padding:8px;background:#172033;display:none;gap:6px;flex-wrap:wrap;align-items:center;font-size:12px">
+<label>Animasi:</label><select id="anim"><option value="idle">Idle</option><option value="run">Run/Walk</option><option value="jump">Jump</option><option value="attack">Attack</option></select>
+<label>X <input id="sx" type="number" value="0" min="0" style="width:65px"></label>
+<label>Y <input id="sy" type="number" value="0" min="0" style="width:65px"></label>
+<label>Lebar frame <input id="sw" type="number" value="64" min="1" style="width:65px"></label>
+<label>Tinggi frame <input id="sh" type="number" value="64" min="1" style="width:65px"></label>
+<label>Jumlah frame <input id="count" type="number" value="1" min="1" max="100" style="width:60px"></label>
+<button id="apply" type="button">Terapkan frame</button>
+<span>Atur X/Y dan ukuran sesuai satu baris animasi pada gambar.</span>
+</div>
+<canvas id="game"></canvas>
+<div id="controls">
+<div class="cluster"><button class="pad" data-key="left" aria-label="Kiri">◀</button><button class="pad" data-key="right" aria-label="Kanan">▶</button></div>
+<div class="cluster"><button class="action" data-key="jump">LOMPAT</button><button class="action" data-key="attack">TEBAS</button></div>
+</div>
+<div id="help">Keyboard: A/D atau ←/→ bergerak · Spasi/W/↑ lompat · J/X atau klik kiri tebas. Pilih sprite sheet untuk memakai karakter sendiri.</div>
+</div>
+<script>
+(() => {
+'use strict';
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d',{alpha:false});
+ctx.imageSmoothingEnabled=false;
+const input={left:false,right:false,jump:false,attack:false};
+const pressedOnce={jump:false,attack:false};
+const player={x:100,y:0,w:56,h:64,vx:0,vy:0,face:1,onGround:false,anim:'idle',frame:0,animTime:0,attackTime:0};
+const gravity=1800,moveSpeed=250,jumpSpeed=620;
+let groundY=0,worldW=1800,camX=0,sheet=null,objectUrl=null;
+const configs={
+ idle:{x:0,y:0,w:64,h:64,count:1,fps:5},
+ run:{x:0,y:0,w:64,h:64,count:1,fps:10},
+ jump:{x:0,y:0,w:64,h:64,count:1,fps:8},
+ attack:{x:0,y:0,w:64,h:64,count:1,fps:12}
+};
+function resize(){
+ const dpr=Math.min(window.devicePixelRatio||1,2),r=canvas.getBoundingClientRect();
+ canvas.width=Math.max(1,Math.floor(r.width*dpr));canvas.height=Math.max(1,Math.floor(r.height*dpr));
+ ctx.setTransform(dpr,0,0,dpr,0,0);ctx.imageSmoothingEnabled=false;
+ groundY=r.height-42;
+ if(player.y+player.h>groundY){player.y=groundY-player.h;player.vy=0;player.onGround=true}
+}
+window.addEventListener('resize',resize);resize();
+function canvasPoint(e){const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
+function jump(){if(player.onGround){player.vy=-jumpSpeed;player.onGround=false;input.jump=false}}
+function attack(){if(player.attackTime<=0){player.attackTime=.32;player.frame=0;player.animTime=0}}
+function keyChange(e,down){
+ const k=e.key.toLowerCase();let handled=true;
+ if(k==='arrowleft'||k==='a')input.left=down;
+ else if(k==='arrowright'||k==='d')input.right=down;
+ else if(k===' '||k==='arrowup'||k==='w'){if(down&&!e.repeat)jump()}
+ else if(k==='j'||k==='x'){if(down&&!e.repeat)attack()}
+ else handled=false;
+ if(handled)e.preventDefault();
+}
+window.addEventListener('keydown',e=>keyChange(e,true));window.addEventListener('keyup',e=>keyChange(e,false));
+window.addEventListener('blur',()=>{input.left=input.right=input.jump=input.attack=false});
+document.querySelectorAll('[data-key]').forEach(btn=>{
+ const key=btn.dataset.key;
+ const down=e=>{e.preventDefault();input[key]=true;btn.classList.add('pressed');if(key==='jump')jump();if(key==='attack')attack()};
+ const up=e=>{e.preventDefault();input[key]=false;btn.classList.remove('pressed')};
+ btn.addEventListener('pointerdown',down);btn.addEventListener('pointerup',up);btn.addEventListener('pointercancel',up);btn.addEventListener('lostpointercapture',up);
+});
+canvas.addEventListener('pointerdown',e=>{if(e.button===0){attack();canvas.setPointerCapture?.(e.pointerId)}});
+document.getElementById('sheet').addEventListener('change',e=>{
+ const file=e.target.files&&e.target.files[0];if(!file)return;
+ if(objectUrl)URL.revokeObjectURL(objectUrl);objectUrl=URL.createObjectURL(file);
+ const img=new Image();img.onload=()=>{sheet=img;for(const c of Object.values(configs)){c.x=0;c.y=0;c.w=Math.min(64,img.naturalWidth);c.h=Math.min(64,img.naturalHeight);c.count=1}syncConfig();};img.src=objectUrl;
+});
+const configPanel=document.getElementById('config');
+document.getElementById('toggleConfig').addEventListener('click',()=>{
+ const show=configPanel.style.display!=='flex';configPanel.style.display=show?'flex':'none';configPanel.hidden=!show;
+});
+const animSelect=document.getElementById('anim');
+function syncConfig(){const c=configs[animSelect.value];for(const [id,key] of [['sx','x'],['sy','y'],['sw','w'],['sh','h'],['count','count']])document.getElementById(id).value=c[key]}
+animSelect.addEventListener('change',syncConfig);
+document.getElementById('apply').addEventListener('click',()=>{
+ const c=configs[animSelect.value];
+ c.x=Math.max(0,+document.getElementById('sx').value||0);c.y=Math.max(0,+document.getElementById('sy').value||0);
+ c.w=Math.max(1,+document.getElementById('sw').value||1);c.h=Math.max(1,+document.getElementById('sh').value||1);
+ c.count=Math.max(1,Math.min(100,+document.getElementById('count').value||1));
+ player.frame=0;player.animTime=0;
+});
+function chooseAnim(){
+ if(player.attackTime>0)return 'attack';
+ if(!player.onGround)return player.vy<0?'jump':'jump';
+ if(Math.abs(player.vx)>5)return 'run';
+ return 'idle';
+}
+function update(dt){
+ const dir=(input.right?1:0)-(input.left?1:0);
+ player.vx=dir*moveSpeed;if(dir)player.face=dir;
+ player.x=Math.max(0,Math.min(worldW-player.w,player.x+player.vx*dt));
+ if(input.jump)jump();
+ player.vy+=gravity*dt;player.y+=player.vy*dt;
+ if(player.y+player.h>=groundY){player.y=groundY-player.h;player.vy=0;player.onGround=true}else player.onGround=false;
+ if(player.attackTime>0)player.attackTime=Math.max(0,player.attackTime-dt);
+ const next=chooseAnim();
+ if(next!==player.anim){player.anim=next;player.frame=0;player.animTime=0}
+ const c=configs[player.anim];player.animTime+=dt;
+ if(player.animTime>=1/Math.max(1,c.fps)){const steps=Math.floor(player.animTime/(1/Math.max(1,c.fps)));player.animTime-=steps/Math.max(1,c.fps);player.frame=(player.frame+steps)%Math.max(1,c.count)}
+ const vw=canvas.clientWidth;camX=Math.max(0,Math.min(worldW-vw,player.x-vw*.45));
+}
+function drawBackground(w,h){
+ const sky=ctx.createLinearGradient(0,0,0,h);sky.addColorStop(0,'#8ac5df');sky.addColorStop(1,'#d9e8c9');ctx.fillStyle=sky;ctx.fillRect(0,0,w,h);
+ ctx.fillStyle='#9bbd9e';for(let i=0;i<7;i++){let x=((i*210-camX*.22)%(w+260)+w+260)%(w+260)-100;ctx.beginPath();ctx.moveTo(x,groundY);ctx.lineTo(x+100,groundY-125-(i%3)*22);ctx.lineTo(x+230,groundY);ctx.fill()}
+ ctx.fillStyle='#6c965e';ctx.fillRect(0,groundY,w,h-groundY);ctx.fillStyle='#9bc46c';ctx.fillRect(0,groundY,w,7);
+ ctx.fillStyle='#4e7046';for(let x=-((camX%32));x<w;x+=32)ctx.fillRect(x,groundY+15,18,4);
+}
+function drawPlayer(){
+ const x=Math.round(player.x-camX),y=Math.round(player.y);
+ const c=configs[player.anim];ctx.save();
+ if(sheet){
+   const sx=c.x+Math.min(player.frame,c.count-1)*c.w,sy=c.y;
+   if(sx<sheet.naturalWidth&&sy<sheet.naturalHeight){
+     const sw=Math.min(c.w,sheet.naturalWidth-sx),sh=Math.min(c.h,sheet.naturalHeight-sy);
+     ctx.translate(x+player.w/2,y);ctx.scale(player.face,1);
+     ctx.drawImage(sheet,sx,sy,sw,sh,-player.w/2,0,player.w,player.h);
+   }
+ }else{
+   ctx.translate(x+player.w/2,y);ctx.scale(player.face,1);
+   ctx.fillStyle='#1e293b';ctx.fillRect(-14,18,28,30);ctx.fillStyle='#e5d0c0';ctx.fillRect(-11,4,22,20);ctx.fillStyle='#c4b5fd';ctx.fillRect(-13,0,25,8);ctx.fillStyle='#ef4444';ctx.fillRect(-10,24,24,5);ctx.fillStyle='#111827';ctx.fillRect(-13,47,10,15);ctx.fillRect(3,47,10,15);
+   if(player.anim==='attack'){ctx.fillStyle='#e2e8f0';ctx.fillRect(12,24,27,4);ctx.fillStyle='#f8fafc';ctx.fillRect(34,21,4,10)}
+ }
+ ctx.restore();
+}
+let last=performance.now();
+function loop(now){const dt=Math.min((now-last)/1000,.033);last=now;update(dt);const w=canvas.clientWidth,h=canvas.clientHeight;ctx.clearRect(0,0,w,h);drawBackground(w,h);drawPlayer();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
