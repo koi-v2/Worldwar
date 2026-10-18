@@ -211,14 +211,24 @@ function toast(msg){const t=$("toast");t.textContent=msg;t.style.display="block"
 function rand(arr){return arr[Math.floor(Math.random()*arr.length)]}
 function living(){return state.countries.filter(c=>c.alive)}
 function chooseWar(){
- const eligible=living().filter(c=>c.army>18&&c.stability>18);
- for(let tries=0;tries<80;tries++){
+ // Perang bukan aktivitas utama: batasi konflik aktif dan utamakan hubungan damai.
+ if(state.wars.filter(w=>w.active).length>=2)return;
+ const eligible=living().filter(c=>c.army>30&&c.stability>28);
+ for(let tries=0;tries<35;tries++){
   const a=rand(eligible);if(!a)break;
-  const ns=neighbors(a.id).map(getC).filter(b=>b&&b.alive&&!isAtWar(a.id,b.id)&&!a.allies.includes(b.id)&&!(a.enemies.includes(b.id)&&Math.random()<.4));
+  const ns=neighbors(a.id).map(getC).filter(b=>b&&b.alive&&!isAtWar(a.id,b.id)&&!a.allies.includes(b.id)&&!a.enemies.includes(b.id));
   if(!ns.length)continue;
-  const b=rand(ns);if(a.relations[b.id]>55&&Math.random()<.75)continue;
-  const chance=.16+(a.power-b.power)/450;
-  if(Math.random()<clamp(chance,.04,.38)){state.wars.push({id:state.seq+1,a:a.id,b:b.id,started:state.day,active:true,battles:0});a.enemies.push(b.id);b.enemies.push(a.id);addEvent("war","Perang pecah: "+a.name+" vs "+b.name,"Ketegangan perbatasan meningkat. Kedua pemerintahan mengerahkan pasukan.", "⚔️");return;}
+  const b=rand(ns);
+  if((a.relations[b.id]||0)>25)continue;
+  // Perbedaan kekuatan saja jarang memicu perang; hubungan buruk dan stabilitas rendah lebih berpengaruh.
+  const hostility=Math.max(0,35-(a.relations[b.id]||0));
+  const chance=0.018+hostility/900+Math.max(0,a.power-b.power)/1800;
+  if(Math.random()<clamp(chance,.015,.075)){
+   state.wars.push({id:state.seq+1,a:a.id,b:b.id,started:state.day,active:true,battles:0});
+   a.enemies.push(b.id);b.enemies.push(a.id);
+   addEvent("war","Perang pecah: "+a.name+" vs "+b.name,"Diplomasi gagal setelah ketegangan panjang. Konflik bersenjata menjadi pilihan terakhir.", "⚔️");
+   return;
+  }
  }
 }
 function resolveWars(){
@@ -290,10 +300,47 @@ function maybeEvents(){
  if(Math.random()<.12){const c=rand(living());if(c){c.stability=clamp(c.stability+5,10,100);addEvent("diplomacy","Pemilu dan reformasi di "+c.name,"Pemerintahan memperkuat stabilitas nasional melalui perubahan kebijakan.","🏛️");}}
  if(Math.random()<.1){const c=rand(living());if(c){c.economy=clamp(c.economy-3,10,100);addEvent("economy","Gangguan rantai pasok","Gangguan perdagangan sementara menekan ekonomi "+c.name+".","📉");}}
 }
+function peacefulDevelopment(){
+ // Aktivitas damai rutin agar dunia tetap hidup meski tidak ada perang.
+ if(Math.random()<.24){
+  const c=rand(living());if(!c)return;
+  const kind=Math.floor(Math.random()*5);
+  if(kind===0){
+   c.economy=clamp(c.economy+2+Math.random()*3,10,100);
+   c.budget=Math.max(0,c.budget-2);
+   addEvent("economy","Investasi infrastruktur",c.name+" membangun pelabuhan, jalan, dan jaringan energi untuk memperlancar perdagangan.","🏗️");
+  }else if(kind===1){
+   c.stability=clamp(c.stability+2+Math.random()*3,8,100);
+   addEvent("diplomacy","Reformasi pemerintahan",c.name+" memperbaiki layanan publik dan memperkuat kepercayaan masyarakat.","🏛️");
+  }else if(kind===2){
+   c.industry=clamp((c.industry||50)+2+Math.random()*4,5,100);
+   c.economy=clamp(c.economy+1,10,100);
+   addEvent("economy","Kemajuan industri dan teknologi",c.name+" meningkatkan produktivitas industri melalui riset dan pelatihan.","🔬");
+  }else if(kind===3){
+   const partners=living().filter(x=>x.id!==c.id&&!isAtWar(c.id,x.id)&&(c.relations[x.id]||0)>-10);
+   const p=rand(partners);
+   if(p){
+    c.relations[p.id]=clamp((c.relations[p.id]||0)+4,-100,100);
+    p.relations[c.id]=c.relations[p.id];
+    c.economy=clamp(c.economy+1,10,100);p.economy=clamp(p.economy+1,10,100);
+    addEvent("diplomacy","Kesepakatan dagang",c.name+" dan "+p.name+" menyepakati perluasan perdagangan bilateral.","🤝");
+   }
+  }else{
+   const partners=living().filter(x=>x.id!==c.id&&!isAtWar(c.id,x.id)&&(c.relations[x.id]||0)<55);
+   const p=rand(partners);
+   if(p){
+    c.relations[p.id]=clamp((c.relations[p.id]||0)+6,-100,100);
+    p.relations[c.id]=c.relations[p.id];
+    addEvent("diplomacy","Pertemuan diplomatik",utmostName(c)+" dan "+p.name+" membuka dialog untuk mengurangi ketegangan dan memperluas kerja sama.","🕊️");
+   }
+  }
+ }
+}
+function utmostName(c){return c.name;}
 function tick(){
  state.day++;state.year=Math.floor((state.day-1)/365)+1;
- economyTick();resolveWars();diplomacy();maybeEvents();
- if(Math.random()<.28)chooseWar();
+ economyTick();resolveWars();diplomacy();maybeEvents();peacefulDevelopment();
+ if(Math.random()<.025)chooseWar();
  state.countries.forEach(c=>{c.territory=ownedCount(c.id);if(c.alive&&c.territory===0){c.alive=false;addEvent("war",c.name+" kehilangan seluruh wilayah","Pemerintahan kehilangan kendali atas wilayah terakhirnya dan tidak lagi menjadi kekuatan aktif.","🏳️");}});
  if(state.day%10===0)addEvent("world","Laporan situasi global","Hari ke-"+state.day+": "+state.wars.filter(w=>w.active).length+" konflik masih aktif di seluruh dunia.","🌐");
  render();if(state.day%5===0)save(true);
