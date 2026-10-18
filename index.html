@@ -215,6 +215,11 @@ function ownedCount(id){return state.regions.filter(r=>r.owner===id).length}
 function power(c){return Math.round(c.economy*.35+c.army*.4+c.stability*.1+c.morale*.15+ownedCount(c.id)*2)}
 function isAtWar(a,b){return state.wars.some(w=>w.active&&((w.a===a&&w.b===b)||(w.a===b&&w.b===a)))}
 function neighbors(id){return adjacency[id]||[]}
+// Jalur darat simulasi; lintasan darat hanya boleh melewati negara sekutu.
+const landAdjacency={USA:["CAN","MEX"],CAN:["USA"],MEX:["USA"],CHN:["RUS","IND","PRK","VNM","PAK"],RUS:["CHN","POL","UKR","PRK"],IND:["CHN","PAK"],KOR:["PRK"],PRK:["KOR","CHN","RUS"],VNM:["CHN","THA"],THA:["VNM"],FRA:["DEU","ESP","ITA","NLD"],DEU:["FRA","POL","NLD"],POL:["DEU","UKR","RUS"],UKR:["POL","RUS"],ESP:["FRA"],NLD:["DEU","FRA"],ITA:["FRA"],TUR:["IRN"],IRN:["TUR","PAK"],PAK:["IND","CHN","IRN"],SAU:["ISR","EGY","IRN"],ISR:["SAU","EGY"],EGY:["SAU","ISR","TUR"],BRA:[],ZAF:[],GBR:[],JPN:[],IDN:[],AUS:[],PHL:[]};
+function hasLandRoute(aid,bid){const q=[aid],prev={[aid]:null};while(q.length){const id=q.shift();for(const n of (landAdjacency[id]||[])){if(n in prev)continue;const c=getC(n);if(!c||!c.alive)continue;if(n!==bid&&!(getC(aid)?.allies||[]).includes(n))continue;prev[n]=id;if(n===bid){const path=[];let x=n;while(x!==null){path.unshift(x);x=prev[x];}return path;}q.push(n);}}return null;}
+function graphDistance(from,to){if(from===to)return 0;const q=[[from,0]],seen=new Set([from]);while(q.length){const [id,d]=q.shift();for(const n of neighbors(id)){if(n===to)return d+1;if(!seen.has(n)){seen.add(n);q.push([n,d+1]);}}}return 99;}
+function attackAccess(a,b){const route=hasLandRoute(a.id,b.id);if(route)return {mode:"ground",route};const d=graphDistance(a.id,b.id);if(d<=2&&(a.aircraft||0)>=20)return {mode:"air",distance:d};if(d<=4&&(a.missiles||0)>=10)return {mode:"missile",distance:d};return null;}
 function addEvent(type,title,desc,icon){state.seq++;state.events.unshift({id:state.seq,day:state.day,type,title,desc,icon:icon||"🌐"});if(state.events.length>150)state.events.length=150;state.lastEvent=title;}
 function save(silent){try{localStorage.setItem("worldwar_save_v1",JSON.stringify(state));if(!silent)toast("Progres dunia berhasil disimpan 💾");}catch(e){if(!silent)toast("Penyimpanan gagal di browser ini");}}
 function syncCountryGarrisons(){
@@ -250,13 +255,15 @@ function chooseWar(){
  const eligible=living().filter(c=>c.army>30&&c.stability>28);
  for(let tries=0;tries<35;tries++){
   const a=rand(eligible);if(!a)break;
-  const ns=neighbors(a.id).map(getC).filter(b=>b&&b.alive&&!isAtWar(a.id,b.id)&&!a.allies.includes(b.id)&&!a.enemies.includes(b.id));
+  const ns=living().filter(b=>b.id!==a.id&&!isAtWar(a.id,b.id)&&!a.allies.includes(b.id)&&!a.enemies.includes(b.id)&&attackAccess(a,b));
   if(!ns.length)continue;
   const b=rand(ns);
   if((a.relations[b.id]||0)>25)continue;
   // Perbedaan kekuatan saja jarang memicu perang; hubungan buruk dan stabilitas rendah lebih berpengaruh.
   const hostility=Math.max(0,35-(a.relations[b.id]||0));
+  const access=attackAccess(a,b);
   let chance=0.018+hostility/900+Math.max(0,a.power-b.power)/1800;
+  if(access&&access.mode!=="ground")chance*=.55;
   if(a.personality==="Pasifis")chance*=.35;
   if(a.personality==="Ekspansionis"||a.personality==="Militeris"||a.personality==="Hegemon")chance*=1.35;
   if(a.personality==="Kapitalis")chance*=.65;
@@ -307,6 +314,7 @@ function reinforceFronts(){
 function resolveWars(){
  state.wars.filter(w=>w.active).forEach(w=>{
   const a=getC(w.a),b=getC(w.b);if(!a||!b||!a.alive||!b.alive){w.active=false;return;}
+  const access=attackAccess(a,b);if(!access){w.battles=(w.battles||0)+1;addEvent("war",a.name+" tidak memiliki jalur serangan ke "+b.name,"Tidak ada jalur darat melalui negara sekutu dan jangkauan pesawat/rudal tidak mencukupi.","🧭");if(w.battles>=4){w.active=false;a.enemies=a.enemies.filter(x=>x!==b.id);b.enemies=b.enemies.filter(x=>x!==a.id);}return;}
   const targets=state.regions.filter(r=>r.owner===b.id);if(!targets.length){w.active=false;return;}
   // AI menilai target: wilayah non-ibu kota yang pertahanannya tipis lebih menarik.
   const fronts=targets.filter(r=>r.kind!=="Pusat"),pool=fronts.length?fronts:targets;
@@ -316,12 +324,21 @@ function resolveWars(){
    return (strength(x)-strategic(x))-(strength(y)-strategic(y));
   });
   const target=pool[0];
-  const sources=state.regions.filter(r=>r.owner===a.id&&r.garrison&&r.garrison.troops>=1600);
+  const sources=state.regions.filter(r=>r.owner===a.id&&r.garrison&&(access.mode==="ground"?(r.garrison.troops||0)>=1600:((r.garrison.aircraft||0)>0||(r.garrison.missiles||0)>0)));
   if(!sources.length){addEvent("battle",a.name+" menunda serangan","Tidak ada garnisun yang cukup kuat untuk menyerang; perang memasuki jeda operasional.","🪖");w.battles++;if(w.battles>=4){w.active=false;addEvent("war","Gencatan senjata: "+a.name+" — "+b.name,"Serangan dihentikan karena pasukan penyerang tidak siap.","🕊️");}return;}
   const strength=r=>{const g=r.garrison||{};return (g.troops||0)*.001+(g.tanks||0)*2.2+(g.aircraft||0)*2.5+(g.artillery||0)*1.7+(g.missiles||0)*2.8;};
   // Pilih wilayah asal dengan kekuatan terbesar, tetapi sisakan garnisun untuk bertahan.
   sources.sort((x,y)=>strength(y)-strength(x));
   const source=sources[0],sg=source.garrison,defg=target.garrison||{};
+  if(access.mode!=="ground"){
+   const kind=access.mode==="air"?"aircraft":"missiles",available=Math.max(0,sg[access.mode==="air"?"aircraft":"missiles"]||0),deployed=Math.min(Math.max(0,available-Math.max(1,Math.round(available*.35))),Math.max(1,Math.floor(available*(.18+Math.random()*.22))));
+   if(deployed<1){w.battles++;return;}sg[kind]-=deployed;
+   const casualties=Math.min(defg.troops||0,Math.round(deployed*(access.mode==="air"?8:13)*(.6+Math.random()*.8))),destroyed=Math.min(defg[kind]||0,Math.round(deployed*(access.mode==="air"?.035:.06)));
+   defg.troops=Math.max(0,(defg.troops||0)-casualties);defg[kind]=Math.max(0,(defg[kind]||0)-destroyed);b.troops=Math.max(0,(b.troops||0)-casualties);b[kind]=Math.max(0,(b[kind]||0)-destroyed);a[kind]=Math.max(0,(a[kind]||0)-Math.round(deployed*(access.mode==="air"?.035:.015)));
+   state.battles.unshift({day:state.day,a:a.id,b:b.id,winner:a.id,loser:b.id,scoreA:Math.round(deployed*(access.mode==="air"?2.5:2.8)),scoreB:0,troopsA:0,troopsB:casualties,region:target.name,sourceRegion:source.name,attackForce:{[kind]:deployed},attackerWon:true,ranged:true,mode:access.mode});if(state.battles.length>80)state.battles.length=80;
+   w.battles++;addEvent("battle",a.name+" menyerang "+b.name+" dari jarak jauh",a.name+" mengerahkan "+fmt(deployed)+" "+(access.mode==="air"?"pesawat":"rudal")+" dari "+source.name+". Sekitar "+fmt(casualties)+" personel lawan terdampak. Serangan ini tidak merebut wilayah; jarak peta "+access.distance+" langkah.","✈️");
+   if(w.battles>=7||Math.random()<.035){w.active=false;a.enemies=a.enemies.filter(x=>x!==b.id);b.enemies=b.enemies.filter(x=>x!==a.id);a.relations[b.id]=-15;b.relations[a.id]=-15;addEvent("war","Perjanjian gencatan senjata jarak jauh",a.name+" dan "+b.name+" menghentikan operasi jarak jauh.","🕊️");}return;
+  }
   const share=.22+Math.random()*.28;
   // AI mengatur komposisi ekspedisi berdasarkan kekuatan pertahanan target.
   const weights={
