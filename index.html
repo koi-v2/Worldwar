@@ -497,7 +497,7 @@ function tradeAgreementTick(){
   const a=getC(t.exporter),b=getC(t.importer);
   if(!a||!b||!a.alive||!b.alive){t.status="ended";t.reason="Pemerintahan tumbang";return;}
   if(isAtWar(a.id,b.id)||(a.embargoes||[]).includes(b.id)||(b.embargoes||[]).includes(a.id)){t.status="suspended";t.reason=isAtWar(a.id,b.id)?"Perang":"Embargo";addEvent("economy","Perdagangan ditangguhkan",a.name+" dan "+b.name+" menghentikan kontrak "+t.resource+" karena "+t.reason.toLowerCase()+".","⛔");return;}
-  if(t.status==="suspended")return;
+  t.status="active";t.reason="";
   const reserve={oil:25,coal:25,iron:20,food:25,uranium:8};
   const qty=Math.min(t.dailyAmount,Math.max(0,Math.floor((a.resources?.[t.resource]||0)-reserve[t.resource])),Math.max(0,150-(b.resources?.[t.resource]||0)));
   if(qty<=0){t.status="suspended";t.reason="Stok tidak cukup";addEvent("economy","Pengiriman dagang ditangguhkan",a.name+" tidak dapat memenuhi kontrak "+t.resource+" kepada "+b.name+" karena stok tidak mencukupi.","📦");return;}
