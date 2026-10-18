@@ -13,7 +13,7 @@ const c=document.getElementById('game'),x=c.getContext('2d');x.imageSmoothingEna
 const img=new Image();let ready=false;
 img.onload=()=>{ready=true;};
 img.onerror=()=>{ready=false;};
-img.src='file_0000000037688207a4add9825c674ab4.png';
+img.src='https://raw.githubusercontent.com/koi-v2/Worldwar/main/file_0000000037688207a4add9825c674ab4.png';
 document.getElementById('sheet').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;ready=false;img.src=URL.createObjectURL(f)});
 const p={x:120,y:390,vx:0,vy:0,w:48,h:70,face:1,ground:true,act:'idle',tick:0,attack:0};
 const keys={};let touchL=false,touchR=false;
