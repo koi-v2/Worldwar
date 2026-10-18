@@ -477,10 +477,10 @@ function economyTick(){
   if(!c.resources)c.resources={oil:40,coal:40,iron:40,food:60,uranium:10};
   const r=c.resources;
   r.iron=clamp((Number(r.iron)||0)+.035+(c.industry||40)*.00045,0,150);
-  r.oil=clamp((Number(r.oil)||0)+.012+(c.industry||40)*.00015,0,150);
+  r.oil=clamp((Number(r.oil)||0)+.16+(c.industry||40)*.0012,0,150);
   r.uranium=clamp((Number(r.uranium)||0)+.003+(c.industry||40)*.00003,0,150);
   // Logistik harian: armada dan perang memakai bahan bakar, penduduk membutuhkan pangan.
-  r.oil=clamp(r.oil-Math.min(r.oil,.025+c.tanks*.000025+c.aircraft*.000035+c.ships*.00012+(atWar?.18:0)),0,150);
+  r.oil=clamp(r.oil-Math.min(r.oil,.012+c.tanks*.000006+c.aircraft*.000009+c.ships*.000035+(atWar?.035:0)),0,150);
   r.food=clamp(r.food+.18+(c.industry||40)*.001-(c.population>50000000?.12:.07),0,150);
   r.coal=clamp(r.coal+.08+(c.industry||40)*.0008-.035-(c.industry||40)*.0007,0,150);
   if(r.coal<8){c.energy=clamp((c.energy||40)-.15,5,100);c.economy=clamp(c.economy-.08,10,100);}
