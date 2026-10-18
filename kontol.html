@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>Kontol - Pixel Platformer</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#100b19;color:#f4d9ff;font:14px system-ui;display:flex;min-height:100dvh;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:12px}h1{font-size:18px;margin:0}#game{width:min(96vw,900px);height:auto;aspect-ratio:16/9;border:2px solid #8054a3;background:#21162c;image-rendering:pixelated;touch-action:none}.help{opacity:.8;text-align:center;font-size:12px}.controls{display:flex;gap:12px;align-items:center;justify-content:center;width:min(96vw,500px)}button,label{background:#39234b;color:white;border:1px solid #ad75d3;border-radius:12px;padding:14px 18px;font-weight:700;touch-action:none}button:active{background:#7a3e9c}#sheet{max-width:90vw;font-size:12px;padding:8px}
+</style></head><body>
+<h1>⚔️ KONTOL — Pixel Platformer</h1>
+<canvas id="game" width="960" height="540"></canvas>
+<div class="help">Pilih character sheet yang Tuan upload tadi (PNG), lalu mainkan. PC: A/D atau ←/→, Space lompat, J serang.</div>
+<label id="pick">Pilih character sheet PNG <input id="sheet" type="file" accept="image/*" style="display:block"></label>
+<div class="controls"><button id="left">◀</button><button id="jump">JUMP</button><button id="attack">⚔ SERANG</button><button id="right">▶</button></div>
+<script>
+const c=document.getElementById('game'),x=c.getContext('2d');x.imageSmoothingEnabled=false;
+const img=new Image();let ready=false;
+document.getElementById('sheet').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;img.onload=()=>{ready=true;};img.src=URL.createObjectURL(f)});
+const p={x:120,y:390,vx:0,vy:0,w:48,h:70,face:1,ground:true,act:'idle',tick:0,attack:0};
+const keys={};let touchL=false,touchR=false;
+function bind(id,fn){const b=document.getElementById(id);b.addEventListener('pointerdown',e=>{e.preventDefault();fn(true)});['pointerup','pointercancel','pointerleave'].forEach(ev=>b.addEventListener(ev,e=>fn(false)))}
+bind('left',v=>touchL=v);bind('right',v=>touchR=v);bind('jump',v=>{if(v&&p.ground){p.vy=-470;p.ground=false}});bind('attack',v=>{if(v&&p.attack<=0)p.attack=0.34});
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if([' ','arrowleft','arrowright'].includes(e.key.toLowerCase()))e.preventDefault();if((e.key===' '||e.key.toLowerCase()==='w'||e.key.toLowerCase()==='arrowup')&&p.ground){p.vy=-470;p.ground=false}if(e.key.toLowerCase()==='j'&&p.attack<=0)p.attack=.34});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+function drawSprite(sx,sy,sw,sh,flip=false){if(!ready)return false;x.save();if(flip){x.translate(p.x+p.w,p.y);x.scale(-1,1);x.drawImage(img,sx,sy,sw,sh,0,0,p.w,p.h)}else{x.drawImage(img,sx,sy,sw,sh,p.x,p.y,p.w,p.h)}x.restore();return true}
+function frame(){
+ const dt=Math.min(.033,(frame.last?performance.now()-frame.last:16)/1000);frame.last=performance.now();
+ const l=keys.a||keys.arrowleft||touchL,r=keys.d||keys.arrowright||touchR;p.vx=(r?1:0)-(l?1:0);if(p.vx)p.face=Math.sign(p.vx);p.x+=p.vx*220*dt;p.vy+=1100*dt;p.y+=p.vy*dt;
+ const floor=460-p.h;if(p.y>=floor){p.y=floor;p.vy=0;p.ground=true}p.x=Math.max(0,Math.min(960-p.w,p.x));p.attack=Math.max(0,p.attack-dt);p.tick+=dt;
+ x.clearRect(0,0,960,540);const g=x.createLinearGradient(0,0,0,540);g.addColorStop(0,'#21152f');g.addColorStop(1,'#40244b');x.fillStyle=g;x.fillRect(0,0,960,540);
+ x.fillStyle='#2d1b39';for(let i=0;i<8;i++){x.fillRect(i*140-20,335+(i%3)*24,100,125)}
+ x.fillStyle='#a45b9e';x.fillRect(0,460,960,80);x.fillStyle='#d78bd1';for(let i=0;i<960;i+=32)x.fillRect(i,460,18,4);
+ x.fillStyle='#f4d9ff';x.font='16px system-ui';x.fillText('MOVE  •  JUMP  •  SWORD',20,30);
+ if(!ready){x.fillStyle='#f4d9ff';x.font='22px system-ui';x.fillText('Pilih PNG character sheet untuk memulai',230,245);x.font='15px system-ui';x.fillText('Sprite akan dipotong dari bagian Idle / Run / Jump / Attack',190,278)}
+ else{
+ let sx=320,sy=40,sw=100,sh=170;
+ if(p.attack>0){let i=Math.min(3,Math.floor((.34-p.attack)/.085));sx=[35,185,335,495][i];sy=480;sw=130;sh=170}
+ else if(!p.ground){sx=485;sy=260;sw=115;sh=160}
+ else if(Math.abs(p.vx)>.1){let i=Math.floor(p.tick*12)%6;sx=810+i*115;sy=45;sw=105;sh=165}
+ else{let i=Math.floor(p.tick*5)%4;sx=330+i*115;sy=45;sw=105;sh=165}
+ // Crop using the known labeled sections of the uploaded sheet; tolerate slight sheet size variations.
+ const kx=img.width/1536,ky=img.height/1024;
+ drawSprite(sx*kx,sy*ky,sw*kx,sh*ky,p.face<0);
+ }
+ x.fillStyle='#f4d9ff';x.font='13px system-ui';x.fillText('← → bergerak     SPACE lompat     J tebas',20,515);
+ requestAnimationFrame(frame)
+}requestAnimationFrame(frame);
+</script></body></html>
