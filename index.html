@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0b1018">
+<title>WORLDWAR — Rise of Nations</title>
+<style>
+:root{--bg:#0b1018;--panel:#121b27;--panel2:#172332;--line:#26374a;--text:#e9f0f8;--muted:#8fa3b8;--gold:#e7bd68;--red:#ff6f72;--green:#69d6a0;--blue:#78b9ff}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#152538 0%,var(--bg) 58%);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}button{font:inherit;cursor:pointer;border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);background:#1a2939}button:active{transform:scale(.98)}button.primary{background:var(--gold);border-color:var(--gold);color:#17140d;font-weight:800}button:disabled{opacity:.45;cursor:not-allowed}.app{max-width:1400px;margin:auto;padding:14px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 2px 18px}.brand{display:flex;align-items:center;gap:12px}.logo{font-size:31px;filter:drop-shadow(0 0 12px #e7bd6855)}h1{font-size:clamp(21px,4vw,31px);margin:0;letter-spacing:2px}h1 span{color:var(--gold)}.subtitle{color:var(--muted);font-size:12px}.top-actions{display:flex;gap:7px;flex-wrap:wrap}.status{display:inline-flex;align-items:center;gap:6px;color:var(--green);font-size:12px}.dot{width:7px;height:7px;background:currentColor;border-radius:50%;display:inline-block}.stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;margin-bottom:12px}.stat,.panel{background:linear-gradient(145deg,#152130f2,#101823f2);border:1px solid var(--line);border-radius:14px}.stat{padding:12px}.stat .label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px}.stat .value{font-size:22px;font-weight:800;margin-top:3px}.stat .hint{font-size:11px;color:var(--muted)}.layout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,.85fr);gap:12px}.panel{padding:14px;min-width:0}.panel-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}.panel h2{font-size:15px;margin:0;letter-spacing:.4px}.eyebrow{color:var(--gold);font-size:10px;text-transform:uppercase;letter-spacing:1.4px;font-weight:800}.legend{display:flex;gap:10px;color:var(--muted);font-size:11px;flex-wrap:wrap}.legend i{width:8px;height:8px;border-radius:3px;display:inline-block;margin-right:4px}.board{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px}.tile{position:relative;text-align:left;padding:9px 8px;min-height:103px;border-radius:10px;background:#172535;border:1px solid #2b3c4f;overflow:hidden;transition:border-color .15s,transform .15s}.tile:before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--country,#789)}.tile.selected{border-color:var(--gold);box-shadow:0 0 0 1px #e7bd6844}.tile.war{background:linear-gradient(135deg,#3b2029,#1b2431);border-color:#7c3a46}.tile.occupied{opacity:.82}.flag{font-size:22px}.tile-name{font-weight:750;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px}.tile-owner{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tile-bottom{display:flex;justify-content:space-between;align-items:center;margin-top:7px;font-size:10px;color:#c4d1de}.powerbar{height:3px;background:#2a3948;border-radius:4px;margin-top:5px;overflow:hidden}.powerbar span{display:block;height:100%;background:var(--blue)}.war-tag{position:absolute;right:5px;top:5px;color:#ffb1b4;font-size:9px;font-weight:900}.board-note{margin-top:10px;font-size:11px;color:var(--muted)}.side{display:flex;flex-direction:column;gap:12px}.detail-empty{color:var(--muted);padding:18px 4px}.country-title{display:flex;align-items:center;gap:10px}.country-title .bigflag{font-size:35px}.country-title h3{margin:0;font-size:18px}.country-title p{margin:2px 0 0;color:var(--muted);font-size:11px}.mini-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:13px 0}.mini{background:#0d1520;border:1px solid #233245;border-radius:9px;padding:9px}.mini span{display:block;color:var(--muted);font-size:10px}.mini b{font-size:16px}.detail-desc{color:#c4d0dc;font-size:12px}.feed{display:flex;flex-direction:column;gap:8px;max-height:345px;overflow:auto;padding-right:2px}.event{display:grid;grid-template-columns:39px 1fr;gap:9px;padding:9px;background:#0e1722;border:1px solid #213043;border-radius:9px}.event-icon{width:36px;height:36px;display:grid;place-items:center;border-radius:9px;background:#1c2a3b;font-size:18px}.event strong{font-size:12px}.event p{font-size:11px;color:#a9bacb;margin:2px 0 0}.event time{font-size:10px;color:var(--gold)}.table-wrap{overflow:auto}table{border-collapse:collapse;width:100%;font-size:11px;white-space:nowrap}th,td{text-align:left;padding:8px;border-bottom:1px solid #243346}th{color:var(--muted);font-weight:650}td b{font-size:12px}.badge{display:inline-block;padding:3px 6px;border-radius:6px;font-size:10px;background:#203246;color:#b7d8ff}.badge.red{background:#44242d;color:#ffb3b6}.badge.green{background:#183b31;color:#8fe0ba}.controls{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.speed{display:flex;align-items:center;gap:5px;color:var(--muted);font-size:11px}.speed select,.filter{background:#101a26;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px}.section{margin-top:12px}.footer{text-align:center;padding:20px 0 8px;color:#6f8398;font-size:11px}.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#f2d18a;color:#18140b;padding:10px 16px;border-radius:10px;font-weight:750;box-shadow:0 8px 30px #0008;z-index:5;display:none}.tabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px}.tab{font-size:11px;padding:7px 10px}.tab.active{background:var(--gold);color:#17140d;border-color:var(--gold)}.country-list{display:flex;flex-direction:column;gap:6px;max-height:410px;overflow:auto}.country-row{display:grid;grid-template-columns:26px 1fr auto;gap:8px;align-items:center;text-align:left;padding:8px;background:#0e1722;border:1px solid #213043;border-radius:9px}.country-row .flag{font-size:19px}.country-row small{display:block;color:var(--muted);font-size:10px}.country-row b{font-size:12px}.country-row .right{text-align:right;font-size:11px}.modal{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;padding:18px;z-index:10}.modal-box{max-width:440px;width:100%;background:#121c29;border:1px solid #33485e;border-radius:15px;padding:18px}.modal-box h2{margin-top:0}.modal-box p{color:#b5c4d3;font-size:13px}.modal-actions{display:flex;justify-content:flex-end;gap:8px}.muted{color:var(--muted)}@media(max-width:900px){.layout{grid-template-columns:1fr}.stats{grid-template-columns:repeat(3,minmax(0,1fr))}.board{grid-template-columns:repeat(4,minmax(0,1fr))}.feed{max-height:260px}}@media(max-width:520px){.app{padding:9px}.stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.stat{padding:10px}.stat .value{font-size:19px}.board{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.tile{min-height:96px;padding:7px 6px}.tile-name{font-size:11px}.panel{padding:11px}.top{padding-bottom:12px}.top-actions button{padding:8px 9px;font-size:12px}.board-note{line-height:1.5}}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="top">
+ <div class="brand"><div class="logo">🌐</div><div><h1>WORLD<span>WAR</span></h1><div class="subtitle">RISE OF NATIONS · SIMULASI GEOPOLITIK AI</div></div></div>
+ <div><div class="status"><i class="dot"></i><span id="runStatus">SIMULASI AKTIF</span></div><div class="subtitle" id="dateLabel">Tahun 1 · Hari 1</div></div>
+ <div class="top-actions"><button id="pauseBtn" class="primary">Ⅱ Jeda</button><button id="stepBtn">▶ +1 Hari</button><button id="saveBtn">💾 Simpan</button><button id="resetBtn">↻ Dunia Baru</button></div>
+</header>
+<section class="stats">
+ <div class="stat"><div class="label">Hari Berjalan</div><div class="value" id="dayStat">1</div><div class="hint">Kalender simulasi</div></div>
+ <div class="stat"><div class="label">Negara Bertahan</div><div class="value" id="countryStat">30</div><div class="hint">Pemerintahan aktif</div></div>
+ <div class="stat"><div class="label">Perang Aktif</div><div class="value" id="warStat">0</div><div class="hint">Konflik antarnegara</div></div>
+ <div class="stat"><div class="label">Wilayah Dikuasai</div><div class="value" id="regionStat">60</div><div class="hint">Provinsi strategis</div></div>
+ <div class="stat"><div class="label">Peristiwa</div><div class="value" id="eventStat">0</div><div class="hint">Catatan kronik</div></div>
+</section>
+<div class="layout">
+ <main>
+  <section class="panel">
+   <div class="panel-head"><div><div class="eyebrow">The living world</div><h2>PETA STRATEGIS DUNIA</h2></div><div class="legend"><span><i style="background:#ff6f72"></i>Perang</span><span><i style="background:#69d6a0"></i>Damai</span><span><i style="background:#e7bd68"></i>Dipilih</span></div></div>
+   <div class="board" id="board"></div>
+   <div class="board-note">Papan wilayah abstrak berkelompok berdasarkan kawasan. Ketuk negara untuk melihat detailnya. Warna menunjukkan pemilik wilayah saat ini; kartu merah menandakan negara sedang berperang.</div>
+  </section>
+  <section class="panel section">
+   <div class="panel-head"><div><div class="eyebrow">Power ranking</div><h2>PERINGKAT KEKUATAN</h2></div><select class="filter" id="rankFilter"><option value="power">Kekuatan total</option><option value="economy">Ekonomi</option><option value="army">Militer</option><option value="territory">Wilayah</option></select></div>
+   <div class="table-wrap"><table><thead><tr><th>#</th><th>NEGARA</th><th>KEKUATAN</th><th>EKONOMI</th><th>TENTARA</th><th>WILAYAH</th></tr></thead><tbody id="ranking"></tbody></table></div>
+  </section>
+ </main>
+ <aside class="side">
+  <section class="panel"><div class="panel-head"><div><div class="eyebrow">Intel desk</div><h2>PROFIL NEGARA</h2></div><span class="badge" id="profileBadge">PILIH NEGARA</span></div><div id="countryDetail" class="detail-empty">Pilih salah satu negara di papan strategi untuk membuka laporan intelijen.</div></section>
+  <section class="panel"><div class="panel-head"><div><div class="eyebrow">World pulse</div><h2>KRONIK DUNIA</h2></div><span class="badge" id="feedCount">0 CATATAN</span></div><div class="tabs"><button class="tab active" data-feed="all">Semua</button><button class="tab" data-feed="war">Perang</button><button class="tab" data-feed="diplomacy">Diplomasi</button><button class="tab" data-feed="economy">Ekonomi</button></div><div class="feed" id="feed"></div></section>
+  <section class="panel"><div class="panel-head"><div><div class="eyebrow">Foreign affairs</div><h2>HUBUNGAN INTERNASIONAL</h2></div></div><div id="relations" class="country-list"></div></section>
+ </aside>
+</div>
+<div class="footer">WORLDWAR · simulasi fiksi berbasis keputusan AI sederhana · progres tersimpan di perangkat ini</div>
+</div>
+<div class="toast" id="toast"></div>
+<div class="modal" id="confirmModal"><div class="modal-box"><h2>🌍 Mulai dunia baru?</h2><p>Semua perang, hubungan, wilayah, dan kronik simulasi saat ini akan direset. Data tersimpan lama di perangkat akan diganti.</p><div class="modal-actions"><button id="cancelReset">Batal</button><button class="primary" id="confirmReset">Reset dunia</button></div></div></div>
+<script>
+(function(){
+"use strict";
+const baseCountries=[
+["USA","Amerika Serikat","🇺🇸","Amerika Utara",94,96,91,90,"#4b83b8"],
+["CHN","Tiongkok","🇨🇳","Asia Timur",96,94,88,91,"#b84f52"],
+["RUS","Rusia","🇷🇺","Eropa Timur",85,82,94,82,"#6b83b9"],
+["IND","India","🇮🇳","Asia Selatan",79,76,78,86,"#d89a48"],
+["IDN","Indonesia","🇮🇩","Asia Tenggara",67,70,61,78,"#b95a5a"],
+["JPN","Jepang","🇯🇵","Asia Timur",83,92,72,76,"#d8a0a4"],
+["KOR","Korea Selatan","🇰🇷","Asia Timur",76,86,74,73,"#80a6c8"],
+["PRK","Korea Utara","🇰🇵","Asia Timur",49,30,68,52,"#7b8d9b"],
+["GBR","Britania Raya","🇬🇧","Eropa Barat",80,88,78,68,"#6685bd"],
+["FRA","Prancis","🇫🇷","Eropa Barat",81,87,82,70,"#6286c6"],
+["DEU","Jerman","🇩🇪","Eropa Barat",86,96,76,73,"#92979e"],
+["POL","Polandia","🇵🇱","Eropa Timur",65,72,71,62,"#bd7a8a"],
+["UKR","Ukraina","🇺🇦","Eropa Timur",54,51,66,55,"#a5a64f"],
+["ESP","Spanyol","🇪🇸","Eropa Selatan",68,78,63,65,"#c89a52"],
+["NLD","Belanda","🇳🇱","Eropa Barat",72,85,64,57,"#7da4c4"],
+["ITA","Italia","🇮🇹","Eropa Selatan",74,82,73,66,"#68a88d"],
+["TUR","Turki","🇹🇷","Asia Barat",70,69,78,67,"#bc7777"],
+["SAU","Arab Saudi","🇸🇦","Timur Tengah",67,79,72,63,"#71a77b"],
+["ISR","Israel","🇮🇱","Timur Tengah",64,72,86,35,"#7d9cc5"],
+["IRN","Iran","🇮🇷","Timur Tengah",63,57,76,65,"#8caa72"],
+["PAK","Pakistan","🇵🇰","Asia Selatan",58,50,70,71,"#69a28a"],
+["BRA","Brasil","🇧🇷","Amerika Selatan",76,77,72,85,"#67a96d"],
+["MEX","Meksiko","🇲🇽","Amerika Utara",69,73,59,79,"#a8a05f"],
+["CAN","Kanada","🇨🇦","Amerika Utara",77,88,76,84,"#b45e65"],
+["AUS","Australia","🇦🇺","Oseania",75,85,78,70,"#c49a53"],
+["EGY","Mesir","🇪🇬","Afrika Utara",58,57,67,67,"#c2a56b"],
+["ZAF","Afrika Selatan","🇿🇦","Afrika Selatan",53,61,54,58,"#7eaa8a"],
+["VNM","Vietnam","🇻🇳","Asia Tenggara",56,55,66,62,"#bf6a63"],
+["THA","Thailand","🇹🇭","Asia Tenggara",57,64,57,65,"#7da9b6"],
+["PHL","Filipina","🇵🇭","Asia Tenggara",53,59,54,64,"#7198c2"]
+];
+const adjacency={
+USA:["CAN","MEX"],CHN:["RUS","IND","PRK","VNM","PAK"],RUS:["CHN","POL","UKR","KOR","IRN"],IND:["CHN","PAK","THA"],IDN:["AUS","VNM","PHL","THA"],JPN:["KOR","CHN","PHL"],KOR:["PRK","CHN","JPN"],PRK:["KOR","CHN","RUS"],GBR:["FRA","NLD"],FRA:["GBR","DEU","ESP","ITA","NLD"],DEU:["FRA","POL","NLD"],POL:["DEU","UKR","RUS"],UKR:["POL","RUS","TUR"],ESP:["FRA"],NLD:["DEU","FRA","GBR"],ITA:["FRA"],TUR:["UKR","IRN","EGY","SAU"],SAU:["TUR","ISR","IRN","EGY"],ISR:["SAU","IRN","EGY"],IRN:["TUR","SAU","PAK","RUS"],PAK:["IND","CHN","IRN"],BRA:["MEX","ZAF"],MEX:["USA","BRA"],CAN:["USA"],AUS:["IDN"],EGY:["SAU","ISR","TUR","ZAF"],ZAF:["EGY","BRA"],VNM:["CHN","THA","IDN"],THA:["VNM","IND","IDN"],PHL:["IDN","JPN"]
+};
+const $=id=>document.getElementById(id);
+let state,selected="USA",paused=false,timer=null,feedFilter="all",speed=3000;
+const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+function initialState(){
+ const countries=baseCountries.map((x,i)=>({id:x[0],name:x[1],flag:x[2],region:x[3],power:x[4],economy:x[5],army:x[6],population:x[7],color:x[8],alive:true,capital:x[1].split(" ")[0],morale:65+Math.floor(Math.random()*26),stability:65+Math.floor(Math.random()*25),territory:2,owned:[],wins:0,losses:0,allies:[],enemies:[],relations:{}}));
+ countries.forEach(c=>{c.owned=[c.id+"-A",c.id+"-B"];});
+ const regions=[];
+ countries.forEach((c,i)=>{regions.push({id:c.id+"-A",name:c.name+" — pusat",origin:c.id,owner:c.id,kind:"Pusat"});regions.push({id:c.id+"-B",name:regionName(c,i),origin:c.id,owner:c.id,kind:"Provinsi"});});
+ countries.forEach(c=>countries.forEach(o=>{if(c.id!==o.id)c.relations[o.id]=Math.floor(Math.random()*41)-10;}));
+ return {day:1,year:1,countries,regions,wars:[],events:[],seq:0,alliances:[],lastEvent:"",speed:3000};
+}
+function regionName(c,i){const names=["Dataran Utara","Pesisir Timur","Kawasan Industri","Lembah Tengah","Perbatasan Barat","Pelabuhan Selatan","Dataran Tinggi","Koridor Dagang","Wilayah Timur","Zona Strategis"];return names[i%names.length];}
+function getC(id){return state.countries.find(c=>c.id===id)}
+function ownedCount(id){return state.regions.filter(r=>r.owner===id).length}
+function power(c){return Math.round(c.economy*.35+c.army*.4+c.stability*.1+c.morale*.15+ownedCount(c.id)*2)}
+function isAtWar(a,b){return state.wars.some(w=>w.active&&((w.a===a&&w.b===b)||(w.a===b&&w.b===a)))}
+function neighbors(id){return adjacency[id]||[]}
+function addEvent(type,title,desc,icon){state.seq++;state.events.unshift({id:state.seq,day:state.day,type,title,desc,icon:icon||"🌐"});if(state.events.length>150)state.events.length=150;state.lastEvent=title;}
+function save(silent){try{localStorage.setItem("worldwar_save_v1",JSON.stringify(state));if(!silent)toast("Progres dunia berhasil disimpan 💾");}catch(e){if(!silent)toast("Penyimpanan gagal di browser ini");}}
+function load(){try{const raw=localStorage.getItem("worldwar_save_v1");if(raw){const s=JSON.parse(raw);if(s&&s.countries&&s.regions&&s.countries.length===30){state=s;return true;}}}catch(e){}return false;}
+function toast(msg){const t=$("toast");t.textContent=msg;t.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display="none",2300);}
+function rand(arr){return arr[Math.floor(Math.random()*arr.length)]}
+function living(){return state.countries.filter(c=>c.alive)}
+function chooseWar(){
+ const eligible=living().filter(c=>c.army>18&&c.stability>18);
+ for(let tries=0;tries<80;tries++){
+  const a=rand(eligible);if(!a)break;
+  const ns=neighbors(a.id).map(getC).filter(b=>b&&b.alive&&!isAtWar(a.id,b.id)&&!a.allies.includes(b.id)&&!(a.enemies.includes(b.id)&&Math.random()<.4));
+  if(!ns.length)continue;
+  const b=rand(ns);if(a.relations[b.id]>55&&Math.random()<.75)continue;
+  const chance=.16+(a.power-b.power)/450;
+  if(Math.random()<clamp(chance,.04,.38)){state.wars.push({id:state.seq+1,a:a.id,b:b.id,started:state.day,active:true,battles:0});a.enemies.push(b.id);b.enemies.push(a.id);addEvent("war","Perang pecah: "+a.name+" vs "+b.name,"Ketegangan perbatasan meningkat. Kedua pemerintahan mengerahkan pasukan.", "⚔️");return;}
+ }
+}
+function resolveWars(){
+ state.wars.filter(w=>w.active).forEach(w=>{
+  const a=getC(w.a),b=getC(w.b);if(!a||!b||!a.alive||!b.alive){w.active=false;return;}
+  w.battles++;
+  const scoreA=a.army*(.6+Math.random()*.8)+a.morale*.22+a.economy*.1;
+  const scoreB=b.army*(.6+Math.random()*.8)+b.morale*.22+b.economy*.1;
+  const winner=scoreA>scoreB?a:b,loser=winner===a?b:a;
+  winner.army=clamp(winner.army+1,5,100);loser.army=clamp(loser.army-(4+Math.random()*5),5,100);
+  winner.morale=clamp(winner.morale+2,10,100);loser.morale=clamp(loser.morale-5,5,100);
+  winner.wins++;loser.losses++;
+  if(Math.random()<.58){
+   const provinces=state.regions.filter(r=>r.owner===loser.id);
+   if(provinces.length>1){const captured=rand(provinces.filter(r=>r.kind!=="Pusat").length?provinces.filter(r=>r.kind!=="Pusat"):provinces);captured.owner=winner.id;winner.owned.push(captured.id);loser.owned=loser.owned.filter(id=>id!==captured.id);addEvent("war",winner.name+" merebut wilayah",""+winner.name+" menguasai "+captured.name+" dari "+loser.name+".","🗺️");}
+  }
+  a.economy=clamp(a.economy-.5,10,100);b.economy=clamp(b.economy-.5,10,100);
+  if(w.battles>=3+Math.floor(Math.random()*4)||loser.morale<14||Math.random()<.035){
+   w.active=false;winner.relations[loser.id]=-15;loser.relations[winner.id]=-15;
+   winner.economy=clamp(winner.economy+3,10,100);loser.stability=clamp(loser.stability-7,5,100);
+   addEvent("war","Gencatan senjata: "+a.name+" — "+b.name,winner.name+" unggul dalam konflik, tetapi kedua negara membutuhkan waktu untuk pulih.","🕊️");
+   a.enemies=a.enemies.filter(x=>x!==b.id);b.enemies=b.enemies.filter(x=>x!==a.id);
+  }
+ });
+}
+function diplomacy(){
+ const cs=living();if(cs.length<2)return;
+ for(let i=0;i<4;i++){
+  const a=rand(cs),b=rand(cs.filter(c=>c.id!==a.id));if(!a||!b||isAtWar(a.id,b.id))continue;
+  const rel=a.relations[b.id]||0;
+  if(rel>70&&!a.allies.includes(b.id)&&Math.random()<.07){a.allies.push(b.id);b.allies.push(a.id);a.relations[b.id]=b.relations[a.id]=Math.min(100,rel+12);state.alliances.push({a:a.id,b:b.id,day:state.day});addEvent("diplomacy","Pakta persahabatan ditandatangani",a.name+" dan "+b.name+" mempererat hubungan melalui perjanjian kerja sama.","🤝");}
+  else if(a.allies.includes(b.id)&&rel<20&&Math.random()<.08){a.allies=a.allies.filter(x=>x!==b.id);b.allies=b.allies.filter(x=>x!==a.id);addEvent("diplomacy","Aliansi bubar",a.name+" dan "+b.name+" tidak lagi terikat pakta.","🕊️");}
+  else if(Math.random()<.24){const d=Math.random()<.5?1:-1;a.relations[b.id]=clamp(rel+d*(3+Math.random()*5),-100,100);b.relations[a.id]=a.relations[b.id];}
+ }
+}
+function economyTick(){
+ living().forEach(c=>{
+  const growth=(Math.random()*2.2-.55)+(c.stability>65?.25:-.4);
+  c.economy=clamp(c.economy+growth-(c.enemies.length?0.5:0),10,100);
+  c.stability=clamp(c.stability+(Math.random()*2-1)+(c.morale>50?.2:-.5),8,100);
+  c.morale=clamp(c.morale+(Math.random()*3-1.5),5,100);
+  if(Math.random()<.12)c.army=clamp(c.army+(c.economy>55?1.4:.4),8,100);
+  c.territory=ownedCount(c.id);
+  if(c.stability<20&&Math.random()<.08){c.stability=clamp(c.stability+8,0,100);addEvent("economy","Krisis pemerintahan di "+c.name,"Ketidakpuasan publik memaksa pemerintah mengumumkan reformasi darurat.","🏛️");}
+ });
+ if(Math.random()<.16){const c=rand(living());if(c){c.economy=clamp(c.economy+4,10,100);addEvent("economy","Pertumbuhan ekonomi","Ekonomi "+c.name+" tumbuh berkat perdagangan dan investasi domestik.","📈");}}
+}
+function maybeEvents(){
+ if(Math.random()<.12){const c=rand(living());if(c){c.stability=clamp(c.stability+5,10,100);addEvent("diplomacy","Pemilu dan reformasi di "+c.name,"Pemerintahan memperkuat stabilitas nasional melalui perubahan kebijakan.","🏛️");}}
+ if(Math.random()<.1){const c=rand(living());if(c){c.economy=clamp(c.economy-3,10,100);addEvent("economy","Gangguan rantai pasok","Gangguan perdagangan sementara menekan ekonomi "+c.name+".","📉");}}
+}
+function tick(){
+ state.day++;state.year=Math.floor((state.day-1)/365)+1;
+ economyTick();resolveWars();diplomacy();maybeEvents();
+ if(Math.random()<.28)chooseWar();
+ state.countries.forEach(c=>{c.territory=ownedCount(c.id);if(c.alive&&c.territory===0){c.alive=false;addEvent("war",c.name+" kehilangan seluruh wilayah","Pemerintahan kehilangan kendali atas wilayah terakhirnya dan tidak lagi menjadi kekuatan aktif.","🏳️");}});
+ if(state.day%10===0)addEvent("world","Laporan situasi global","Hari ke-"+state.day+": "+state.wars.filter(w=>w.active).length+" konflik masih aktif di seluruh dunia.","🌐");
+ render();if(state.day%5===0)save(true);
+}
+function countryColor(c){return c?c.color:"#536273"}
+function renderBoard(){
+ const board=$("board");board.innerHTML="";
+ const groups=["Amerika Utara","Amerika Selatan","Eropa Barat","Eropa Timur","Eropa Selatan","Asia Timur","Asia Selatan","Asia Tenggara","Asia Barat","Timur Tengah","Afrika Utara","Afrika Selatan","Oseania"];
+ const sorted=[...state.countries].sort((a,b)=>groups.indexOf(a.region)-groups.indexOf(b.region)||a.name.localeCompare(b.name));
+ sorted.forEach(c=>{
+  const n=ownedCount(c.id),wars=state.wars.some(w=>w.active&&(w.a===c.id||w.b===c.id));
+  const btn=document.createElement("button");btn.className="tile"+(wars?" war":"")+(selected===c.id?" selected":"")+(n===0?" occupied":"");btn.style.setProperty("--country",countryColor(c));
+  btn.innerHTML=(wars?'<span class="war-tag">⚔ PERANG</span>':"")+'<div class="flag">'+c.flag+'</div><div class="tile-name">'+c.name+'</div><div class="tile-owner">'+(c.alive?c.region:"Pemerintahan tumbang")+'</div><div class="tile-bottom"><span>⚔ '+Math.round(c.army)+'</span><span>🗺 '+n+'</span></div><div class="powerbar"><span style="width:'+clamp(power(c),0,100)+'%;background:'+c.color+'"></span></div>';
+  btn.addEventListener("click",()=>{selected=c.id;render();});board.appendChild(btn);
+ });
+}
+function renderDetail(){
+ const c=getC(selected);const box=$("countryDetail");if(!c){box.innerHTML="Pilih negara di papan.";return}
+ const wars=state.wars.filter(w=>w.active&&(w.a===c.id||w.b===c.id)).map(w=>getC(w.a===c.id?w.b:w.a));
+ const owned=state.regions.filter(r=>r.owner===c.id);
+ const allies=c.allies.map(getC).filter(Boolean);
+ $("profileBadge").textContent=c.alive?"AKTIF":"TUMBANG";
+ box.innerHTML='<div class="country-title"><div class="bigflag">'+c.flag+'</div><div><h3>'+c.name+'</h3><p>'+c.region+' · '+c.id+'</p></div></div>'+
+ '<div class="mini-stats"><div class="mini"><span>Kekuatan total</span><b>'+power(c)+'</b></div><div class="mini"><span>Militer</span><b>'+Math.round(c.army)+'/100</b></div><div class="mini"><span>Ekonomi</span><b>'+Math.round(c.economy)+'/100</b></div><div class="mini"><span>Wilayah dikuasai</span><b>'+owned.length+'</b></div><div class="mini"><span>Moral nasional</span><b>'+Math.round(c.morale)+'/100</b></div><div class="mini"><span>Stabilitas</span><b>'+Math.round(c.stability)+'/100</b></div></div>'+
+ '<p class="detail-desc">'+(c.alive?"Pemerintah masih aktif. Keputusan militer, ekonomi, dan diplomasi dijalankan otomatis oleh AI simulasi.":"Pemerintahan ini telah kehilangan seluruh wilayahnya.")+'</p>'+
+ '<p class="detail-desc"><b>🤝 Sekutu:</b> '+(allies.length?allies.map(x=>x.flag+" "+x.name).join(", "):"Belum ada")+'</p>'+
+ '<p class="detail-desc"><b>⚔ Konflik aktif:</b> '+(wars.length?wars.map(x=>x.flag+" "+x.name).join(", "):"Tidak ada")+'</p>'+
+ '<p class="detail-desc"><b>🗺 Wilayah:</b> '+(owned.length?owned.map(x=>x.name.replace(c.name+" — ","")).join(", "):"Tidak ada wilayah")+'</p>'+
+ '<p class="detail-desc"><b>📜 Rekor perang:</b> '+c.wins+' kemenangan · '+c.losses+' kekalahan</p>';
+}
+function renderRanking(){
+ const key=$("rankFilter").value;const sorted=[...state.countries].sort((a,b)=>((key==="power"?power(b):key==="economy"?b.economy:key==="army"?b.army:ownedCount(b.id))- (key==="power"?power(a):key==="economy"?a.economy:key==="army"?a.army:ownedCount(a.id))));
+ $("ranking").innerHTML=sorted.map((c,i)=>'<tr><td>'+((i===0&&c.alive)?"👑":i+1)+'</td><td><b>'+c.flag+' '+c.name+'</b><br><span class="muted">'+(c.alive?"Aktif":"Tumbang")+'</span></td><td>'+power(c)+'</td><td>'+Math.round(c.economy)+'</td><td>'+Math.round(c.army)+'</td><td>'+ownedCount(c.id)+'</td></tr>').join("");
+}
+function renderFeed(){
+ const items=state.events.filter(e=>feedFilter==="all"||e.type===feedFilter).slice(0,45);
+ $("feed").innerHTML=items.length?items.map(e=>'<div class="event"><div class="event-icon">'+e.icon+'</div><div><time>HARI '+e.day+' · TAHUN '+(Math.floor((e.day-1)/365)+1)+'</time><br><strong>'+e.title+'</strong><p>'+e.desc+'</p></div></div>').join(""):'<div class="detail-empty">Belum ada peristiwa dalam kategori ini.</div>';
+ $("feedCount").textContent=items.length+" CATATAN";
+}
+function renderRelations(){
+ const active=state.wars.filter(w=>w.active).slice().reverse();
+ $("relations").innerHTML=active.length?active.map(w=>{const a=getC(w.a),b=getC(w.b);return '<div class="country-row"><span class="flag">⚔️</span><div><b>'+a.flag+' '+a.name+' vs '+b.flag+' '+b.name+'</b><small>Sejak hari '+w.started+' · '+w.battles+' pertempuran</small></div><span class="badge red">PERANG</span></div>'}).join(""):'<div class="detail-empty">Saat ini tidak ada perang aktif. Diplomasi terus berjalan di belakang layar.</div>';
+}
+function render(){
+ $("dayStat").textContent=state.day;$("dateLabel").textContent="Tahun "+state.year+" · Hari "+state.day;
+ $("countryStat").textContent=living().length;$("warStat").textContent=state.wars.filter(w=>w.active).length;
+ $("regionStat").textContent=state.regions.length;$("eventStat").textContent=state.seq;
+ $("runStatus").textContent=paused?"SIMULASI DIJEDA":"SIMULASI AKTIF";$("pauseBtn").textContent=paused?"▶ Lanjut":"Ⅱ Jeda";
+ renderBoard();renderDetail();renderRanking();renderFeed();renderRelations();
+}
+function setPause(v){paused=v;if(timer){clearInterval(timer);timer=null;}if(!paused)timer=setInterval(tick,speed);render();}
+function resetWorld(){state=initialState();selected="USA";paused=false;addEvent("world","Dunia baru dimulai","30 negara memasuki era baru. Semua pemerintahan akan bertindak secara mandiri.","🌍");save(true);setPause(false);render();toast("Dunia baru berhasil dibuat!");}
+$("pauseBtn").addEventListener("click",()=>setPause(!paused));
+$("stepBtn").addEventListener("click",()=>{if(!paused)setPause(true);tick();});
+$("saveBtn").addEventListener("click",()=>save(false));
+$("resetBtn").addEventListener("click",()=>{$("confirmModal").style.display="flex";});
+$("cancelReset").addEventListener("click",()=>{$("confirmModal").style.display="none";});
+$("confirmReset").addEventListener("click",()=>{$("confirmModal").style.display="none";resetWorld();});
+$("rankFilter").addEventListener("change",renderRanking);
+document.querySelectorAll("[data-feed]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-feed]").forEach(x=>x.classList.remove("active"));b.classList.add("active");feedFilter=b.dataset.feed;renderFeed();}));
+let restored=load();if(!restored){state=initialState();addEvent("world","Simulasi dimulai","30 negara memulai era baru. Pemerintahan, ekonomi, dan diplomasi berjalan secara otomatis.","🌍");}
+render();timer=setInterval(tick,speed);window.addEventListener("beforeunload",()=>save(true));
+})();
+</script>
+</body>
+</html>
