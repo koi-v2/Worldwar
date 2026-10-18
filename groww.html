@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#151b27">
+<title>Groww — Platformer 2D</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#151b27;color:#eef2f7;font-family:system-ui,sans-serif}body{padding:10px;display:flex;justify-content:center}main{width:min(100%,960px)}h1{font-size:22px;margin:0 0 8px}p{font-size:13px;color:#c0cada;line-height:1.5;margin:6px 0 10px}.stage{border:1px solid #44516a;border-radius:8px;overflow:hidden;background:#202c3d}canvas{display:block;width:100%;height:auto;image-rendering:pixelated;touch-action:none}.controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:9px}button,label.file{min-height:48px;border:1px solid #58677e;border-radius:9px;background:#28374b;color:#fff;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;touch-action:none;user-select:none}button:active{background:#405775}section{margin-top:10px}details{font-size:13px;color:#c0cada}details summary{cursor:pointer;padding:8px 0}input[type=file]{max-width:100%;font-size:13px}input[type=number]{width:72px;background:#101722;color:white;border:1px solid #58677e;border-radius:5px;padding:6px}.settings{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.settings button{min-height:38px;padding:5px 10px;font-size:13px}.status{font-size:12px;color:#b5c4d8;margin-top:6px}@media(min-width:700px){.controls{max-width:520px;margin-left:auto;margin-right:auto}}
+</style>
+</head>
+<body>
+<main>
+<h1>Groww — Platformer 2D</h1>
+<div class="stage"><canvas id="game" width="960" height="540" aria-label="Permainan platformer 2D"></canvas></div>
+<div class="controls">
+<button type="button" data-hold="left">◀ Kiri</button>
+<button type="button" data-hold="right">Kanan ▶</button>
+<button type="button" data-action="jump">Lompat ▲</button>
+<button type="button" data-action="attack">Tebas ⚔</button>
+</div>
+<section>
+<details>
+<summary>Gunakan character sheet</summary>
+<p>Pilih gambar character sheet yang Tuan punya. Atur lebar dan tinggi satu frame, lalu pilih baris animasi untuk Idle, Run, Jump, Fall, Landing, dan Attack. Frame pada baris terpilih dibaca dari kiri ke kanan.</p>
+<div class="settings">
+<input id="sheetFile" type="file" accept="image/*" aria-label="Pilih character sheet">
+<label>Lebar frame <input id="frameW" type="number" min="8" max="1024" value="64"></label>
+<label>Tinggi frame <input id="frameH" type="number" min="8" max="1024" value="64"></label>
+<button id="applySheet" type="button">Terapkan</button>
+</div>
+<div class="settings" style="margin-top:8px">
+<label>Baris Idle <input id="rowIdle" type="number" min="0" value="0"></label>
+<label>Run <input id="rowRun" type="number" min="0" value="1"></label>
+<label>Jump <input id="rowJump" type="number" min="0" value="2"></label>
+<label>Fall <input id="rowFall" type="number" min="0" value="3"></label>
+<label>Landing <input id="rowLand" type="number" min="0" value="4"></label>
+<label>Attack <input id="rowAttack" type="number" min="0" value="5"></label>
+</div>
+<div class="status" id="status">Belum ada gambar karakter yang dipilih.</div>
+</details>
+</section>
+<p>Keyboard: ← / A = kiri · → / D = kanan · Spasi / ↑ / W = lompat · J / X / klik kiri = tebas.</p>
+</main>
+<script>
+(()=>{
+'use strict';
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+ctx.imageSmoothingEnabled=false;
+const W=canvas.width,H=canvas.height,groundY=445,gravity=1700;
+const player={x:130,y:groundY-76,w:54,h:76,vx:0,vy:0,face:1,onGround:true,state:'idle',frame:0,clock:0,attack:0};
+const input={left:false,right:false};
+let sprite=null,frameW=64,frameH=64,cols=1,rows=1,ready=false,last=0;
+const rowInputs={idle:'rowIdle',run:'rowRun',jump:'rowJump',fall:'rowFall',landing:'rowLand',attack:'rowAttack'};
+const frameDur={idle:.18,run:.10,jump:.12,fall:.12,landing:.12,attack:.065};
+function rowFor(state){const id=rowInputs[state]||rowInputs.idle;return Math.max(0,Math.min(rows-1,Math.floor(Number(document.getElementById(id).value)||0)));}
+function loadSheet(file){if(!file)return;const url=URL.createObjectURL(file),img=new Image();img.onload=()=>{sprite=img;ready=true;applyDimensions();URL.revokeObjectURL(url);document.getElementById('status').textContent='Character sheet dimuat: '+img.width+' × '+img.height+' piksel.';};img.onerror=()=>{document.getElementById('status').textContent='Gambar tidak bisa dibaca.';URL.revokeObjectURL(url);};img.src=url;}
+function applyDimensions(){frameW=Math.max(8,Number(document.getElementById('frameW').value)||64);frameH=Math.max(8,Number(document.getElementById('frameH').value)||64);if(!sprite)return;cols=Math.max(1,Math.floor(sprite.width/frameW));rows=Math.max(1,Math.floor(sprite.height/frameH));player.frame=0;player.clock=0;document.getElementById('status').textContent='Sprite siap: '+cols+' kolom × '+rows+' baris. Pastikan nomor baris animasi sesuai gambar.';}
+document.getElementById('sheetFile').addEventListener('change',e=>loadSheet(e.target.files[0]));
+document.getElementById('applySheet').addEventListener('click',applyDimensions);
+function jump(){if(player.onGround){player.vy=-610;player.onGround=false;player.state='jump';player.frame=0;player.clock=0;}}
+function attack(){if(player.attack<=0){player.attack=.34;player.state='attack';player.frame=0;player.clock=0;}}
+function key(e,down){const k=e.key.toLowerCase();if(['arrowleft','arrowright','arrowup',' '].includes(k))e.preventDefault();if(k==='arrowleft'||k==='a')input.left=down;if(k==='arrowright'||k==='d')input.right=down;if(down&&!e.repeat&&(k===' '||k==='arrowup'||k==='w'))jump();if(down&&!e.repeat&&(k==='j'||k==='x'))attack();}
+window.addEventListener('keydown',e=>key(e,true));window.addEventListener('keyup',e=>key(e,false));window.addEventListener('blur',()=>{input.left=false;input.right=false;});
+document.querySelectorAll('[data-hold]').forEach(b=>{const name=b.dataset.hold;const down=e=>{e.preventDefault();input[name]=true;};const up=e=>{e.preventDefault();input[name]=false;};b.addEventListener('pointerdown',down);['pointerup','pointercancel','pointerleave'].forEach(n=>b.addEventListener(n,up));});
+document.querySelectorAll('[data-action]').forEach(b=>{b.addEventListener('pointerdown',e=>{e.preventDefault();if(b.dataset.action==='jump')jump();else attack();});});
+canvas.addEventListener('pointerdown',e=>{if(e.button===0)attack();});
+function update(dt){const dir=(input.right?1:0)-(input.left?1:0);player.vx=dir*250;if(dir)player.face=dir;player.x=Math.max(0,Math.min(W-player.w,player.x+player.vx*dt));player.vy+=gravity*dt;player.y+=player.vy*dt;player.onGround=false;if(player.y+player.h>=groundY){player.y=groundY-player.h;player.vy=0;player.onGround=true;}
+if(player.attack>0){player.attack=Math.max(0,player.attack-dt);player.state='attack';}else if(!player.onGround){player.state=player.vy<0?'jump':'fall';}else if(dir){player.state='run';}else{player.state='idle';}
+player.clock+=dt;if(player.clock>=(frameDur[player.state]||.12)){player.clock=0;player.frame++;}if(player.state==='attack'&&player.attack===0){player.frame=0;}}
+function background(){const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#263c5b');g.addColorStop(1,'#8295a0');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);ctx.fillStyle='#d8d7b0';ctx.beginPath();ctx.arc(790,92,30,0,Math.PI*2);ctx.fill();ctx.fillStyle='#344657';for(let i=0;i<8;i++){const x=i*140-20;ctx.beginPath();ctx.moveTo(x,groundY);ctx.lineTo(x+80,240+(i%3)*35);ctx.lineTo(x+160,groundY);ctx.fill();}ctx.fillStyle='#354b3d';ctx.fillRect(0,groundY,W,H-groundY);ctx.fillStyle='#5d7650';for(let x=0;x<W;x+=28)ctx.fillRect(x,groundY,18,5);}
+function fallback(){const x=Math.round(player.x),y=Math.round(player.y);ctx.save();if(player.face<0){ctx.translate(x*2+player.w,0);ctx.scale(-1,1);ctx.translate(-x,0);}const bob=player.state==='run'?Math.sin(performance.now()/55)*2:0;ctx.fillStyle='#182330';ctx.fillRect(x+10,y+player.h-8+bob,13,8);ctx.fillRect(x+31,y+player.h-8-bob,13,8);ctx.fillStyle='#171d2a';ctx.fillRect(x+10,y+24,35,31);ctx.fillStyle='#aeb8d3';ctx.fillRect(x+11,y+5,32,23);ctx.fillStyle='#d9d7dc';ctx.fillRect(x+8,y+2,36,10);ctx.fillStyle='#b52d4d';ctx.fillRect(x+7,y+26,7,22);ctx.fillStyle='#aeb8d3';ctx.fillRect(x+17,y+13,4,4);ctx.fillRect(x+33,y+13,4,4);if(player.state==='attack'){ctx.fillStyle='#e9edf5';ctx.fillRect(x+43,y+32,27,5);ctx.fillStyle='#c69c58';ctx.fillRect(x+42,y+29,5,12);}else{ctx.fillStyle='#aeb8d3';ctx.fillRect(x+40,y+31,6,19);}ctx.restore();}
+function drawSprite(){if(!ready||!sprite){fallback();return;}const row=rowFor(player.state),n=cols;const idx=player.frame%n,sx=idx*frameW,sy=row*frameH;const dw=player.w*1.35,dh=player.h*1.35;ctx.save();if(player.face<0){ctx.translate(player.x*2+player.w,0);ctx.scale(-1,1);ctx.translate(-player.x,0);}ctx.drawImage(sprite,sx,sy,Math.min(frameW,sprite.width-sx),Math.min(frameH,sprite.height-sy),player.x-(dw-player.w)/2,player.y-(dh-player.h),dw,dh);ctx.restore();}
+function draw(){background();drawSprite();if(player.state==='attack'&&player.attack>0){ctx.strokeStyle='#f2f0d6';ctx.lineWidth=3;ctx.beginPath();const x=player.face>0?player.x+player.w:player.x;ctx.arc(x,player.y+player.h/2,34,player.face>0?-0.9:Math.PI-0.9,player.face>0?0.9:Math.PI+0.9);ctx.stroke();}}
+function loop(t){const dt=Math.min(.033,(t-last)/1000||0);last=t;update(dt);draw();requestAnimationFrame(loop);}
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
