@@ -350,11 +350,23 @@ function resolveWars(){
   if(access.mode!=="ground"){
    const kind=access.mode==="air"?"aircraft":"missiles",available=Math.max(0,sg[access.mode==="air"?"aircraft":"missiles"]||0),deployed=Math.min(Math.max(0,available-Math.max(1,Math.round(available*.35))),Math.max(1,Math.floor(available*(.18+Math.random()*.22))));
    if(deployed<1){w.battles++;return;}
-   const ownLoss=Math.min(deployed,Math.round(deployed*(access.mode==="air"?.035:.015)));sg[kind]-=ownLoss;
-   const casualties=Math.min(defg.troops||0,Math.round(deployed*(access.mode==="air"?8:13)*(.6+Math.random()*.8))),destroyed=Math.min(defg[kind]||0,Math.round(deployed*(access.mode==="air"?.035:.06)));
-   defg.troops=Math.max(0,(defg.troops||0)-casualties);defg[kind]=Math.max(0,(defg[kind]||0)-destroyed);b.troops=Math.max(0,(b.troops||0)-casualties);b[kind]=Math.max(0,(b[kind]||0)-destroyed);a[kind]=Math.max(0,(a[kind]||0)-ownLoss);
-   state.battles.unshift({day:state.day,a:a.id,b:b.id,winner:a.id,loser:b.id,scoreA:Math.round(deployed*(access.mode==="air"?2.5:2.8)),scoreB:0,troopsA:0,troopsB:casualties,region:target.name,sourceRegion:source.name,attackForce:{[kind]:deployed},attackerWon:true,ranged:true,mode:access.mode});if(state.battles.length>80)state.battles.length=80;
-   w.battles++;addEvent("battle",a.name+" menyerang "+b.name+" dari jarak jauh",a.name+" mengerahkan "+fmt(deployed)+" "+(access.mode==="air"?"pesawat":"rudal")+" dari "+source.name+". Sekitar "+fmt(casualties)+" personel lawan terdampak. Serangan ini tidak merebut wilayah; jarak peta "+access.distance+" langkah.","✈️");
+   const casualties={troops:0,ships:0,artillery:0,aircraft:0};
+   const ownLoss={aircraft:0,missiles:0};
+   if(access.mode==="air"){
+    casualties.troops=Math.min(defg.troops||0,Math.max(0,Math.round(deployed*(.8+Math.random()*1.2))));
+    casualties.ships=Math.min(defg.ships||0,Math.max(0,Math.round(deployed*(.012+Math.random()*.025))));
+    casualties.artillery=Math.min(defg.artillery||0,Math.max(0,Math.round(deployed*(.025+Math.random()*.045))));
+    ownLoss.aircraft=Math.min(deployed,Math.round((defg.ships||0)*(.002+Math.random()*.004)+(defg.artillery||0)*(.001+Math.random()*.003)));
+    sg.aircraft=Math.max(0,sg.aircraft-ownLoss.aircraft);a.aircraft=Math.max(0,a.aircraft-ownLoss.aircraft);
+   }else{
+    casualties.troops=Math.min(defg.troops||0,Math.max(0,Math.round(deployed*(.3+Math.random()*.6))));
+    ownLoss.missiles=Math.min(deployed,Math.round(deployed*(.008+Math.random()*.02)));
+    sg.missiles=Math.max(0,sg.missiles-ownLoss.missiles);a.missiles=Math.max(0,a.missiles-ownLoss.missiles);
+   }
+   Object.keys(casualties).forEach(k=>{defg[k]=Math.max(0,(defg[k]||0)-casualties[k]);b[k]=Math.max(0,(b[k]||0)-casualties[k]);});
+   const totalCasualties=casualties.troops+casualties.ships+casualties.artillery;
+   state.battles.unshift({day:state.day,a:a.id,b:b.id,winner:a.id,loser:b.id,scoreA:Math.round(deployed*(access.mode==="air"?2.5:2.8)),scoreB:Math.round((access.mode==="air"?(ownLoss.aircraft||0):(ownLoss.missiles||0))*2.5),troopsA:0,troopsB:casualties.troops,shipLossA:0,shipLossB:casualties.ships,artilleryLossA:0,artilleryLossB:casualties.artillery,aircraftLossA:ownLoss.aircraft||0,aircraftLossB:casualties.aircraft||0,region:target.name,sourceRegion:source.name,attackForce:{[kind]:deployed},attackerWon:true,ranged:true,mode:access.mode});if(state.battles.length>80)state.battles.length=80;
+   w.battles++;addEvent("battle",a.name+" menyerang "+b.name+" dari jarak jauh",a.name+" mengerahkan "+fmt(deployed)+" "+(access.mode==="air"?"pesawat":"rudal")+" dari "+source.name+". Kerugian lawan: "+fmt(casualties.troops)+" personel, "+fmt(casualties.ships)+" kapal, "+fmt(casualties.artillery)+" artileri. Serangan ini tidak merebut wilayah; jarak peta "+access.distance+" langkah.","✈️");
    if(w.battles>=7||Math.random()<.035){endWar(w,"ceasefire");a.relations[b.id]=-15;b.relations[a.id]=-15;addEvent("war","Perjanjian gencatan senjata jarak jauh",a.name+" dan "+b.name+" menghentikan operasi jarak jauh.","🕊️");}return;
   }
   const share=.22+Math.random()*.28;
@@ -393,8 +405,24 @@ function resolveWars(){
   const scoreB=defenseBase*defenseBonus*(.78+Math.random()*.52)*clamp((b.morale||50)/70,.55,1.3)*logisticsB+(b.research||40)*.1+(b.infrastructure||40)*.2+12;
   const won=scoreA>scoreB,winner=won?a:b,loser=won?b:a;
   const lossRateA=(won?.10:.17)+Math.random()*.10,lossRateB=(won?.09:.13)+Math.random()*.09;
-  const lost={};["troops","tanks","aircraft","ships","artillery","missiles"].forEach(k=>{const rate=k==="troops"?(won?lossRateA:lossRateB):(.04+Math.random()*.08);const deployed=Math.max(0,attack[k]||0);lost[k]=Math.min(deployed,deployed>0?Math.max(1,Math.round(deployed*rate)):0);});
-  const defLost={};["troops","tanks","aircraft","ships","artillery","missiles"].forEach(k=>{const present=Math.max(0,Number(g[k])||0);defLost[k]=Math.min(present,present>0?Math.max(1,Math.round(present*(k==="troops"?lossRateB:.04+Math.random()*.08))):0);g[k]=Math.max(0,present-defLost[k]);});
+  const lost={troops:0,tanks:0,aircraft:0,ships:0,artillery:0,missiles:0},defLost={troops:0,tanks:0,aircraft:0,ships:0,artillery:0,missiles:0};
+  const present=k=>Math.max(0,Number(g[k])||0),deployed=k=>Math.max(0,Number(attack[k])||0);
+  // Unit matchups: troops fight troops; aircraft strike troops/ships/artillery;
+  // ships engage ships/aircraft; artillery targets aircraft. Tanks/missiles keep ground roles.
+  const damage=(force,rate)=>Math.max(0,Math.round(force*rate*(.65+Math.random()*.7)));
+  const inflicted={troops:damage(deployed("troops"),.0009),tanks:damage(deployed("tanks"),.025),aircraft:damage(deployed("artillery"),.002)+damage(deployed("ships"),.0015),ships:damage(deployed("aircraft"),.018)+damage(deployed("ships"),.006),artillery:damage(deployed("aircraft"),.012),missiles:damage(deployed("missiles"),.02)};
+  inflicted.troops+=damage(deployed("aircraft"),.0012);
+  inflicted.ships+=damage(deployed("aircraft"),.002);
+  inflicted.artillery+=damage(deployed("aircraft"),.004);
+  const returnFire={troops:damage(present("troops"),.0009),tanks:damage(present("tanks"),.025),aircraft:damage(present("artillery"),.002)+damage(present("ships"),.0015),ships:damage(present("aircraft"),.018)+damage(present("ships"),.006),artillery:damage(present("aircraft"),.012),missiles:damage(present("missiles"),.02)};
+  returnFire.troops+=damage(present("aircraft"),.0012);
+  returnFire.ships+=damage(present("aircraft"),.002);
+  returnFire.artillery+=damage(present("aircraft"),.004);
+  Object.keys(defLost).forEach(k=>{defLost[k]=Math.min(present(k),inflicted[k]);});
+  Object.keys(lost).forEach(k=>{lost[k]=Math.min(deployed(k),returnFire[k]);});
+  if(deployed("troops")>0&&present("troops")>0&&lost.troops===0)lost.troops=Math.min(deployed("troops"),1);
+  if(present("troops")>0&&deployed("troops")>0&&defLost.troops===0)defLost.troops=Math.min(present("troops"),1);
+  Object.keys(defLost).forEach(k=>g[k]=Math.max(0,present(k)-defLost[k]));
   const survivors={};Object.keys(attack).forEach(k=>{survivors[k]=Math.max(0,attack[k]-lost[k]);});
   ["troops","tanks","aircraft","ships","artillery","missiles"].forEach(k=>{a[k]=Math.max(0,(a[k]||0)-lost[k]);b[k]=Math.max(0,(b[k]||0)-defLost[k]);});
   a.battleLosses=(a.battleLosses||0)+lost.troops;b.battleLosses=(b.battleLosses||0)+defLost.troops;
@@ -446,10 +474,10 @@ function economyTick(){
   if(!c.resources)c.resources={oil:40,coal:40,iron:40,food:60,uranium:10};
   const r=c.resources;
   r.iron=clamp((Number(r.iron)||0)+.035+(c.industry||40)*.00045,0,150);
-  r.oil=clamp((Number(r.oil)||0)+.012+(c.industry||40)*.00015,0,150);
+  r.oil=clamp((Number(r.oil)||0)+.16+(c.industry||40)*.0012,0,150);
   r.uranium=clamp((Number(r.uranium)||0)+.003+(c.industry||40)*.00003,0,150);
   // Logistik harian: armada dan perang memakai bahan bakar, penduduk membutuhkan pangan.
-  r.oil=clamp(r.oil-Math.min(r.oil,.025+c.tanks*.000025+c.aircraft*.000035+c.ships*.00012+(atWar?.18:0)),0,150);
+  r.oil=clamp(r.oil-Math.min(r.oil,.012+c.tanks*.000006+c.aircraft*.000009+c.ships*.000035+(atWar?.035:0)),0,150);
   r.food=clamp(r.food+.18+(c.industry||40)*.001-(c.population>50000000?.12:.07),0,150);
   r.coal=clamp(r.coal+.08+(c.industry||40)*.0008-.035-(c.industry||40)*.0007,0,150);
   if(r.coal<8){c.energy=clamp((c.energy||40)-.15,5,100);c.economy=clamp(c.economy-.08,10,100);}
@@ -656,7 +684,7 @@ function renderDetail(){
  '<p class="detail-desc">'+(c.alive?"Pemerintah masih aktif. Keputusan militer, ekonomi, dan diplomasi dijalankan otomatis oleh AI simulasi.":"Pemerintahan ini telah kehilangan seluruh wilayahnya.")+'</p>'+
  '<p class="detail-desc"><b>🤝 Sekutu:</b> '+(allies.length?allies.map(x=>x.flag+" "+x.name).join(", "):"Belum ada")+'</p>'+
  '<p class="detail-desc"><b>⚔ Konflik aktif:</b> '+(wars.length?wars.map(x=>x.flag+" "+x.name).join(", "):"Tidak ada")+'</p>'+
- '<p class="detail-desc"><b>🗺 Wilayah & garnisun:</b> '+(owned.length?owned.map(x=>{const g=x.garrison||{};return x.name.replace(c.name+" — ","")+" · 🪖 "+fmt(g.troops)+" personel, 🛡️ "+fmt(g.tanks)+" tank, ✈️ "+fmt(g.aircraft)+" pesawat";}).join("<br>"):"Tidak ada wilayah")+'</p>'+
+ '<p class="detail-desc"><b>🗺 Wilayah & garnisun:</b> '+(owned.length?owned.map(x=>{const g=x.garrison||{};return x.name.replace(c.name+" — ","")+" · 🪖 "+fmt(g.troops)+" personel, 🛡️ "+fmt(g.tanks)+" tank, ✈️ "+fmt(g.aircraft)+" pesawat, 🚢 "+fmt(g.ships)+" kapal, 💥 "+fmt(g.artillery)+" artileri, 🚀 "+fmt(g.missiles)+" rudal";}).join("<br>"):"Tidak ada wilayah")+'</p>'+
  '<p class="detail-desc"><b>📜 Rekor perang:</b> '+fmt(c.wins)+' kemenangan · '+fmt(c.losses)+' kekalahan</p>';
 }
 function renderRanking(){
