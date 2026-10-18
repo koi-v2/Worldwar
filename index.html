@@ -253,14 +253,50 @@ function chooseWar(){
   }
  }
 }
+function reinforceFronts(){
+ // Saat perang, AI memindahkan sebagian pasukan dari wilayah belakang ke wilayah yang terancam.
+ const active=state.wars.filter(w=>w.active);
+ if(!active.length||Math.random()>.62)return;
+ const war=rand(active),a=getC(war.a),b=getC(war.b);
+ if(!a||!b)return;
+ [[a,b],[b,a]].forEach(([country,enemy])=>{
+  if(!country.alive||!enemy.alive)return;
+  const owned=state.regions.filter(r=>r.owner===country.id&&r.garrison);
+  if(owned.length<2)return;
+  const pressure=owned.filter(r=>r.kind!=="Pusat").sort((x,y)=>{
+   const score=r=>{const g=r.garrison;return (g.troops||0)*.001+(g.tanks||0)*2.2+(g.aircraft||0)*2.5+(g.artillery||0)*1.7+(g.missiles||0)*2.8;};
+   return score(x)-score(y);
+  });
+  const target=pressure[0];if(!target)return;
+  const sources=owned.filter(r=>r.id!==target.id&&(r.garrison.troops||0)>1200).sort((x,y)=>(y.garrison.troops+x.garrison.tanks*100)-(x.garrison.troops+y.garrison.tanks*100));
+  const source=sources[0];if(!source)return;
+  const moved={};
+  ["troops","tanks","aircraft","ships","artillery","missiles"].forEach(k=>{
+   const g=source.garrison[k]||0;
+   const keep=k==="troops"?Math.max(800,Math.round(g*.55)):Math.round(g*.45);
+   const amount=Math.min(Math.max(0,g-keep),Math.floor(g*(.06+Math.random()*.07)));
+   source.garrison[k]=g-amount;target.garrison[k]=(target.garrison[k]||0)+amount;moved[k]=amount;
+  });
+  if(moved.troops>=100)addEvent("war","Penguatan garis depan",country.name+" memindahkan "+fmt(moved.troops)+" personel dari "+source.name+" ke "+target.name+" untuk memperkuat pertahanan.","🚚");
+ });
+}
 function resolveWars(){
  state.wars.filter(w=>w.active).forEach(w=>{
   const a=getC(w.a),b=getC(w.b);if(!a||!b||!a.alive||!b.alive){w.active=false;return;}
   const targets=state.regions.filter(r=>r.owner===b.id);if(!targets.length){w.active=false;return;}
-  const fronts=targets.filter(r=>r.kind!=="Pusat"),target=rand(fronts.length?fronts:targets);
+  // AI menilai target: wilayah non-ibu kota yang pertahanannya tipis lebih menarik.
+  const fronts=targets.filter(r=>r.kind!=="Pusat"),pool=fronts.length?fronts:targets;
+  pool.sort((x,y)=>{
+   const strength=r=>{const g=r.garrison||{};return (g.troops||0)*.001+(g.tanks||0)*2.2+(g.aircraft||0)*2.5+(g.artillery||0)*1.7+(g.missiles||0)*2.8;};
+   const strategic=r=>(r.kind==="Pusat"?100:0)+(r.name&&/pelabuhan|industri|koridor/i.test(r.name)?12:0);
+   return (strength(x)-strategic(x))-(strength(y)-strategic(y));
+  });
+  const target=pool[0];
   const sources=state.regions.filter(r=>r.owner===a.id&&r.garrison&&r.garrison.troops>=500);
-  if(!sources.length){addEvent("battle",a.name+" tidak memiliki pasukan siap serang","Garnisun di wilayah penyerang terlalu lemah untuk melancarkan serangan baru.","🪖");w.battles++;if(w.battles>=6)w.active=false;return;}
-  sources.sort((x,y)=>(y.garrison.troops+y.garrison.tanks*100+y.garrison.artillery*70)-(x.garrison.troops+x.garrison.tanks*100+x.garrison.artillery*70));
+  if(!sources.length){addEvent("battle",a.name+" menunda serangan","Tidak ada garnisun yang cukup kuat untuk menyerang; perang memasuki jeda operasional.","🪖");w.battles++;if(w.battles>=4){w.active=false;addEvent("war","Gencatan senjata: "+a.name+" — "+b.name,"Serangan dihentikan karena pasukan penyerang tidak siap.","🕊️");}return;}
+  const strength=r=>{const g=r.garrison||{};return (g.troops||0)*.001+(g.tanks||0)*2.2+(g.aircraft||0)*2.5+(g.artillery||0)*1.7+(g.missiles||0)*2.8;};
+  // Pilih wilayah asal dengan kekuatan terbesar, tetapi sisakan garnisun untuk bertahan.
+  sources.sort((x,y)=>strength(y)-strength(x));
   const source=sources[0],sg=source.garrison;
   const share=.22+Math.random()*.28;
   const attack={};["troops","tanks","aircraft","ships","artillery","missiles"].forEach(k=>{attack[k]=Math.floor((sg[k]||0)*share);sg[k]=Math.max(0,(sg[k]||0)-attack[k]);});
@@ -402,6 +438,7 @@ function goalsTick(){const cs=living();if(!cs.length)return;const score=c=>power
 function tick(){
  state.day++;state.year=Math.floor((state.day-1)/365)+1;
  economyTick();resourceMarketTick();politicsTick();developmentTick();internationalOrganizationTick();espionageTick();goalsTick();
+ reinforceFronts();
  resolveWars();diplomacy();maybeEvents();peacefulDevelopment();
  if(Math.random()<.025)chooseWar();
  state.countries.forEach(c=>{c.territory=ownedCount(c.id);if(c.alive&&c.territory===0){c.alive=false;addEvent("war",c.name+" kehilangan seluruh wilayah","Pemerintahan kehilangan kendali atas wilayah terakhirnya dan tidak lagi menjadi kekuatan aktif.","🏳️");}});
