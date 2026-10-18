@@ -5,13 +5,16 @@
 </style></head><body>
 <h1>⚔️ KONTOL — Pixel Platformer</h1>
 <canvas id="game" width="960" height="540"></canvas>
-<div class="help">Pilih character sheet yang Tuan upload tadi (PNG), lalu mainkan. PC: A/D atau ←/→, Space lompat, J serang.</div>
-<label id="pick">Pilih character sheet PNG <input id="sheet" type="file" accept="image/*" style="display:block"></label>
+<div class="help">Sprite Rogue otomatis dimuat dari file PNG di repositori. Jika belum muncul, pilih PNG secara manual. PC: A/D atau ←/→, Space lompat, J serang.</div>
+<label id="pick">Pilih PNG manual (opsional) <input id="sheet" type="file" accept="image/*" style="display:block"></label>
 <div class="controls"><button id="left">◀</button><button id="jump">JUMP</button><button id="attack">⚔ SERANG</button><button id="right">▶</button></div>
 <script>
 const c=document.getElementById('game'),x=c.getContext('2d');x.imageSmoothingEnabled=false;
 const img=new Image();let ready=false;
-document.getElementById('sheet').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;img.onload=()=>{ready=true;};img.src=URL.createObjectURL(f)});
+img.onload=()=>{ready=true;};
+img.onerror=()=>{ready=false;};
+img.src='file_0000000037688207a4add9825c674ab4.png';
+document.getElementById('sheet').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;ready=false;img.src=URL.createObjectURL(f)});
 const p={x:120,y:390,vx:0,vy:0,w:48,h:70,face:1,ground:true,act:'idle',tick:0,attack:0};
 const keys={};let touchL=false,touchR=false;
 function bind(id,fn){const b=document.getElementById(id);b.addEventListener('pointerdown',e=>{e.preventDefault();fn(true)});['pointerup','pointercancel','pointerleave'].forEach(ev=>b.addEventListener(ev,e=>fn(false)))}
@@ -27,14 +30,33 @@ function frame(){
  x.fillStyle='#2d1b39';for(let i=0;i<8;i++){x.fillRect(i*140-20,335+(i%3)*24,100,125)}
  x.fillStyle='#a45b9e';x.fillRect(0,460,960,80);x.fillStyle='#d78bd1';for(let i=0;i<960;i+=32)x.fillRect(i,460,18,4);
  x.fillStyle='#f4d9ff';x.font='16px system-ui';x.fillText('MOVE  •  JUMP  •  SWORD',20,30);
- if(!ready){x.fillStyle='#f4d9ff';x.font='22px system-ui';x.fillText('Pilih PNG character sheet untuk memulai',230,245);x.font='15px system-ui';x.fillText('Sprite akan dipotong dari bagian Idle / Run / Jump / Attack',190,278)}
- else{
- let sx=320,sy=40,sw=100,sh=170;
- if(p.attack>0){let i=Math.min(3,Math.floor((.34-p.attack)/.085));sx=[35,185,335,495][i];sy=480;sw=130;sh=170}
- else if(!p.ground){sx=485;sy=260;sw=115;sh=160}
- else if(Math.abs(p.vx)>.1){let i=Math.floor(p.tick*12)%6;sx=810+i*115;sy=45;sw=105;sh=165}
- else{let i=Math.floor(p.tick*5)%4;sx=330+i*115;sy=45;sw=105;sh=165}
- // Crop using the known labeled sections of the uploaded sheet; tolerate slight sheet size variations.
+ if(!ready){x.fillStyle='#f4d9ff';x.font='22px system-ui';x.fillText('Pilih PNG character sheet untuk memulai',230,245);x.font='1 else{
+ // Animation panels are separate regions on the Rogue sheet, not a uniform grid.
+ const kx=img.width/1536, ky=img.height/1024;
+ let panel, count, i, sx, sy, sw, sh;
+ if(p.attack>0){
+   // Attack panel: four frames in the third row, left side.
+   panel={x:25,y:475,w:590,h:190}; count=4;
+   i=Math.min(count-1,Math.floor((.34-p.attack)/.085));
+ } else if(!p.ground){
+   // Jump panel: four frames in the second row, left/center.
+   panel={x:300,y:245,w:460,h:205}; count=4;
+   i=Math.floor(p.tick*7)%count;
+ } else if(Math.abs(p.vx)>.1){
+   // Run/walk panel: six frames across the top-right section.
+   panel={x:800,y:35,w:700,h:200}; count=6;
+   i=Math.floor(p.tick*10)%count;
+ } else {
+   // Idle panel: four frames across the top-middle section.
+   panel={x:315,y:35,w:475,h:200}; count=4;
+   i=Math.floor(p.tick*4)%count;
+ }
+ sx=(panel.x+i*(panel.w/count)+panel.w/count*.12)*kx;
+ sy=(panel.y+panel.h*.08)*ky;
+ sw=(panel.w/count*.76)*kx;
+ sh=(panel.h*.84)*ky;
+ drawSprite(sx,sy,sw,sh,p.face<0);
+ }ns.
  const kx=img.width/1536,ky=img.height/1024;
  drawSprite(sx*kx,sy*ky,sw*kx,sh*ky,p.face<0);
  }
