@@ -99,7 +99,7 @@ th,td{padding:9px 10px}
 }
 
 .system-subhead{font-size:11px;letter-spacing:.08em;color:var(--gold);margin:16px 0 8px;padding-top:10px;border-top:1px solid var(--line)}.resource-chips{display:flex;flex-wrap:wrap;gap:7px}.resource-chip{background:var(--panel2);border:1px solid var(--line);padding:6px 9px;border-radius:8px;font-size:10px;color:var(--muted)}.resource-chip b{color:var(--text);margin-left:4px}.system-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(110px,.8fr);gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}.system-row b,.system-note b{font-size:12px}.system-row small,.system-note small{display:block;color:var(--muted);font-size:10px;line-height:1.5;margin-top:3px}.system-metric{font-size:10px;color:var(--muted)}.meter{height:5px;background:#26374a;border-radius:9px;overflow:hidden;margin:4px 0}.meter i{display:block;height:100%;background:var(--green);border-radius:9px}.system-note{padding:8px 0;border-bottom:1px solid var(--line)}@media(max-width:520px){.system-row{grid-template-columns:1fr}}
-</style>
+.replay-modal{position:fixed;inset:0;z-index:120;background:#050a10ee;display:none;align-items:center;justify-content:center;padding:10px}.replay-box{width:min(100%,980px);max-height:96dvh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px}.replay-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}.replay-stage{margin-top:10px;background:#0b1820;border:1px solid #34505c;border-radius:12px;overflow:hidden}.replay-stage canvas{display:block;width:100%;height:auto;aspect-ratio:16/9}.replay-caption{padding:9px 12px;background:#101c28;min-height:38px}.replay-controls{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.replay-controls button{flex:1}.replay-progress{width:100%;accent-color:var(--gold);margin-top:8px}.battle-watch{margin-top:8px;width:100%}</style>
 </head>
 <body>
 <div class="app">
@@ -151,7 +151,7 @@ th,td{padding:9px 10px}
 </div>
 <div class="toast" id="toast"></div>
 <div class="modal" id="confirmModal"><div class="modal-box"><h2>🌍 Mulai dunia baru?</h2><p>Semua perang, hubungan, wilayah, dan kronik simulasi saat ini akan direset. Data tersimpan lama di perangkat akan diganti.</p><div class="modal-actions"><button id="cancelReset">Batal</button><button class="primary" id="confirmReset">Reset dunia</button></div></div></div>
-<script>
+<div class="replay-modal" id="replayModal"><div class="replay-box"><div class="replay-head"><div><div class="eyebrow">BATTLE REPLAY</div><h2 id="replayTitle">⚔️ Replay pertempuran</h2></div><button id="replayClose">✕ Tutup</button></div><div class="replay-stage"><canvas id="replayCanvas" width="960" height="540"></canvas><div class="replay-caption" id="replayCaption">Persiapan medan perang...</div></div><div class="replay-controls"><button id="replayPlay" class="primary">Ⅱ Jeda</button><button id="replayRestart">↺ Ulangi</button><button id="replaySpeed">⏩ Kecepatan 1×</button></div><input class="replay-progress" id="replayProgress" type="range" min="0" max="1000" value="0"><p class="subtitle">Gerakan unit adalah rekonstruksi visual berdasarkan laporan perang tersimpan, bukan rekaman pergerakan setiap unit secara real-time.</p></div></div><script>
 (function(){
 "use strict";
 const baseCountries=[
@@ -668,9 +668,31 @@ function renderBattleReports(){
   const a=getC(r.a),b=getC(r.b),w=getC(r.winner)||a;if(!a||!b||!w)return "";
   const ranged=!!r.ranged;
   const losses=ranged?'<p>🪖 Personel terdampak: '+b.name+' −'+fmt(r.troopsB)+' · kerugian penyerang: '+fmt(r.mode==="air"?(r.aircraftLossA||0):(r.missileLossA||0))+'</p>':'<p>🪖 Kehilangan personel: '+a.name+' −'+fmt(r.troopsA)+' · '+b.name+' −'+fmt(r.troopsB)+'</p><p>🛡️ Tank: −'+fmt(r.tankLossA)+' / −'+fmt(r.tankLossB)+' · ✈️ Pesawat: −'+fmt(r.aircraftLossA)+' / −'+fmt(r.aircraftLossB)+' · 🚢 Kapal: −'+fmt(r.shipLossA)+' / −'+fmt(r.shipLossB)+'</p>';
-  return '<div class="battle-report"><h3>💥 HARI '+fmt(r.day)+' · '+a.flag+' '+a.name+' vs '+b.flag+' '+b.name+(ranged?' · SERANGAN JARAK JAUH':'')+'</h3><div class="result report-win">Pemenang/penyerang unggul: '+w.flag+' '+w.name+' · skor '+fmt(r.scoreA)+' — '+fmt(r.scoreB)+'</div>'+losses+(r.region?'<p>🗺 Target: '+r.region+(ranged?' · wilayah tidak direbut':'')+'</p>':'')+'</div>';
+  return '<div class="battle-report"><h3>💥 HARI '+fmt(r.day)+' · '+a.flag+' '+a.name+' vs '+b.flag+' '+b.name+(ranged?' · SERANGAN JARAK JAUH':'')+'</h3><div class="result report-win">Pemenang/penyerang unggul: '+w.flag+' '+w.name+' · skor '+fmt(r.scoreA)+' — '+fmt(r.scoreB)+'</div>'+losses+(r.region?'<p>🗺 Target: '+r.region+(ranged?' · wilayah tidak direbut':'')+'</p>':'')+'<button class="battle-watch primary" data-replay="'+reports.indexOf(r)+'">▶ Tonton Pertempuran</button></div>';
  }).join(""):'<div class="detail-empty">Belum ada pertempuran. Laporan akan muncul setelah negara bertempur.</div>';
 }
+let replayState=null,replayFrame=null,replayLast=0;
+function openBattleReplay(index){
+ const r=(state.battles||[])[index];if(!r)return;const a=getC(r.a),b=getC(r.b);if(!a||!b)return;
+ replayState={r,a,b,t:0,playing:true,speed:1,seed:(Number(r.day)||1)*31+index*17};
+ $("replayTitle").textContent=(r.ranged?"✈️ ":"⚔️ ")+a.name+" vs "+b.name;
+ $("replayModal").style.display="flex";$("replayPlay").textContent="Ⅱ Jeda";$("replayProgress").value=0;
+ if(replayFrame)cancelAnimationFrame(replayFrame);replayLast=0;replayFrame=requestAnimationFrame(drawBattleReplay);
+}
+function drawBattleReplay(now){
+ const q=replayState;if(!q)return;if(q.playing){if(replayLast)q.t+=(now-replayLast)*q.speed/1000;replayLast=now;if(q.t>=18){q.t=18;q.playing=false;$("replayPlay").textContent="▶ Lanjut";}}
+ const c=$("replayCanvas"),x=c.getContext("2d"),W=c.width,H=c.height,t=q.t,p=Math.min(1,t/18),r=q.r;
+ const g=x.createLinearGradient(0,0,W,H);g.addColorStop(0,"#183a35");g.addColorStop(1,"#152b35");x.fillStyle=g;x.fillRect(0,0,W,H);
+ x.strokeStyle="#86b9a01c";x.lineWidth=2;for(let k=0;k<9;k++){x.beginPath();for(let xx=0;xx<=W;xx+=12){let yy=45+k*55+Math.sin(xx*.012+k+q.seed)*13+Math.cos(xx*.022+k)*7;xx===0?x.moveTo(xx,yy):x.lineTo(xx,yy);}x.stroke();}
+ x.strokeStyle="#c5b68a55";x.lineWidth=13;x.beginPath();x.moveTo(0,430);x.bezierCurveTo(250,380,420,480,600,355);x.bezierCurveTo(760,250,820,330,W,240);x.stroke();
+ x.fillStyle="#08121be8";x.fillRect(18,16,W-36,58);x.font="bold 22px system-ui";x.fillStyle="#d8e8ff";x.fillText(q.a.flag+" "+q.a.name,32,51);x.textAlign="right";x.fillStyle="#ffd3d3";x.fillText(q.b.flag+" "+q.b.name,W-32,51);x.textAlign="left";
+ const mid=480+Math.sin(p*Math.PI*2)*18;x.strokeStyle="#d7e6e055";x.setLineDash([8,8]);x.beginPath();x.moveTo(mid,90);x.lineTo(mid,500);x.stroke();x.setLineDash([]);
+ for(let side=0;side<2;side++){const col=side?"#ff777d":"#76baff",base=side?730:230,dir=side?-1:1;for(let i=0;i<18;i++){const row=Math.floor(i/6),cc=i%6,phase=Math.sin(t*1.8+i*.8+side)*7;let xx=base+dir*(p*115+phase)+cc*dir*17+Math.sin(i*(side?1.7:2.1))*12,yy=165+row*86+Math.sin(t*2+i+side)*5,type=i%7===0?"tank":i%5===0?"air":i%9===0?"ship":"troop";if(r.ranged&&type==="ship")continue;x.save();x.translate(xx,yy);x.fillStyle=col;if(type==="air"){x.beginPath();x.moveTo(0,-10);x.lineTo(15,5);x.lineTo(2,3);x.lineTo(-12,10);x.closePath();x.fill();}else if(type==="tank"){x.fillRect(-11,-6,22,12);x.fillStyle="#d8e2e9";x.fillRect(-3,-9,13,5);x.fillRect(5,-7,12,3);}else if(type==="ship"){x.beginPath();x.moveTo(-14,-5);x.lineTo(12,-5);x.lineTo(17,0);x.lineTo(10,7);x.lineTo(-12,7);x.fill();}else{x.strokeStyle=col;x.lineWidth=3;x.beginPath();x.moveTo(-4,8);x.lineTo(-5,0);x.lineTo(0,-6);x.lineTo(5,0);x.lineTo(4,8);x.moveTo(-8,1);x.lineTo(8,1);x.stroke();x.beginPath();x.arc(0,-9,4,0,Math.PI*2);x.fill();}x.restore();}}
+ const rnd=n=>{const z=Math.sin(n*78.233+q.seed*2.17)*43758.5453;return z-Math.floor(z);};for(let i=0;i<t*4;i++){const u=(t*1.4+i*.173)%1,side=i%2,sy=155+rnd(i+2)*280,sx=side?W-150:150,ex=side?mid+12:mid-12,xx=sx+(ex-sx)*u,yy=sy-Math.sin(u*Math.PI)*25;x.strokeStyle=side?"#ffb1a0":"#b8e4ff";x.lineWidth=2;x.beginPath();x.moveTo(xx,yy);x.lineTo(xx+(side?-18:18),yy-5);x.stroke();if(u>.86){const z=(u-.86)/.14,rad=4+z*18;x.fillStyle="rgba(255,150,74,"+((1-z)*.65)+")";x.beginPath();x.arc(ex,sy,rad,0,Math.PI*2);x.fill();}}
+ x.fillStyle="#071018d9";x.fillRect(18,H-45,W-36,28);x.fillStyle="#e9f0f8";x.font="13px system-ui";x.fillText((r.ranged?(r.mode==="air"?"SERANGAN UDARA":"SERANGAN RUDAL"):"PERTEMPURAN DARAT")+" · "+Math.round(p*100)+"%",30,H-26);
+ $("replayProgress").value=Math.round(p*1000);const phases=["Pasukan bergerak menuju garis depan.","Kontak pertama! Tembakan mulai terdengar.","Kedua pihak bertukar serangan; formasi bergerak maju.","Serangan balasan dan ledakan di garis depan.","Garis pertahanan bergeser; kedua pihak mulai melemah.","Pertempuran selesai."];$("replayCaption").textContent=t>=18?"Selesai — pemenang laporan: "+(getC(r.winner)?.name||q.a.name)+".":phases[Math.min(5,Math.floor(p*6))];if(q.playing)replayFrame=requestAnimationFrame(drawBattleReplay);
+}
+function closeBattleReplay(){if(replayFrame)cancelAnimationFrame(replayFrame);replayFrame=null;replayState=null;$("replayModal").style.display="none";}
 function renderDetail(){
  const c=getC(selected),box=$("countryDetail");if(!c){box.innerHTML="Pilih negara di papan.";return;}
  const wars=state.wars.filter(w=>w.active&&(w.a===c.id||w.b===c.id)).map(w=>getC(w.a===c.id?w.b:w.a)).filter(Boolean);
@@ -754,6 +776,15 @@ $("resetBtn").addEventListener("click",()=>{$("confirmModal").style.display="fle
 $("cancelReset").addEventListener("click",()=>{$("confirmModal").style.display="none";});
 $("confirmReset").addEventListener("click",()=>{$("confirmModal").style.display="none";resetWorld();});
 $("rankFilter").addEventListener("change",renderRanking);
+$("battleReports").addEventListener("click",e=>{const b=e.target.closest("[data-replay]");if(b)openBattleReplay(Number(b.dataset.replay));});
+$("replayClose").addEventListener("click",closeBattleReplay);
+$("replayModal").addEventListener("click",e=>{if(e.target.id==="replayModal")closeBattleReplay();});
+$("replayPlay").addEventListener("click",()=>{if(!replayState)return;replayState.playing=!replayState.playing;replayLast=0;$("replayPlay").textContent=replayState.playing?"Ⅱ Jeda":"▶ Lanjut";if(replayState.playing)replayFrame=requestAnimationFrame(drawBattleReplay);});
+$("replayRestart").addEventListener("click",()=>{if(!replayState)return;replayState.t=0;replayState.playing=true;replayLast=0;$("replayPlay").textContent="Ⅱ Jeda";if(replayFrame)cancelAnimationFrame(replayFrame);replayFrame=requestAnimationFrame(drawBattleReplay);});
+$("replaySpeed").addEventListener("click",()=>{if(!replayState)return;replayState.speed=replayState.speed===1?2:replayState.speed===2?4:1;$("replaySpeed").textContent="⏩ Kecepatan "+replayState.speed+"×";});
+$("replayProgress").addEventListener("input",e=>{if(!replayState)return;replayState.t=Number(e.target.value)/1000*18;replayState.playing=false;replayLast=0;$("replayPlay").textContent="▶ Lanjut";if(replayFrame)cancelAnimationFrame(replayFrame);replayFrame=requestAnimationFrame(drawBattleReplay);});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&replayState)closeBattleReplay();});
+
 document.querySelectorAll("[data-feed]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-feed]").forEach(x=>x.classList.remove("active"));b.classList.add("active");feedFilter=b.dataset.feed;renderFeed();}));
 let restored=load();if(!restored){state=initialState();addEvent("world","Simulasi dimulai","30 negara memulai era baru. Pemerintahan, ekonomi, dan diplomasi berjalan secara otomatis.","🌍");}
 tidyPanels();render();timer=setInterval(tick,speed);window.addEventListener("beforeunload",()=>save(true));
