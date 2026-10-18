@@ -196,7 +196,11 @@ function initialState(){
  const countries=baseCountries.map((x,i)=>({id:x[0],name:x[1],flag:x[2],region:x[3],power:x[4],economy:x[5],army:x[6],population:x[7],color:x[8],alive:true,capital:x[1].split(" ")[0],morale:65+Math.floor(Math.random()*26),stability:65+Math.floor(Math.random()*25),territory:2,owned:[],wins:0,losses:0,allies:[],enemies:[],relations:{},troops:Math.round(x[6]*8500+20000),tanks:Math.round(x[6]*115+120),aircraft:Math.round(x[6]*72+35),ships:Math.round(x[6]*5+8),artillery:Math.round(x[6]*145+100),missiles:Math.round(x[6]*22+10),budget:Math.round(x[5]*8),battleLosses:0}));
  countries.forEach(c=>{c.owned=[c.id+"-A",c.id+"-B"];});
  const regions=[];
- countries.forEach((c,i)=>{regions.push({id:c.id+"-A",name:c.name+" — pusat",origin:c.id,owner:c.id,kind:"Pusat"});regions.push({id:c.id+"-B",name:regionName(c,i),origin:c.id,owner:c.id,kind:"Provinsi"});});
+ countries.forEach((c,i)=>{
+  const names=["Pusat pemerintahan","Kawasan industri","Dataran utara","Koridor dagang","Provinsi timur","Provinsi barat","Wilayah pesisir","Dataran tinggi"];
+  for(let j=0;j<6;j++)regions.push({id:c.id+"-"+String.fromCharCode(65+j),name:c.name+" — "+names[j],origin:c.id,owner:c.id,kind:j===0?"Pusat":"Provinsi",garrison:null});
+  c.owned=regions.filter(r=>r.owner===c.id).map(r=>r.id);
+ });
  const personalities=["Ekspansionis","Pasifis","Kapitalis","Militeris","Strategis","Hegemon"],ideologies=["Demokrasi","Republik","Teknokrasi","Monarki","Sosialisme","Nasionalisme"];
  countries.forEach(c=>{c.personality=personalities[Math.floor(Math.random()*6)];c.resources={oil:20+Math.floor(Math.random()*80),coal:20+Math.floor(Math.random()*80),iron:20+Math.floor(Math.random()*80),food:30+Math.floor(Math.random()*90),uranium:5+Math.floor(Math.random()*35)};c.government=["Demokratis","Koalisi","Otoriter","Teknokratis"][Math.floor(Math.random()*4)];c.popularity=45+Math.floor(Math.random()*45);c.corruption=10+Math.floor(Math.random()*40);c.ideology=ideologies[Math.floor(Math.random()*6)];c.infrastructure=35+Math.floor(Math.random()*45);c.education=30+Math.floor(Math.random()*55);c.research=20+Math.floor(Math.random()*50);c.energy=35+Math.floor(Math.random()*55);c.health=40+Math.floor(Math.random()*50);c.espionage=10+Math.floor(Math.random()*40);c.goals=[];c.sanctionedBy=[];c.embargoes=[];});
  countries.forEach(c=>{c.industry=Math.round(c.economy*.7);countries.forEach(o=>{if(c.id!==o.id)c.relations[o.id]=Math.floor(Math.random()*41)-10;});});
@@ -210,7 +214,7 @@ function isAtWar(a,b){return state.wars.some(w=>w.active&&((w.a===a&&w.b===b)||(
 function neighbors(id){return adjacency[id]||[]}
 function addEvent(type,title,desc,icon){state.seq++;state.events.unshift({id:state.seq,day:state.day,type,title,desc,icon:icon||"🌐"});if(state.events.length>150)state.events.length=150;state.lastEvent=title;}
 function save(silent){try{localStorage.setItem("worldwar_save_v1",JSON.stringify(state));if(!silent)toast("Progres dunia berhasil disimpan 💾");}catch(e){if(!silent)toast("Penyimpanan gagal di browser ini");}}
-function load(){try{const raw=localStorage.getItem("worldwar_save_v1");if(raw){const s=JSON.parse(raw);if(s&&s.countries&&s.regions&&s.countries.length===30){state=s;if(!state.battles)state.battles=[];state.countries.forEach(c=>{const b=baseCountries.find(x=>x[0]===c.id);if(!b)return;if(c.troops==null)c.troops=Math.round(b[6]*8500+20000);if(c.industry==null)c.industry=Math.round(c.economy*.7);if(c.tanks==null)c.tanks=Math.round(b[6]*115+120);if(c.aircraft==null)c.aircraft=Math.round(b[6]*72+35);if(c.ships==null)c.ships=Math.round(b[6]*5+8);if(c.artillery==null)c.artillery=Math.round(b[6]*145+100);if(c.missiles==null)c.missiles=Math.round(b[6]*22+10);if(c.budget==null)c.budget=Math.round(c.economy*8);else if(c.budget>1000)c.budget=Math.round(c.budget/12);if(c.battleLosses==null)c.battleLosses=0;if(!c.personality)c.personality=["Ekspansionis","Pasifis","Kapitalis","Militeris","Strategis","Hegemon"][Math.floor(Math.random()*6)];if(!c.resources)c.resources={oil:50,coal:45,iron:50,food:60,uranium:15};if(c.popularity==null)c.popularity=50;if(c.corruption==null)c.corruption=25;if(!c.government)c.government="Demokratis";if(!c.ideology)c.ideology="Republik";["infrastructure","education","research","energy","health","espionage"].forEach(k=>{if(c[k]==null)c[k]=40;});if(!c.goals)c.goals=[];if(!c.sanctionedBy)c.sanctionedBy=[];if(!c.embargoes)c.embargoes=[];});if(!state.market)state.market={oil:50,coal:35,iron:30,food:20,uranium:85};if(!state.council)state.council={members:[],resolutions:[],sanctions:[],aid:[]};if(!state.stats)state.stats={tradeDeals:0,politicalCrises:0,espionageOps:0,developmentProjects:0};if(!state.victory)state.victory={leader:null,announced:false};return true;}}}catch(e){}return false;}
+function load(){try{const raw=localStorage.getItem("worldwar_save_v1");if(raw){const s=JSON.parse(raw);if(s&&s.countries&&s.regions&&s.countries.length===30){state=s;if(!state.battles)state.battles=[];if(state.regions)state.regions.forEach(r=>{if(!r.garrison)r.garrison=null;});state.countries.forEach(c=>{const b=baseCountries.find(x=>x[0]===c.id);if(!b)return;if(c.troops==null)c.troops=Math.round(b[6]*8500+20000);if(c.industry==null)c.industry=Math.round(c.economy*.7);if(c.tanks==null)c.tanks=Math.round(b[6]*115+120);if(c.aircraft==null)c.aircraft=Math.round(b[6]*72+35);if(c.ships==null)c.ships=Math.round(b[6]*5+8);if(c.artillery==null)c.artillery=Math.round(b[6]*145+100);if(c.missiles==null)c.missiles=Math.round(b[6]*22+10);if(c.budget==null)c.budget=Math.round(c.economy*8);else if(c.budget>1000)c.budget=Math.round(c.budget/12);if(c.battleLosses==null)c.battleLosses=0;if(!c.personality)c.personality=["Ekspansionis","Pasifis","Kapitalis","Militeris","Strategis","Hegemon"][Math.floor(Math.random()*6)];if(!c.resources)c.resources={oil:50,coal:45,iron:50,food:60,uranium:15};if(c.popularity==null)c.popularity=50;if(c.corruption==null)c.corruption=25;if(!c.government)c.government="Demokratis";if(!c.ideology)c.ideology="Republik";["infrastructure","education","research","energy","health","espionage"].forEach(k=>{if(c[k]==null)c[k]=40;});if(!c.goals)c.goals=[];if(!c.sanctionedBy)c.sanctionedBy=[];if(!c.embargoes)c.embargoes=[];});if(!state.market)state.market={oil:50,coal:35,iron:30,food:20,uranium:85};if(!state.council)state.council={members:[],resolutions:[],sanctions:[],aid:[]};if(!state.stats)state.stats={tradeDeals:0,politicalCrises:0,espionageOps:0,developmentProjects:0};if(!state.victory)state.victory={leader:null,announced:false};return true;}}}catch(e){}return false;}
 function toast(msg){const t=$("toast");t.textContent=msg;t.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display="none",2300);}
 function rand(arr){return arr[Math.floor(Math.random()*arr.length)]}
 function living(){return state.countries.filter(c=>c.alive)}
@@ -241,31 +245,31 @@ function chooseWar(){
 function resolveWars(){
  state.wars.filter(w=>w.active).forEach(w=>{
   const a=getC(w.a),b=getC(w.b);if(!a||!b||!a.alive||!b.alive){w.active=false;return;}
-  w.battles++;
-  const scoreA=a.army*(.6+Math.random()*.8)+a.morale*.22+a.economy*.1;
-  const scoreB=b.army*(.6+Math.random()*.8)+b.morale*.22+b.economy*.1;
-  const winner=scoreA>scoreB?a:b,loser=winner===a?b:a;
-  const troopsA=Math.max(1000,Math.round(a.troops*(.035+Math.random()*.045))),troopsB=Math.max(1000,Math.round(b.troops*(.035+Math.random()*.045)));
-  const tankLossA=Math.min(a.tanks,Math.round(a.tanks*(.018+Math.random()*.035))),tankLossB=Math.min(b.tanks,Math.round(b.tanks*(.018+Math.random()*.035)));
-  const aircraftLossA=Math.min(a.aircraft,Math.round(a.aircraft*(.012+Math.random()*.025))),aircraftLossB=Math.min(b.aircraft,Math.round(b.aircraft*(.012+Math.random()*.025)));
-  const shipLossA=Math.min(a.ships,Math.random()<.25?1:0),shipLossB=Math.min(b.ships,Math.random()<.25?1:0);
-  a.troops=Math.max(0,a.troops-troopsA);b.troops=Math.max(0,b.troops-troopsB);a.tanks=Math.max(0,a.tanks-tankLossA);b.tanks=Math.max(0,b.tanks-tankLossB);a.aircraft=Math.max(0,a.aircraft-aircraftLossA);b.aircraft=Math.max(0,b.aircraft-aircraftLossB);a.ships=Math.max(0,a.ships-shipLossA);b.ships=Math.max(0,b.ships-shipLossB);a.artillery=Math.max(0,a.artillery-Math.round(a.artillery*.01));b.artillery=Math.max(0,b.artillery-Math.round(b.artillery*.01));a.battleLosses+=troopsA;b.battleLosses+=troopsB;
-  const report={day:state.day,a:a.id,b:b.id,winner:winner.id,loser:loser.id,scoreA:Math.round(scoreA),scoreB:Math.round(scoreB),troopsA,troopsB,tankLossA,tankLossB,aircraftLossA,aircraftLossB,shipLossA,shipLossB,region:null};state.battles.unshift(report);if(state.battles.length>80)state.battles.length=80;
-  addEvent("battle","Hasil pertempuran: "+winner.name+" unggul","Skor tempur "+a.name+" "+Math.round(scoreA)+" — "+b.name+" "+Math.round(scoreB)+". Kehilangan personel: "+a.name+" "+troopsA.toLocaleString("id-ID")+", "+b.name+" "+troopsB.toLocaleString("id-ID")+".","💥");
-  winner.army=clamp(winner.army+1,5,100);loser.army=clamp(loser.army-(4+Math.random()*5),5,100);
-  winner.morale=clamp(winner.morale+2,10,100);loser.morale=clamp(loser.morale-5,5,100);
-  winner.wins++;loser.losses++;
-  if(Math.random()<.58){
-   const provinces=state.regions.filter(r=>r.owner===loser.id);
-   if(provinces.length>1){const captured=rand(provinces.filter(r=>r.kind!=="Pusat").length?provinces.filter(r=>r.kind!=="Pusat"):provinces);captured.owner=winner.id;winner.owned.push(captured.id);loser.owned=loser.owned.filter(id=>id!==captured.id);if(state.battles[0])state.battles[0].region=captured.name;addEvent("war",winner.name+" merebut wilayah",""+winner.name+" menguasai "+captured.name+" dari "+loser.name+".","🗺️");}
-  }
-  a.economy=clamp(a.economy-.5,10,100);b.economy=clamp(b.economy-.5,10,100);
-  if(w.battles>=3+Math.floor(Math.random()*4)||loser.morale<14||Math.random()<.035){
-   w.active=false;winner.relations[loser.id]=-15;loser.relations[winner.id]=-15;
-   winner.economy=clamp(winner.economy+3,10,100);loser.stability=clamp(loser.stability-7,5,100);
-   addEvent("war","Gencatan senjata: "+a.name+" — "+b.name,winner.name+" unggul dalam konflik, tetapi kedua negara membutuhkan waktu untuk pulih.","🕊️");
-   a.enemies=a.enemies.filter(x=>x!==b.id);b.enemies=b.enemies.filter(x=>x!==a.id);
-  }
+  const targets=state.regions.filter(r=>r.owner===b.id);if(!targets.length){w.active=false;return;}
+  const front=targets.filter(r=>r.kind!=="Pusat"),target=rand(front.length?front:targets);
+  const share=.22+Math.random()*.28;
+  const attack={troops:Math.max(500,Math.round(a.troops*share)),tanks:Math.round(a.tanks*share),aircraft:Math.round(a.aircraft*share),ships:Math.round(a.ships*share*.25),artillery:Math.round(a.artillery*share),missiles:Math.round(a.missiles*share)};
+  const n=Math.max(1,targets.length);
+  if(!target.garrison)target.garrison={troops:Math.max(500,Math.round(b.troops/n)),tanks:Math.round(b.tanks/n),aircraft:Math.round(b.aircraft/n),ships:Math.round(b.ships/n),artillery:Math.round(b.artillery/n),missiles:Math.round(b.missiles/n)};
+  const g=target.garrison;
+  const logisticsA=(a.resources?.oil||0)>=8?1.08:.78,logisticsB=(b.resources?.oil||0)>=5?1.05:.8;
+  const scoreA=(attack.troops*.001+attack.tanks*2.2+attack.aircraft*2.5+attack.ships*.8+attack.artillery*1.7+attack.missiles*2.8)*(.65+Math.random()*.7)*(a.morale/70)*logisticsA+(a.research||40)*.12+(a.economy||40)*.08;
+  const scoreB=(g.troops*.001+g.tanks*2.2+g.aircraft*2.5+g.ships*.8+g.artillery*1.7+g.missiles*2.8)*(.7+Math.random()*.55)*(b.morale/70)*logisticsB+(b.research||40)*.12+(b.infrastructure||40)*.18+8;
+  const won=scoreA>scoreB,winner=won?a:b,loser=won?b:a;
+  const lossRateA=(won?.08:.16)+Math.random()*.09,lossRateB=(won?.13:.07)+Math.random()*.08;
+  const troopsA=Math.min(a.troops,Math.max(100,Math.round(attack.troops*lossRateA))),troopsB=Math.min(g.troops,Math.max(100,Math.round(g.troops*lossRateB)));
+  const tankLossA=Math.min(attack.tanks,Math.round(attack.tanks*(.04+Math.random()*.09))),tankLossB=Math.min(g.tanks,Math.round(g.tanks*(.04+Math.random()*.1)));
+  const aircraftLossA=Math.min(attack.aircraft,Math.round(attack.aircraft*(.03+Math.random()*.08))),aircraftLossB=Math.min(g.aircraft,Math.round(g.aircraft*(.03+Math.random()*.1)));
+  const shipLossA=Math.min(attack.ships,Math.random()<.12?1:0),shipLossB=Math.min(g.ships,Math.random()<.12?1:0);
+  a.troops=Math.max(0,a.troops-troopsA);b.troops=Math.max(0,b.troops-troopsB);a.tanks=Math.max(0,a.tanks-tankLossA);b.tanks=Math.max(0,b.tanks-tankLossB);a.aircraft=Math.max(0,a.aircraft-aircraftLossA);b.aircraft=Math.max(0,b.aircraft-aircraftLossB);a.ships=Math.max(0,a.ships-shipLossA);b.ships=Math.max(0,b.ships-shipLossB);
+  a.artillery=Math.max(0,a.artillery-Math.round(attack.artillery*.05));b.artillery=Math.max(0,b.artillery-Math.round(g.artillery*.05));a.missiles=Math.max(0,a.missiles-Math.round(attack.missiles*.06));b.missiles=Math.max(0,b.missiles-Math.round(g.missiles*.06));
+  a.battleLosses=(a.battleLosses||0)+troopsA;b.battleLosses=(b.battleLosses||0)+troopsB;
+  Object.keys(g).forEach(k=>g[k]=Math.max(0,Math.round(g[k]*(1-(k==="troops"?lossRateB:.08)))));
+  if(won){target.owner=a.id;target.capturedDay=state.day;target.garrison={troops:Math.max(100,Math.round(attack.troops-troopsA)),tanks:Math.max(0,attack.tanks-tankLossA),aircraft:Math.max(0,attack.aircraft-aircraftLossA),ships:Math.max(0,attack.ships-shipLossA),artillery:Math.max(0,Math.round(attack.artillery*.8)),missiles:Math.max(0,Math.round(attack.missiles*.8))};a.owned=state.regions.filter(r=>r.owner===a.id).map(r=>r.id);b.owned=state.regions.filter(r=>r.owner===b.id).map(r=>r.id);addEvent("war",a.name+" merebut "+target.name,"Serangan terbatas berhasil. Dikirim: "+fmt(attack.troops)+" personel, "+fmt(attack.tanks)+" tank, "+fmt(attack.aircraft)+" pesawat. Skor serangan "+Math.round(scoreA)+" vs pertahanan "+Math.round(scoreB)+".","🗺️");}
+  else addEvent("battle",b.name+" mempertahankan "+target.name,"Serangan "+a.name+" dipukul mundur. Dikirim: "+fmt(attack.troops)+" personel, "+fmt(attack.tanks)+" tank, "+fmt(attack.aircraft)+" pesawat. Skor serangan "+Math.round(scoreA)+" vs pertahanan "+Math.round(scoreB)+".","🛡️");
+  w.battles++;const report={day:state.day,a:a.id,b:b.id,winner:winner.id,loser:loser.id,scoreA:Math.round(scoreA),scoreB:Math.round(scoreB),troopsA,troopsB,tankLossA,tankLossB,aircraftLossA,aircraftLossB,shipLossA,shipLossB,region:target.name,attackForce:attack,attackerWon:won};state.battles.unshift(report);if(state.battles.length>80)state.battles.length=80;
+  winner.wins++;loser.losses++;winner.morale=clamp(winner.morale+2,5,100);loser.morale=clamp(loser.morale-3,5,100);a.economy=clamp(a.economy-.25,10,100);b.economy=clamp(b.economy-.35,10,100);
+  if(w.battles>=4+Math.floor(Math.random()*4)||loser.morale<14||Math.random()<.025){w.active=false;winner.relations[loser.id]=-15;loser.relations[winner.id]=-15;winner.economy=clamp(winner.economy+2,10,100);loser.stability=clamp(loser.stability-5,5,100);addEvent("war","Gencatan senjata: "+a.name+" — "+b.name,winner.name+" unggul setelah "+w.battles+" pertempuran. Kedua negara membutuhkan waktu untuk pulih.","🕊️");a.enemies=a.enemies.filter(x=>x!==b.id);b.enemies=b.enemies.filter(x=>x!==a.id);}
  });
 }
 function diplomacy(){
