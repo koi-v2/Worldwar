@@ -40,13 +40,35 @@ function frame(){
    x.fillStyle='#c7b3db';x.fillRect(px+7,py+27,8,18);x.fillRect(px+33,py+27,8,18);
    x.fillStyle='#3b2850';x.fillRect(px+13,py+44,9,21);x.fillRect(px+27,py+44,9,21);
  } else {
-   const kx=img.width/1536,ky=img.height/1024;
-   let sx,sy,sw,sh,i;
-   if(p.attack>0){i=Math.min(3,Math.floor((.34-p.attack)/.085));sx=[45,190,335,495][i];sy=510;sw=105;sh=135;}
-   else if(!p.ground){i=Math.floor(p.tick*7)%4;sx=340+i*110;sy=275;sw=90;sh=130;}
-   else if(Math.abs(p.vx)>.1){i=Math.floor(p.tick*10)%6;sx=815+i*110;sy=65;sw=90;sh=135;}
-   else{i=Math.floor(p.tick*4)%4;sx=350+i*110;sy=65;sw=90;sh=135;}
-   drawSprite(sx*kx,sy*ky,sw*kx,sh*ky,p.face<0);
+   // Koordinat frame dipetakan ke panel animasi yang benar pada sprite sheet 1536x1024.
+   // Setiap frame dipotong terpisah agar tidak mengambil garis panel/karakter sebelah.
+   const frames={
+     idle:[
+       [350,58,94,145],[470,58,94,145],[590,58,94,145],[710,58,94,145]
+     ],
+     run:[
+       [825,58,96,150],[945,58,96,150],[1065,58,96,150],
+       [1180,58,96,150],[1295,58,96,150],[1400,58,96,150]
+     ],
+     jump:[
+       [365,270,100,165],[485,255,100,165],[610,250,100,165],[735,275,100,160]
+     ],
+     attack:[
+       [35,505,125,145],[180,505,125,145],[325,505,125,145],[470,505,125,145]
+     ]
+   };
+   let list,idx;
+   if(p.attack>0){
+     list=frames.attack;idx=Math.min(list.length-1,Math.floor((.34-p.attack)/(.34/list.length)));
+   }else if(!p.ground){
+     list=frames.jump;idx=Math.floor(p.tick*7)%list.length;
+   }else if(Math.abs(p.vx)>.1){
+     list=frames.run;idx=Math.floor(p.tick*10)%list.length;
+   }else{
+     list=frames.idle;idx=Math.floor(p.tick*4)%list.length;
+   }
+   const [sx,sy,sw,sh]=list[idx];
+   drawSprite(sx,sy,sw,sh,p.face<0);
  }
  x.fillStyle='#f4d9ff';x.font='13px system-ui';x.fillText('← → bergerak     SPACE lompat     J tebas',20,515);
  requestAnimationFrame(frame)
