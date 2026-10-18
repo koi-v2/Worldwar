@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#101722">
+<title>Grow — Pixel Platformer</title>
+<style>
+:root{color-scheme:dark;--bg:#101722;--panel:#192535;--line:#34465b;--gold:#f3c969;--text:#eef4fb;--muted:#9fb0c4}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#26364b,#101722 65%);color:var(--text);font:14px system-ui,sans-serif;min-height:100vh;display:flex;justify-content:center;padding:14px}
+main{width:min(100%,1000px)}header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}h1{margin:0;font-size:clamp(22px,4vw,32px);letter-spacing:2px}h1 span{color:var(--gold)}.sub{color:var(--muted);font-size:12px;margin-top:3px}
+.panel{background:#172231eF;border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}.hud{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap}.badge{border:1px solid var(--line);border-radius:9px;padding:7px 10px;color:var(--muted);font-size:12px}.badge b{color:var(--gold)}
+.stage{position:relative;overflow:hidden;border:1px solid #40566d;border-radius:13px;background:#111b2a;box-shadow:0 14px 40px #0005}canvas{display:block;width:100%;height:auto;image-rendering:pixelated;touch-action:none}
+.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;background:#0b1224aa;padding:20px}.overlay.hidden{display:none}.card{max-width:420px;background:#172333ed;border:1px solid #51657b;border-radius:14px;padding:22px}.card h2{margin:0 0 8px;color:var(--gold)}.card p{color:#c0cede;line-height:1.6}
+button,.filelabel{background:#24364a;color:var(--text);border:1px solid #4a6078;border-radius:9px;padding:9px 12px;font:inherit;font-weight:650;cursor:pointer}button:hover,.filelabel:hover{border-color:var(--gold)}button.primary{background:var(--gold);color:#1b1a16;border-color:var(--gold)}button:active{transform:scale(.97)}input[type=file]{display:none}input[type=number]{width:70px;background:#0f1926;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:7px}
+.tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.help{color:var(--muted);font-size:12px;line-height:1.6}.help b{color:#e9f1fb}.controls{display:none;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}.controls button{min-height:49px;font-size:18px;touch-action:none;user-select:none}.controls .wide{grid-column:span 2}
+@media(max-width:600px){body{padding:8px}.panel{padding:9px}.controls{display:grid}.help{font-size:11px}.badge{padding:6px 8px}}
+</style>
+</head>
+<body>
+<main>
+<header><div><h1>GROW<span>.HTML</span></h1><div class="sub">PIXEL PLATFORMER • DEMO BUILD</div></div><div class="tools"><button id="restart">↻ Ulangi</button><button id="pause">Ⅱ Jeda</button></div></header>
+<section class="panel hud"><div class="badge">STATE: <b id="state">IDLE</b></div><div class="badge">POSISI: <b id="pos">0, 0</b></div><div class="badge">ANIMASI: <b id="anim">Pixel fallback</b></div></section>
+<section class="stage">
+<canvas id="game" width="960" height="540" aria-label="Game platformer pixel"></canvas>
+<div class="overlay" id="startOverlay"><div class="card"><h2>Pixel Adventure</h2><p>Jelajahi platform, lompat, dan ayunkan pedang. Unggah character sheet untuk mengganti karakter demo dengan spritesheet milikmu.</p><button class="primary" id="start">MULAI GAME</button></div></div>
+<div class="overlay hidden" id="pauseOverlay"><div class="card"><h2>Game Dijeda</h2><p>Tekan lanjut untuk kembali bermain.</p><button class="primary" id="resume">LANJUT</button></div></div>
+</section>
+<section class="panel">
+<div class="tools"><label class="filelabel" for="sheet">＋ Unggah character sheet</label><input id="sheet" type="file" accept="image/*"><label>Lebar frame <input id="fw" type="number" min="8" max="512" value="48"></label><label>Tinggi frame <input id="fh" type="number" min="8" max="512" value="48"></label><button id="apply">Pakai spritesheet</button><button id="clearSheet">Pakai karakter demo</button></div>
+<p class="help">Cara pakai spritesheet: unggah gambar PNG/JPG, isi lebar dan tinggi satu frame dalam piksel, lalu tekan <b>Pakai spritesheet</b>. Frame dibaca berurutan dari kiri ke kanan dan atas ke bawah. Jika sheet berisi banyak baris animasi, pilih baris yang sesuai di pengaturan lanjutan browser console belum diperlukan; saat ini satu baris frame dipakai untuk animasi gerak dasar. Sprite otomatis dipotong berdasarkan ukuran frame.</p>
+</section>
+<section class="panel"><div class="help"><b>Kontrol keyboard</b>: ← / A kiri · → / D kanan · Spasi / ↑ / W lompat · J / X serang · Esc jeda.<br><b>Kontrol HP</b>: gunakan tombol di bawah layar. Sentuh tombol untuk bergerak, lompat, atau menyerang.</div>
+<div class="controls"><button data-hold="left">◀</button><button data-hold="right">▶</button><button data-tap="jump">⬆ Lompat</button><button data-tap="attack">⚔ Serang</button></div></section>
+</main>
+<script>
+(function(){
+'use strict';
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+ctx.imageSmoothingEnabled=false;
+const W=canvas.width,H=canvas.height,GRAVITY=1800;
+const ui={state:document.getElementById('state'),pos:document.getElementById('pos'),anim:document.getElementById('anim'),start:document.getElementById('startOverlay'),pause:document.getElementById('pauseOverlay')};
+const keys={left:false,right:false,jump:false,attack:false};
+let started=false,paused=false,last=0,worldTime=0,attackTime=0,hurtTime=0;
+const floorY=460;
+const player={x:100,y:floorY-58,w:42,h:58,vx:0,vy:0,speed:245,jumpPower:640,face:1,onGround:true,state:'idle',frame:0,frameClock:0,attackHit:false};
+let spriteImage=null,frameW=48,frameH=48,frameCount=1,sheetReady=false;
+const platforms=[{x:0,y:floorY,w:W,h:80},{x:205,y:370,w:145,h:18},{x:425,y:300,w:150,h:18},{x:665,y:365,w:155,h:18},{x:840,y:275,w:95,h:18}];
+const gems=[{x:265,y:335,taken:false},{x:490,y:265,taken:false},{x:720,y:330,taken:false},{x:875,y:240,taken:false}];
+let score=0;
+function reset(){player.x=100;player.y=floorY-player.h;player.vx=0;player.vy=0;player.face=1;player.onGround=true;player.state='idle';player.frame=0;player.frameClock=0;attackTime=0;hurtTime=0;score=0;gems.forEach(g=>g.taken=false);worldTime=0;}
+function setPause(v){paused=v;ui.pause.classList.toggle('hidden',!paused);document.getElementById('pause').textContent=paused?'▶ Lanjut':'Ⅱ Jeda';}
+function start(){started=true;ui.start.classList.add('hidden');setPause(false);last=performance.now();}
+function pressAction(action){if(action==='jump'){if(player.onGround&&started&&!paused){player.vy=-player.jumpPower;player.onGround=false;player.state='jump';}}if(action==='attack'&&started&&!paused&&attackTime<=0){attackTime=.32;player.attackHit=false;}}
+function setKey(e,v){const k=e.key.toLowerCase();if(['arrowleft','arrowright','arrowup',' ','arrowdown'].includes(k))e.preventDefault();if(k==='arrowleft'||k==='a')keys.left=v;if(k==='arrowright'||k==='d')keys.right=v;if(k===' '||k==='arrowup'||k==='w'){if(v&&!e.repeat)pressAction('jump');keys.jump=v;}if(k==='j'||k==='x'){if(v&&!e.repeat)pressAction('attack');keys.attack=v;}if(k==='escape'&&v&&!e.repeat&&started)setPause(!paused);}
+window.addEventListener('keydown',e=>setKey(e,true));window.addEventListener('keyup',e=>setKey(e,false));window.addEventListener('blur',()=>{keys.left=keys.right=keys.jump=keys.attack=false;});
+document.getElementById('start').addEventListener('click',start);
+document.getElementById('restart').addEventListener('click',()=>{reset();start();});
+document.getElementById('pause').addEventListener('click',()=>{if(started)setPause(!paused);});
+document.getElementById('resume').addEventListener('click',()=>setPause(false));
+document.querySelectorAll('[data-hold]').forEach(b=>{const a=b.dataset.hold;const down=e=>{e.preventDefault();keys[a]=true;};const up=e=>{e.preventDefault();keys[a]=false;};b.addEventListener('pointerdown',down);['pointerup','pointercancel','pointerleave'].forEach(n=>b.addEventListener(n,up));});
+document.querySelectorAll('[data-tap]').forEach(b=>b.addEventListener('pointerdown',e=>{e.preventDefault();pressAction(b.dataset.tap);}));
+document.getElementById('sheet').addEventListener('change',e=>{const file=e.target.files&&e.target.files[0];if(!file)return;const url=URL.createObjectURL(file);const img=new Image();img.onload=()=>{spriteImage=img;frameCount=Math.max(1,Math.floor(img.width/frameW));sheetReady=true;ui.anim.textContent='Spritesheet siap';URL.revokeObjectURL(url);};img.onerror=()=>alert('Gambar tidak bisa dibaca. Coba PNG atau JPG.');img.src=url;});
+document.getElementById('apply').addEventListener('click',()=>{frameW=Math.max(8,Number(document.getElementById('fw').value)||48);frameH=Math.max(8,Number(document.getElementById('fh').value)||48);if(!spriteImage){alert('Unggah character sheet terlebih dahulu.');return;}frameCount=Math.max(1,Math.floor(spriteImage.width/frameW));if(Math.floor(spriteImage.height/frameH)<1){alert('Ukuran frame lebih besar daripada gambar.');return;}sheetReady=true;player.frame=0;});
+document.getElementById('clearSheet').addEventListener('click',()=>{spriteImage=null;sheetReady=false;ui.anim.textContent='Pixel fallback';document.getElementById('sheet').value='';});
+function update(dt){
+if(!started||paused)return;worldTime+=dt;if(attackTime>0)attackTime=Math.max(0,attackTime-dt);if(hurtTime>0)hurtTime-=dt;
+const dir=(keys.right?1:0)-(keys.left?1:0);player.vx=dir*player.speed;if(dir)player.face=dir;
+player.x+=player.vx*dt;player.x=Math.max(0,Math.min(W-player.w,player.x));
+const prevBottom=player.y+player.h;player.vy+=GRAVITY*dt;player.y+=player.vy*dt;player.onGround=false;
+for(const p of platforms){if(player.vy>=0&&prevBottom<=p.y+4&&player.y+player.h>=p.y&&player.x+player.w>p.x&&player.x<p.x+p.w){player.y=p.y-player.h;player.vy=0;player.onGround=true;}}
+if(player.y>H+100){player.x=80;player.y=floorY-player.h;player.vy=0;}
+if(attackTime>0)player.state='attack';else if(!player.onGround)player.state=player.vy<0?'jump':'fall';else if(Math.abs(player.vy)<1&&player.state==='fall')player.state='landing';else if(dir)player.state='run';else player.state='idle';
+player.frameClock+=dt;const frameDur=player.state==='run'?.09:player.state==='attack'?.055:.16;if(player.frameClock>=frameDur){player.frameClock=0;player.frame++;}
+if(player.state==='attack'&&!player.attackHit&&attackTime<.22){player.attackHit=true;const ax=player.face>0?player.x+player.w:player.x-38;gems.forEach(g=>{if(!g.taken&&Math.abs((g.x+8)- (ax+19))<45&&Math.abs(g.y-(player.y+player.h/2))<55){g.taken=true;score++;}});}
+gems.forEach(g=>{if(!g.taken&&Math.abs(g.x-(player.x+player.w/2))<25&&Math.abs(g.y-(player.y+player.h/2))<38){g.taken=true;score++;}});
+ui.state.textContent=player.state.toUpperCase();ui.pos.textContent=Math.round(player.x)+', '+Math.round(player.y);ui.anim.textContent=sheetReady?'Frame '+(player.frame%frameCount+1)+' / '+frameCount:'Pixel fallback';}
+function rect(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h));}
+function drawBackground(){
+const sky=ctx.createLinearGradient(0,0,0,H);sky.addColorStop(0,'#172a46');sky.addColorStop(1,'#4b6070');ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+ctx.fillStyle='#d8d9b2';ctx.beginPath();ctx.arc(780,95,34,0,Math.PI*2);ctx.fill();
+for(let i=0;i<30;i++){const x=(i*97+20)%W,y=(i*47+25)%210;rect(x,y,2,2,'#dbe8ec');}
+for(let i=0;i<8;i++){const x=i*145-30;rect(x,280,95,180,'#263c48');rect(x+25,245,55,215,'#304957');rect(x+40,220,22,45,'#304957');}
+rect(0,floorY,W,H-floorY,'#283f36');for(let x=0;x<W;x+=32){rect(x,floorY+8,22,3,'#3d5a42');rect(x+9,floorY+24,12,3,'#1d332d');}
+}
+function drawPlatforms(){platforms.slice(1).forEach(p=>{rect(p.x,p.y,p.w,p.h,'#765d49');rect(p.x,p.y,p.w,5,'#a5b77b');for(let x=p.x+8;x<p.x+p.w;x+=24)rect(x,p.y+8,9,3,'#5c473b');});}
+function drawGem(g){if(g.taken)return;ctx.save();ctx.translate(g.x,g.y);ctx.rotate(Math.PI/4);rect(-7,-7,14,14,'#62f0e2');rect(-4,-4,8,8,'#d7fff5');ctx.restore();}
+function drawFallback(){
+const x=Math.round(player.x),y=Math.round(player.y),f=player.face;ctx.save();if(f<0){ctx.translate(x*2+player.w,0);ctx.scale(-1,1);ctx.translate(-x,0);}
+const bob=player.state==='run'?Math.sin(worldTime*18)*2:0,py=y+bob;
+rect(x+9,py+player.h-5,11,5,'#17212a');rect(x+24,py+player.h-5,11,5,'#17212a');
+rect(x+10,py+23,24,23,'#2c5b8c');rect(x+7,py+26,30,7,'#397bb0');rect(x+12,py+46,8,9,'#25384c');rect(x+25,py+46,8,9,'#25384c');
+rect(x+10,py+5,24,20,'#edbd8e');rect(x+7,py+10,29,10,'#edbd8e');rect(x+8,py+3,28,8,'#583b39');rect(x+8,py+8,5,10,'#583b39');rect(x+29,py+8,7,7,'#583b39');rect(x+26,py+12,3,3,'#182331');rect(x+13,py+12,3,3,'#182331');
+if(player.state==='attack'){rect(x+31,py+27,20,5,'#dce7f4');rect(x+47,py+22,4,14,'#f4d080');rect(x+34,py+24,5,11,'#78513b');}
+else {rect(x+33,py+27,7,15,'#edbd8e');}
+if(player.state==='jump'||player.state==='fall'){rect(x+5,py+47,12,4,'#25384c');rect(x+25,py+44,10,4,'#25384c');}
+ctx.restore();
+}
+function drawSprite(){
+if(!spriteImage||!sheetReady){drawFallback();return;}
+const cols=Math.max(1,Math.floor(spriteImage.width/frameW)),rows=Math.max(1,Math.floor(spriteImage.height/frameH));
+let idx=player.frame%Math.max(1,frameCount);let sx=(idx%cols)*frameW,sy=Math.min(rows-1,Math.floor(idx/cols))*frameH;
+ctx.save();if(player.face<0){ctx.translate(player.x*2+player.w,0);ctx.scale(-1,1);ctx.translate(-player.x,0);}
+const dw=player.w*1.45,dh=player.h*1.45;ctx.drawImage(spriteImage,sx,sy,frameW,frameH,player.x-(dw-player.w)/2,player.y-(dh-player.h),dw,dh);ctx.restore();
+}
+function draw(){
+drawBackground();drawPlatforms();gems.forEach(drawGem);
+ctx.fillStyle='#101923';ctx.font='bold 15px system-ui';ctx.fillText('CRYSTALS  '+score+' / '+gems.length,20,28);
+drawSprite();
+if(player.state==='attack'&&attackTime>0){ctx.strokeStyle='#e7f3ff';ctx.lineWidth=3;ctx.beginPath();const sx=player.face>0?player.x+player.w:player.x;ctx.arc(sx,player.y+player.h/2,36,player.face>0?-0.9:Math.PI-0.9,player.face>0?0.9:Math.PI+0.9);ctx.stroke();}
+}
+function loop(t){const dt=Math.min(.033,(t-last)/1000||0);last=t;update(dt);draw();requestAnimationFrame(loop);}
+reset();requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
