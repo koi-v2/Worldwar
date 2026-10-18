@@ -428,10 +428,13 @@ function economyTick(){
   // Produksi militer membutuhkan anggaran sekaligus bahan mentah.
   if(!c.resources)c.resources={oil:40,coal:40,iron:40,food:60,uranium:10};
   const r=c.resources;
+  r.iron=clamp((Number(r.iron)||0)+.035+(c.industry||40)*.00045,0,150);
+  r.oil=clamp((Number(r.oil)||0)+.012+(c.industry||40)*.00015,0,150);
+  r.uranium=clamp((Number(r.uranium)||0)+.003+(c.industry||40)*.00003,0,150);
   // Logistik harian: armada dan perang memakai bahan bakar, penduduk membutuhkan pangan.
   r.oil=clamp(r.oil-Math.min(r.oil,.025+c.tanks*.000025+c.aircraft*.000035+c.ships*.00012+(atWar?.18:0)),0,150);
-  r.food=clamp(r.food-.12-(c.population>50000000?.05:0),0,150);
-  r.coal=clamp(r.coal-.035-(c.industry||40)*.0007,0,150);
+  r.food=clamp(r.food+.18+(c.industry||40)*.001-(c.population>50000000?.12:.07),0,150);
+  r.coal=clamp(r.coal+.08+(c.industry||40)*.0008-.035-(c.industry||40)*.0007,0,150);
   if(r.coal<8){c.energy=clamp((c.energy||40)-.15,5,100);c.economy=clamp(c.economy-.08,10,100);}
   if(r.food<8){c.stability=clamp(c.stability-.65,5,100);c.economy=clamp(c.economy-.2,10,100);}
   if(c.budget>=18&&r.food>=2&&Math.random()<.22){const n=Math.max(1,Math.round(c.industry/35));const cost=12+n*2;const foodCost=n*.35;if(c.budget>=cost&&r.food>=foodCost){addProducedUnits(c,"troops",n*180);c.budget-=cost;r.food-=foodCost;}}
@@ -488,40 +491,39 @@ function peacefulDevelopment(){
 function utmostName(c){return c.name;}
 function resourceMarketTick(){if(!state.market)state.market={oil:50,coal:35,iron:30,food:20,uranium:85};Object.keys(state.market).forEach(k=>state.market[k]=clamp(state.market[k]+(Math.random()-.5)*3,5,150));const cs=living();for(let i=0;i<2&&cs.length>1;i++){const a=rand(cs);if(!a)continue;const opts=cs.filter(c=>c.id!==a.id&&!isAtWar(c.id,a.id)&&!(c.embargoes||[]).includes(a.id));const b=rand(opts);if(!b)continue;const res=rand(["oil","coal","iron","food","uranium"]);if((a.resources?.[res]||0)>12&&(b.resources?.[res]||0)<95&&a.budget>2&&(a.personality==="Kapitalis"||b.personality==="Kapitalis"||Math.random()<.78)){a.resources[res]-=3;b.resources[res]+=3;a.budget=Math.max(0,a.budget-1);b.budget+=Math.max(1,Math.round(state.market[res]/20));a.relations[b.id]=clamp((a.relations[b.id]||0)+2,-100,100);b.relations[a.id]=a.relations[b.id];state.stats.tradeDeals++;if(Math.random()<.1)addEvent("economy","Perdagangan sumber daya",a.name+" mengekspor "+res+" kepada "+b.name+" dengan harga pasar "+Math.round(state.market[res])+".","📦");}}}
 
-function tradeNeed(c,res){const stock=(c.resources&&c.resources[res])||0;const thresholds={oil:42,coal:38,iron:32,food:42,uranium:12};let need=thresholds[res]||30;if(res==="oil")need+=Math.min(25,(c.tanks||0)*.0007+(c.aircraft||0)*.001+(c.ships||0)*.01);if(res==="iron")need+=Math.min(15,(c.industry||40)*.08);if(res==="food")need+=Math.min(18,(c.population||0)>50000000?10:0);return stock<need;}
-function tradeSurplus(c,res){const stock=(c.resources&&c.resources[res])||0;const reserve={oil:58,coal:55,iron:48,food:62,uranium:22};return stock>(reserve[res]||50)+((c.industry||40)>70?8:0);}
+function tradeNeed(c,res){const stock=Number(c.resources&&c.resources[res])||0;const thresholds={oil:42,coal:38,iron:32,food:42,uranium:12};let need=thresholds[res]||30;if(res==="oil")need+=Math.min(25,(c.tanks||0)*.0007+(c.aircraft||0)*.001+(c.ships||0)*.01);if(res==="iron")need+=Math.min(15,(c.industry||40)*.08);if(res==="food")need+=Math.min(18,(c.population||0)>50000000?10:0);return stock<need;}
+function tradeSurplus(c,res){const stock=Number(c.resources&&c.resources[res])||0;const reserve={oil:58,coal:55,iron:48,food:62,uranium:22};return stock>(reserve[res]||50)+((c.industry||40)>70?8:0);}
 function tradeAgreementTick(){
  if(!Array.isArray(state.tradeAgreements))state.tradeAgreements=[];
+ const resources=["oil","coal","iron","food","uranium"];
  state.tradeAgreements.forEach(t=>{
-  if(!t||t.status!=="active")return;
+  if(!t||t.status==="ended")return;
   const a=getC(t.exporter),b=getC(t.importer);
   if(!a||!b||!a.alive||!b.alive){t.status="ended";t.reason="Pemerintahan tumbang";return;}
-  if(isAtWar(a.id,b.id)||(a.embargoes||[]).includes(b.id)||(b.embargoes||[]).includes(a.id)){t.status="suspended";t.reason=isAtWar(a.id,b.id)?"Perang":"Embargo";addEvent("economy","Perdagangan ditangguhkan",a.name+" dan "+b.name+" menghentikan kontrak "+t.resource+" karena "+t.reason.toLowerCase()+".","⛔");return;}
-  t.status="active";t.reason="";
+  if(!resources.includes(t.resource)){t.status="ended";t.reason="Sumber daya tidak valid";return;}
+  t.dailyAmount=clamp(Math.floor(Number(t.dailyAmount)||1),1,10);
+  t.endDay=Number(t.endDay)||((Number(t.startDay)||state.day)+(Number(t.duration)||30));
+  t.daysLeft=Math.max(0,t.endDay-state.day);
+  if(state.day>=t.endDay){t.status="ended";t.reason="Masa kontrak selesai";addEvent("economy","Perjanjian dagang selesai",a.name+" dan "+b.name+" menyelesaikan kontrak "+t.resource+".","🤝");return;}
+  const reason=isAtWar(a.id,b.id)?"Perang":((a.embargoes||[]).includes(b.id)||(b.embargoes||[]).includes(a.id))?"Embargo":"";
+  if(reason){if(t.status!=="suspended"||t.reason!==reason)addEvent("economy","Perdagangan ditangguhkan",a.name+" dan "+b.name+" menghentikan kontrak "+t.resource+" karena "+reason.toLowerCase()+".","⛔");t.status="suspended";t.reason=reason;return;}
+  const oldStatus=t.status;t.status="active";t.reason="";
   const reserve={oil:25,coal:25,iron:20,food:25,uranium:8};
-  const qty=Math.min(t.dailyAmount,Math.max(0,Math.floor((a.resources?.[t.resource]||0)-reserve[t.resource])),Math.max(0,150-(b.resources?.[t.resource]||0)));
-  if(qty<=0){t.status="suspended";t.reason="Stok tidak cukup";addEvent("economy","Pengiriman dagang ditangguhkan",a.name+" tidak dapat memenuhi kontrak "+t.resource+" kepada "+b.name+" karena stok tidak mencukupi.","📦");return;}
-  const price=Math.max(1,Math.round((state.market?.[t.resource]||30)/20*qty));
-  a.resources[t.resource]=Math.max(0,(a.resources[t.resource]||0)-qty);b.resources[t.resource]=Math.min(150,(b.resources[t.resource]||0)+qty);
-  b.budget=Math.max(0,(b.budget||0)-price);a.budget=(a.budget||0)+price;
-  t.delivered=(t.delivered||0)+qty;t.paid=(t.paid||0)+price;t.daysLeft=Math.max(0,t.endDay-state.day);
-  if(state.day%10===0)addEvent("economy","Pengiriman perjanjian dagang",a.name+" mengirim "+qty+" unit "+t.resource+" kepada "+b.name+". Pembayaran "+price+" anggaran diterima eksportir.","🚢");
-  if(state.day>=t.endDay){t.status="ended";addEvent("economy","Perjanjian dagang selesai",a.name+" dan "+b.name+" menyelesaikan kontrak "+t.resource+".","🤝");}
+  const stock=Math.max(0,Number(a.resources&&a.resources[t.resource])||0),room=Math.max(0,150-(Number(b.resources&&b.resources[t.resource])||0));
+  const unitPrice=Math.max(.1,(Number(state.market&&state.market[t.resource])||30)/20);
+  const budget=Math.max(0,Number(b.budget)||0);
+  const qty=Math.min(t.dailyAmount,Math.max(0,Math.floor(stock-reserve[t.resource])),room,Math.floor(budget/unitPrice));
+  if(qty<1){t.status="suspended";t.reason=room<1?"Kapasitas gudang penuh":stock-reserve[t.resource]<1?"Stok eksportir tidak cukup":"Anggaran importir tidak cukup";if(oldStatus!=="suspended"||t._lastReason!==t.reason)addEvent("economy","Pengiriman dagang tertunda",a.name+" → "+b.name+": "+t.reason.toLowerCase()+".","📦");t._lastReason=t.reason;return;}
+  const paid=Math.min(budget,Math.max(1,Math.round(unitPrice*qty))),delivered=Math.min(qty,Math.floor(paid/unitPrice));
+  if(delivered<1){t.status="suspended";t.reason="Anggaran importir tidak cukup";return;}
+  const actualPaid=Math.max(1,Math.round(unitPrice*delivered));
+  a.resources[t.resource]=Math.max(0,stock-delivered);b.resources[t.resource]=Math.min(150,(Number(b.resources&&b.resources[t.resource])||0)+delivered);
+  b.budget=Math.max(0,budget-actualPaid);a.budget=(Number(a.budget)||0)+actualPaid;
+  t.delivered=(Number(t.delivered)||0)+delivered;t.paid=(Number(t.paid)||0)+actualPaid;t.lastDeliveryDay=state.day;t.lastDelivered=delivered;t.lastPayment=actualPaid;t._lastReason="";
+  if(state.day%10===0)addEvent("economy","Pengiriman perjanjian dagang",a.name+" mengirim "+delivered+" unit "+t.resource+" kepada "+b.name+". Pembayaran "+actualPaid+" anggaran diterima eksportir.","🚢");
  });
- state.tradeAgreements=state.tradeAgreements.filter(t=>t&&!(t.status==="ended"&&state.day-(t.endDay||state.day)>3));
- if(Math.random()<.32){
-  const cs=living();const candidates=[];
-  cs.forEach(b=>cs.forEach(a=>{if(a.id===b.id||isAtWar(a.id,b.id)||(a.embargoes||[]).includes(b.id)||(b.embargoes||[]).includes(a.id))return;
-   ["oil","coal","iron","food","uranium"].forEach(res=>{if(!tradeNeed(b,res)||!tradeSurplus(a,res))return;
-    if(state.tradeAgreements.some(t=>t.status==="active"&&t.exporter===a.id&&t.importer===b.id&&t.resource===res))return;
-    const cost=Math.max(1,Math.round((state.market?.[res]||30)/20));if((b.budget||0)<cost)return;
-    candidates.push({a,b,res,score:0});
-   });
-  }));
-  candidates.forEach(x=>x.score=(({oil:42,coal:38,iron:32,food:42,uranium:12}[x.res]||30)-(x.b.resources?.[x.res]||0)+Math.random()*8));
-  candidates.sort((x,y)=>y.score-x.score);const p=candidates[0];
-  if(p){const duration=[30,60,90,120,180][Math.floor(Math.random()*5)],qty=1+Math.floor(Math.random()*3);state.tradeAgreements.push({id:"TRADE-"+state.day+"-"+Math.random().toString(36).slice(2,7),exporter:p.a.id,importer:p.b.id,resource:p.res,dailyAmount:qty,startDay:state.day,endDay:state.day+duration,duration,daysLeft:duration,status:"active",delivered:0,paid:0});state.stats.tradeDeals=(state.stats.tradeDeals||0)+1;addEvent("economy","Perjanjian ekspor "+p.res,p.a.name+" menandatangani kontrak "+duration+" hari untuk mengirim "+p.res+" sebanyak "+qty+" unit per hari kepada "+p.b.name+". Pembayaran mengikuti harga pasar.","📝");}
- }
+ state.tradeAgreements=state.tradeAgreements.filter(t=>t&&!(t.status==="ended"&&state.day-(t.endDay||state.day)>30));
+ if(Math.random()<.32){const cs=living(),candidates=[];cs.forEach(b=>cs.forEach(a=>{if(a.id===b.id||isAtWar(a.id,b.id)||(a.embargoes||[]).includes(b.id)||(b.embargoes||[]).includes(a.id))return;resources.forEach(res=>{if(!tradeNeed(b,res)||!tradeSurplus(a,res))return;if(state.tradeAgreements.some(t=>t.status!=="ended"&&t.exporter===a.id&&t.importer===b.id&&t.resource===res))return;const cost=Math.max(1,Math.round((Number(state.market&&state.market[res])||30)/20));if((Number(b.budget)||0)<cost)return;const base={oil:42,coal:38,iron:32,food:42,uranium:12}[res]||30;candidates.push({a,b,res,score:base-(Number(b.resources&&b.resources[res])||0)+Math.random()*8});});}));candidates.sort((x,y)=>y.score-x.score);const p=candidates[0];if(p){const duration=[30,60,90,120,180][Math.floor(Math.random()*5)],qty=1+Math.floor(Math.random()*3);state.tradeAgreements.push({id:"TRADE-"+state.day+"-"+Math.random().toString(36).slice(2,7),exporter:p.a.id,importer:p.b.id,resource:p.res,dailyAmount:qty,startDay:state.day,endDay:state.day+duration,duration,daysLeft:duration,status:"active",delivered:0,paid:0});state.stats.tradeDeals=(state.stats.tradeDeals||0)+1;addEvent("economy","Perjanjian ekspor "+p.res,p.a.name+" menandatangani kontrak "+duration+" hari untuk mengirim "+p.res+" hingga "+qty+" unit per hari kepada "+p.b.name+". Pengiriman mengikuti stok, kebutuhan, kapasitas, dan anggaran.","📝");}}
 }
 
 function politicsTick(){living().forEach(c=>{if(c.popularity==null)c.popularity=50;if(c.corruption==null)c.corruption=25;c.popularity=clamp(c.popularity+(Math.random()*2-1)+(c.economy>65?.5:-.7)+(c.stability>65?.3:-.4)-(c.corruption>60?.6:0),5,100);c.corruption=clamp(c.corruption+(Math.random()-.48)*1.4,0,100);if(c.popularity<25&&Math.random()<.045){c.stability=clamp(c.stability-5,5,100);c.government=["Koalisi","Teknokratis","Demokratis"][Math.floor(Math.random()*3)];c.popularity=clamp(c.popularity+8,5,100);state.stats.politicalCrises++;addEvent("diplomacy","Krisis politik di "+c.name,"Protes publik memaksa pemerintah melakukan perombakan kabinet dan menjanjikan reformasi.","🏛️");}else if(c.popularity>72&&c.corruption<35&&Math.random()<.025){c.stability=clamp(c.stability+3,5,100);c.corruption=clamp(c.corruption-2,0,100);addEvent("diplomacy","Reformasi antikorupsi","Pemerintah "+c.name+" memperketat pengawasan anggaran dan meningkatkan transparansi.","⚖️");}if(!c.goals||!c.goals.length)c.goals=[c.personality==="Ekspansionis"?"Perluas pengaruh regional":c.personality==="Pasifis"?"Jaga perdamaian dan stabilitas":c.personality==="Kapitalis"?"Dominasi perdagangan":c.personality==="Militeris"?"Modernisasi militer":c.personality==="Hegemon"?"Menjadi kekuatan utama":"Bangun aliansi strategis"];});}
@@ -599,7 +601,7 @@ function renderDetail(){
  box.innerHTML='<div class="country-title"><div class="bigflag">'+c.flag+'</div><div><h3>'+c.name+'</h3><p>'+c.region+' · '+c.id+'</p></div></div>'+
  '<div class="mini-stats"><div class="mini"><span>Kekuatan total</span><b>'+power(c)+'</b></div><div class="mini"><span>Kesiapan militer</span><b>'+Math.round(c.army)+'/100</b></div><div class="mini"><span>Ekonomi</span><b>'+Math.round(c.economy)+'/100</b></div><div class="mini"><span>Wilayah dikuasai</span><b>'+owned.length+'</b></div><div class="mini"><span>Moral nasional</span><b>'+Math.round(c.morale)+'/100</b></div><div class="mini"><span>Stabilitas</span><b>'+Math.round(c.stability)+'/100</b></div></div>'+
  '<h3 style="font-size:12px;margin:12px 0 6px">⛏️ SUMBER DAYA NASIONAL</h3><div class="equipment-grid"><div class="equipment"><span>🛢️ Minyak</span><b>'+fmt(c.resources&&c.resources.oil)+'</b></div><div class="equipment"><span>🪨 Batu bara</span><b>'+fmt(c.resources&&c.resources.coal)+'</b></div><div class="equipment"><span>⛓️ Besi</span><b>'+fmt(c.resources&&c.resources.iron)+'</b></div><div class="equipment"><span>🌾 Pangan</span><b>'+fmt(c.resources&&c.resources.food)+'</b></div><div class="equipment"><span>☢️ Uranium</span><b>'+fmt(c.resources&&c.resources.uranium)+'</b></div></div>'+
- '<h3 style="font-size:12px;margin:12px 0 6px">🪖 INVENTARIS MILITER</h3><div class="equipment-grid"><div class="equipment"><span>Personel aktif</span><b>'+fmt(c.troops)+'</b></div><div class="equipment"><span>🛡️ Tank</span><b>'+fmt(c.tanks)+'</b></div><div class="equipment"><span>✈️ Pesawat militer</span><b>'+fmt(c.aircraft)+'</b></div><div class="equipment"><span>🚢 Kapal perang</span><b>'+fmt(c.ships)+'</b></div><div class="equipment"><span>💥 Artileri</span><b>'+fmt(c.artillery)+'</b></div><div class="equipment"><span>🚀 Sistem rudal</span><b>'+fmt(c.missiles)+'</b></div><div class="equipment"><span>💰 Anggaran pertahanan (indeks)</span><b>'+fmt(c.budget)+'</b></div><div class="equipment"><span>🩹 Kehilangan personel kumulatif</span><b>'+fmt(c.battleLosses)+'</b></div></div>'+
+ '<h3 style="font-size:12px;margin:12px 0 6px">🪖 KONTRAK DAGANG</h3>'+ (state.tradeAgreements||[]).filter(t=>t&&t.status!=="ended"&&(t.exporter===c.id||t.importer===c.id)).slice(0,8).map(t=>{const ex=getC(t.exporter),im=getC(t.importer);return '<div class="equipment" style="margin:5px 0"><span>'+(ex?ex.flag+" "+ex.name:"?")+' → '+(im?im.flag+" "+im.name:"?")+' · '+String(t.resource).toUpperCase()+'</span><b>'+(t.dailyAmount||1)+' unit/hari · '+(t.status==="suspended"?"Tertunda: "+(t.reason||""): "Aktif")+'</b><small style="display:block;color:var(--muted)">Sisa '+Math.max(0,(t.endDay||state.day)-state.day)+' hari · terkirim '+fmt(t.delivered)+' · dibayar '+fmt(t.paid)+'</small></div>';}).join("")||'<p class="detail-desc">Belum ada kontrak dagang aktif.</p>'+'<h3 style="font-size:12px;margin:12px 0 6px">🪖 <div class="equipment-grid"><div class="equipment"><span>Personel aktif</span><b>'+fmt(c.troops)+'</b></div><div class="equipment"><span>🛡️ Tank</span><b>'+fmt(c.tanks)+'</b></div><div class="equipment"><span>✈️ Pesawat militer</span><b>'+fmt(c.aircraft)+'</b></div><div class="equipment"><span>🚢 Kapal perang</span><b>'+fmt(c.ships)+'</b></div><div class="equipment"><span>💥 Artileri</span><b>'+fmt(c.artillery)+'</b></div><div class="equipment"><span>🚀 Sistem rudal</span><b>'+fmt(c.missiles)+'</b></div><div class="equipment"><span>💰 Anggaran pertahanan (indeks)</span><b>'+fmt(c.budget)+'</b></div><div class="equipment"><span>🩹 Kehilangan personel kumulatif</span><b>'+fmt(c.battleLosses)+'</b></div></div>'+
  '<p class="detail-desc">'+(c.alive?"Pemerintah masih aktif. Keputusan militer, ekonomi, dan diplomasi dijalankan otomatis oleh AI simulasi.":"Pemerintahan ini telah kehilangan seluruh wilayahnya.")+'</p>'+
  '<p class="detail-desc"><b>🤝 Sekutu:</b> '+(allies.length?allies.map(x=>x.flag+" "+x.name).join(", "):"Belum ada")+'</p>'+
  '<p class="detail-desc"><b>⚔ Konflik aktif:</b> '+(wars.length?wars.map(x=>x.flag+" "+x.name).join(", "):"Tidak ada")+'</p>'+
