@@ -38,6 +38,16 @@
    <div class="panel-head"><div><div class="eyebrow">Power ranking</div><h2>PERINGKAT KEKUATAN</h2></div><select class="filter" id="rankFilter"><option value="power">Kekuatan total</option><option value="economy">Ekonomi</option><option value="army">Militer</option><option value="territory">Wilayah</option></select></div>
    <div class="table-wrap"><table><thead><tr><th>#</th><th>NEGARA</th><th>KEKUATAN</th><th>EKONOMI</th><th>TENTARA</th><th>WILAYAH</th></tr></thead><tbody id="ranking"></tbody></table></div>
   </section>
+  <section class="panel section">
+   <div class="panel-head"><div><div class="eyebrow">National economy</div><h2>EKONOMI & PRODUKSI MILITER</h2></div><span class="badge">DINAMIS</span></div>
+   <div class="table-wrap"><table><thead><tr><th>NEGARA</th><th>ANGGARAN</th><th>INDUSTRI</th><th>TANK</th><th>PESAWAT</th><th>KAPAL</th><th>RUDAL</th></tr></thead><tbody id="economyTable"></tbody></table></div>
+   <p class="board-note">Angka adalah nilai simulasi, bukan inventaris resmi. Ekonomi dan stabilitas memengaruhi produksi, sedangkan perang menguras anggaran.</p>
+  </section>
+  <section class="panel section">
+   <div class="panel-head"><div><div class="eyebrow">Historical archive</div><h2>ARSIP SEJARAH DUNIA</h2></div><span class="badge" id="historyCount">0 REKOR</span></div>
+   <div class="mini-stats" id="historyStats"></div>
+   <div class="table-wrap"><table><thead><tr><th>HARI</th><th>PERISTIWA</th><th>JENIS</th><th>DETAIL</th></tr></thead><tbody id="historyTable"></tbody></table></div>
+  </section>
  </main>
  <aside class="side">
   <section class="panel"><div class="panel-head"><div><div class="eyebrow">Intel desk</div><h2>PROFIL NEGARA</h2></div><span class="badge" id="profileBadge">PILIH NEGARA</span></div><div id="countryDetail" class="detail-empty">Pilih salah satu negara di papan strategi untuk membuka laporan intelijen.</div></section>
@@ -95,7 +105,7 @@ function initialState(){
  countries.forEach(c=>{c.owned=[c.id+"-A",c.id+"-B"];});
  const regions=[];
  countries.forEach((c,i)=>{regions.push({id:c.id+"-A",name:c.name+" — pusat",origin:c.id,owner:c.id,kind:"Pusat"});regions.push({id:c.id+"-B",name:regionName(c,i),origin:c.id,owner:c.id,kind:"Provinsi"});});
- countries.forEach(c=>countries.forEach(o=>{if(c.id!==o.id)c.relations[o.id]=Math.floor(Math.random()*41)-10;}));
+ countries.forEach(c=>{c.industry=Math.round(c.economy*.7);countries.forEach(o=>{if(c.id!==o.id)c.relations[o.id]=Math.floor(Math.random()*41)-10;});});
  return {day:1,year:1,countries,regions,wars:[],battles:[],events:[],seq:0,alliances:[],lastEvent:"",speed:3000};
 }
 function regionName(c,i){const names=["Dataran Utara","Pesisir Timur","Kawasan Industri","Lembah Tengah","Perbatasan Barat","Pelabuhan Selatan","Dataran Tinggi","Koridor Dagang","Wilayah Timur","Zona Strategis"];return names[i%names.length];}
@@ -106,7 +116,7 @@ function isAtWar(a,b){return state.wars.some(w=>w.active&&((w.a===a&&w.b===b)||(
 function neighbors(id){return adjacency[id]||[]}
 function addEvent(type,title,desc,icon){state.seq++;state.events.unshift({id:state.seq,day:state.day,type,title,desc,icon:icon||"🌐"});if(state.events.length>150)state.events.length=150;state.lastEvent=title;}
 function save(silent){try{localStorage.setItem("worldwar_save_v1",JSON.stringify(state));if(!silent)toast("Progres dunia berhasil disimpan 💾");}catch(e){if(!silent)toast("Penyimpanan gagal di browser ini");}}
-function load(){try{const raw=localStorage.getItem("worldwar_save_v1");if(raw){const s=JSON.parse(raw);if(s&&s.countries&&s.regions&&s.countries.length===30){state=s;if(!state.battles)state.battles=[];state.countries.forEach(c=>{const b=baseCountries.find(x=>x[0]===c.id);if(!b)return;if(c.troops==null)c.troops=Math.round(b[6]*8500+20000);if(c.tanks==null)c.tanks=Math.round(b[6]*115+120);if(c.aircraft==null)c.aircraft=Math.round(b[6]*72+35);if(c.ships==null)c.ships=Math.round(b[6]*5+8);if(c.artillery==null)c.artillery=Math.round(b[6]*145+100);if(c.missiles==null)c.missiles=Math.round(b[6]*22+10);if(c.budget==null)c.budget=Math.round(c.economy*120);if(c.battleLosses==null)c.battleLosses=0;});return true;}}}catch(e){}return false;}
+function load(){try{const raw=localStorage.getItem("worldwar_save_v1");if(raw){const s=JSON.parse(raw);if(s&&s.countries&&s.regions&&s.countries.length===30){state=s;if(!state.battles)state.battles=[];state.countries.forEach(c=>{const b=baseCountries.find(x=>x[0]===c.id);if(!b)return;if(c.troops==null)c.troops=Math.round(b[6]*8500+20000);if(c.industry==null)c.industry=Math.round(c.economy*.7);if(c.tanks==null)c.tanks=Math.round(b[6]*115+120);if(c.aircraft==null)c.aircraft=Math.round(b[6]*72+35);if(c.ships==null)c.ships=Math.round(b[6]*5+8);if(c.artillery==null)c.artillery=Math.round(b[6]*145+100);if(c.missiles==null)c.missiles=Math.round(b[6]*22+10);if(c.budget==null)c.budget=Math.round(c.economy*120);if(c.battleLosses==null)c.battleLosses=0;});return true;}}}catch(e){}return false;}
 function toast(msg){const t=$("toast");t.textContent=msg;t.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display="none",2300);}
 function rand(arr){return arr[Math.floor(Math.random()*arr.length)]}
 function living(){return state.countries.filter(c=>c.alive)}
@@ -153,22 +163,34 @@ function resolveWars(){
 }
 function diplomacy(){
  const cs=living();if(cs.length<2)return;
- for(let i=0;i<4;i++){
-  const a=rand(cs),b=rand(cs.filter(c=>c.id!==a.id));if(!a||!b||isAtWar(a.id,b.id))continue;
+ for(let i=0;i<5;i++){
+  const a=rand(cs),b=rand(cs.filter(c=>c.id!==a.id));if(!a||!b)continue;
   const rel=a.relations[b.id]||0;
-  if(rel>70&&!a.allies.includes(b.id)&&Math.random()<.07){a.allies.push(b.id);b.allies.push(a.id);a.relations[b.id]=b.relations[a.id]=Math.min(100,rel+12);state.alliances.push({a:a.id,b:b.id,day:state.day});addEvent("diplomacy","Pakta persahabatan ditandatangani",a.name+" dan "+b.name+" mempererat hubungan melalui perjanjian kerja sama.","🤝");}
-  else if(a.allies.includes(b.id)&&rel<20&&Math.random()<.08){a.allies=a.allies.filter(x=>x!==b.id);b.allies=b.allies.filter(x=>x!==a.id);addEvent("diplomacy","Aliansi bubar",a.name+" dan "+b.name+" tidak lagi terikat pakta.","🕊️");}
-  else if(Math.random()<.24){const d=Math.random()<.5?1:-1;a.relations[b.id]=clamp(rel+d*(3+Math.random()*5),-100,100);b.relations[a.id]=a.relations[b.id];}
+  if(isAtWar(a.id,b.id)){
+   if(a.allies.includes(b.id)&&Math.random()<.12&&a.budget>8){b.troops+=Math.round(500+Math.random()*1200);a.budget=Math.max(0,a.budget-5);addEvent("diplomacy","Bantuan militer sekutu",a.name+" mengirim bantuan logistik kepada "+b.name+".","🛡️");}
+   continue;
+  }
+  if(rel>62&&!a.allies.includes(b.id)&&Math.random()<.09){a.allies.push(b.id);b.allies.push(a.id);a.relations[b.id]=b.relations[a.id]=Math.min(100,rel+12);state.alliances.push({a:a.id,b:b.id,day:state.day});addEvent("diplomacy","Aliansi baru dibentuk",a.name+" dan "+b.name+" membentuk pakta kerja sama.","🤝");}
+  else if(a.allies.includes(b.id)&&rel<5&&Math.random()<.08){a.allies=a.allies.filter(x=>x!==b.id);b.allies=b.allies.filter(x=>x!==a.id);addEvent("diplomacy","Aliansi bubar",a.name+" dan "+b.name+" tidak lagi terikat pakta.","🕊️");}
+  else if(rel<-45&&Math.random()<.06){if(!a.enemies.includes(b.id))a.enemies.push(b.id);if(!b.enemies.includes(a.id))b.enemies.push(a.id);addEvent("diplomacy","Krisis diplomatik",a.name+" dan "+b.name+" mengalami ketegangan hubungan.","⚠️");}
+  else if(Math.random()<.32){const d=Math.random()<.53?1:-1;a.relations[b.id]=clamp(rel+d*(3+Math.random()*5),-100,100);b.relations[b.id]=a.relations[b.id];}
  }
 }
 function economyTick(){
  living().forEach(c=>{
-  const growth=(Math.random()*2.2-.55)+(c.stability>65?.25:-.4);
-  c.economy=clamp(c.economy+growth-(c.enemies.length?0.5:0),10,100);
+  const atWar=state.wars.some(w=>w.active&&(w.a===c.id||w.b===c.id));
+  const growth=(Math.random()*2.2-.55)+(c.stability>65?.25:-.4)+(ownedCount(c.id)>2?.15:0);
+  c.economy=clamp(c.economy+growth-(atWar?1.1:0),10,100);
   c.stability=clamp(c.stability+(Math.random()*2-1)+(c.morale>50?.2:-.5),8,100);
   c.morale=clamp(c.morale+(Math.random()*3-1.5),5,100);
-  if(Math.random()<.12)c.army=clamp(c.army+(c.economy>55?1.4:.4),8,100);
-  if(Math.random()<.16){c.troops+=Math.round(500+Math.random()*2500);c.budget=Math.max(0,c.budget+Math.round(c.economy*.2));}if(Math.random()<.1)c.tanks+=Math.round(1+Math.random()*4);if(Math.random()<.08)c.aircraft+=Math.round(Math.random()*2);if(Math.random()<.04)c.ships+=Math.random()<.5?1:0;
+  c.industry=clamp(Math.round(c.economy*.55+c.stability*.25+ownedCount(c.id)*2),5,100);
+  c.budget=Math.max(0,(c.budget||0)+Math.round(c.economy*.16+(c.stability>60?2:0)-(atWar?Math.max(3,c.army*.08):1)));
+  if(c.budget>18&&Math.random()<.42){const n=Math.max(1,Math.round(c.industry/28));c.troops+=n*180;c.budget=Math.max(0,c.budget-n*2);}
+  if(c.budget>25&&Math.random()<.3){c.tanks+=Math.max(1,Math.round(c.industry/35));c.budget=Math.max(0,c.budget-3);}
+  if(c.budget>30&&Math.random()<.22){c.aircraft+=Math.max(1,Math.round(c.industry/50));c.budget=Math.max(0,c.budget-4);}
+  if(c.budget>35&&Math.random()<.12){c.ships++;c.budget=Math.max(0,c.budget-5);}
+  if(c.budget>20&&Math.random()<.12)c.artillery+=Math.max(1,Math.round(c.industry/40));
+  if(c.budget>25&&Math.random()<.09)c.missiles+=Math.max(1,Math.round(c.industry/45));
   c.territory=ownedCount(c.id);
   if(c.stability<20&&Math.random()<.08){c.stability=clamp(c.stability+8,0,100);addEvent("economy","Krisis pemerintahan di "+c.name,"Ketidakpuasan publik memaksa pemerintah mengumumkan reformasi darurat.","🏛️");}
  });
@@ -228,12 +250,25 @@ function renderRelations(){
  const active=state.wars.filter(w=>w.active).slice().reverse();
  $("relations").innerHTML=active.length?active.map(w=>{const a=getC(w.a),b=getC(w.b);return '<div class="country-row"><span class="flag">⚔️</span><div><b>'+a.flag+' '+a.name+' vs '+b.flag+' '+b.name+'</b><small>Sejak hari '+w.started+' · '+w.battles+' pertempuran</small></div><span class="badge red">PERANG</span></div>'}).join(""):'<div class="detail-empty">Saat ini tidak ada perang aktif. Diplomasi terus berjalan di belakang layar.</div>';
 }
+function renderEconomy(){
+ const cs=[...state.countries].sort((a,b)=>(b.budget||0)-(a.budget||0));
+ $("economyTable").innerHTML=cs.map(c=>'<tr><td><b>'+c.flag+' '+c.name+'</b></td><td>'+fmt(c.budget)+'</td><td>'+fmt(c.industry||Math.round(c.economy*.7))+'</td><td>'+fmt(c.tanks)+'</td><td>'+fmt(c.aircraft)+'</td><td>'+fmt(c.ships)+'</td><td>'+fmt(c.missiles)+'</td></tr>').join("");
+}
+function renderHistory(){
+ const battles=state.battles||[], wars=state.wars||[], wins={};
+ battles.forEach(b=>wins[b.winner]=(wins[b.winner]||0)+1);
+ const top=Object.entries(wins).sort((a,b)=>b[1]-a[1])[0];
+ const casualties=battles.reduce((n,b)=>n+(b.troopsA||0)+(b.troopsB||0),0);
+ $("historyCount").textContent=(battles.length+state.events.length)+" REKOR";
+ $("historyStats").innerHTML='<div class="mini"><span>Pertempuran tercatat</span><b>'+battles.length+'</b></div><div class="mini"><span>Perang dimulai</span><b>'+wars.length+'</b></div><div class="mini"><span>Perang aktif</span><b>'+wars.filter(w=>w.active).length+'</b></div><div class="mini"><span>Total kehilangan personel</span><b>'+fmt(casualties)+'</b></div><div class="mini"><span>Terbanyak menang tempur</span><b>'+(top&&getC(top[0])?getC(top[0]).flag+' '+getC(top[0]).name:'Belum ada')+'</b></div><div class="mini"><span>Aliansi pernah dibentuk</span><b>'+(state.alliances||[]).length+'</b></div>';
+ $("historyTable").innerHTML=state.events.slice(0,18).map(e=>'<tr><td>'+e.day+'</td><td>'+e.title+'</td><td>'+e.type.toUpperCase()+'</td><td>'+e.desc+'</td></tr>').join("")||'<tr><td colspan="4">Belum ada sejarah tercatat.</td></tr>';
+}
 function render(){
  $("dayStat").textContent=state.day;$("dateLabel").textContent="Tahun "+state.year+" · Hari "+state.day;
  $("countryStat").textContent=living().length;$("warStat").textContent=state.wars.filter(w=>w.active).length;
  $("regionStat").textContent=state.regions.length;$("eventStat").textContent=state.seq;
  $("runStatus").textContent=paused?"SIMULASI DIJEDA":"SIMULASI AKTIF";$("pauseBtn").textContent=paused?"▶ Lanjut":"Ⅱ Jeda";
- renderBoard();renderDetail();renderRanking();renderFeed();renderRelations();renderBattleReports();
+ renderBoard();renderDetail();renderRanking();renderFeed();renderRelations();renderBattleReports();renderEconomy();renderHistory();
 }
 function setPause(v){paused=v;if(timer){clearInterval(timer);timer=null;}if(!paused)timer=setInterval(tick,speed);render();}
 function resetWorld(){state=initialState();selected="USA";paused=false;addEvent("world","Dunia baru dimulai","30 negara memasuki era baru. Semua pemerintahan akan bertindak secara mandiri.","🌍");save(true);setPause(false);render();toast("Dunia baru berhasil dibuat!");}
