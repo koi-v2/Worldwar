@@ -241,6 +241,14 @@ function chooseWar(){
    state.wars.push({id:state.seq+1,a:a.id,b:b.id,started:state.day,active:true,battles:0});
    a.enemies.push(b.id);b.enemies.push(a.id);
    addEvent("war","Perang pecah: "+a.name+" vs "+b.name,"Diplomasi gagal setelah ketegangan panjang. Konflik bersenjata menjadi pilihan terakhir.", "⚔️");
+   // Pakta pertahanan: sekutu pihak yang diserang ikut melawan penyerang.
+   const defenders=(b.allies||[]).map(getC).filter(x=>x&&x.alive&&x.id!==a.id&&!isAtWar(x.id,a.id)&&!(a.allies||[]).includes(x.id));
+   defenders.forEach(x=>{
+    state.wars.push({id:++state.seq,a:x.id,b:a.id,started:state.day,active:true,battles:0,allianceWar:true,forCountry:b.id});
+    if(!x.enemies.includes(a.id))x.enemies.push(a.id);
+    if(!a.enemies.includes(x.id))a.enemies.push(x.id);
+    addEvent("diplomacy","Sekutu turun membela "+b.name,x.name+" mengaktifkan pakta pertahanan dan ikut melawan "+a.name+".","🛡️");
+   });
    return;
   }
  }
@@ -283,7 +291,7 @@ function diplomacy(){
   const a=rand(cs),b=rand(cs.filter(c=>c.id!==a.id));if(!a||!b)continue;
   const rel=a.relations[b.id]||0;
   if(isAtWar(a.id,b.id)){
-   if(a.allies.includes(b.id)&&Math.random()<.12&&a.budget>8){b.troops+=Math.round(500+Math.random()*1200);a.budget=Math.max(0,a.budget-5);addEvent("diplomacy","Bantuan militer sekutu",a.name+" mengirim bantuan logistik kepada "+b.name+".","🛡️");}
+   // Pakta pertahanan diproses saat perang pecah; lawan perang tidak bisa jadi sekutu.
    continue;
   }
   if(rel>62&&!a.allies.includes(b.id)&&Math.random()<.09){a.allies.push(b.id);b.allies.push(a.id);a.relations[b.id]=b.relations[a.id]=Math.min(100,rel+12);state.alliances.push({a:a.id,b:b.id,day:state.day});addEvent("diplomacy","Aliansi baru dibentuk",a.name+" dan "+b.name+" membentuk pakta kerja sama.","🤝");}
