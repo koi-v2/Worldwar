@@ -30,7 +30,18 @@ function frame(){
  x.fillStyle='#2d1b39';for(let i=0;i<8;i++){x.fillRect(i*140-20,335+(i%3)*24,100,125)}
  x.fillStyle='#a45b9e';x.fillRect(0,460,960,80);x.fillStyle='#d78bd1';for(let i=0;i<960;i+=32)x.fillRect(i,460,18,4);
  x.fillStyle='#f4d9ff';x.font='16px system-ui';x.fillText('MOVE  •  JUMP  •  SWORD',20,30);
- if(!ready){x.fillStyle='#f4d9ff';x.font='22px system-ui';x.fillText('Pilih PNG character sheet untuk memulai',230,245);x.font='1 else{
+ if(!ready){
+ x.save(); const px=Math.round(p.x), py=Math.round(p.y);
+ x.fillStyle='#21152f';x.fillRect(px+11,py+3,26,18);
+ x.fillStyle='#eadfef';x.fillRect(px+14,py+8,20,13);
+ x.fillStyle='#d9bfae';x.fillRect(px+15,py+9,18,17);
+ x.fillStyle='#171020';x.fillRect(px+18,py+14,4,4);x.fillRect(px+27,py+14,4,4);
+ x.fillStyle='#8060a0';x.fillRect(px+12,py+26,24,19);
+ x.fillStyle='#c7b3db';x.fillRect(px+7,py+27,8,18);x.fillRect(px+33,py+27,8,18);
+ x.fillStyle='#3b2850';x.fillRect(px+13,py+44,9,21);x.fillRect(px+27,py+44,9,21);
+ x.fillStyle='#f4d9ff';x.font='16px system-ui';x.fillText('Karakter sementara',20,58);
+ x.font='12px system-ui';x.fillText('Pilih PNG manual jika sprite belum dimuat.',20,78);x.restore();
+ } else{
  // Animation panels are separate regions on the Rogue sheet, not a uniform grid.
  const kx=img.width/1536, ky=img.height/1024;
  let panel, count, i, sx, sy, sw, sh;
