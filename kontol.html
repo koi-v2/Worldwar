@@ -31,45 +31,22 @@ function frame(){
  x.fillStyle='#a45b9e';x.fillRect(0,460,960,80);x.fillStyle='#d78bd1';for(let i=0;i<960;i+=32)x.fillRect(i,460,18,4);
  x.fillStyle='#f4d9ff';x.font='16px system-ui';x.fillText('MOVE  •  JUMP  •  SWORD',20,30);
  if(!ready){
- x.save(); const px=Math.round(p.x), py=Math.round(p.y);
- x.fillStyle='#21152f';x.fillRect(px+11,py+3,26,18);
- x.fillStyle='#eadfef';x.fillRect(px+14,py+8,20,13);
- x.fillStyle='#d9bfae';x.fillRect(px+15,py+9,18,17);
- x.fillStyle='#171020';x.fillRect(px+18,py+14,4,4);x.fillRect(px+27,py+14,4,4);
- x.fillStyle='#8060a0';x.fillRect(px+12,py+26,24,19);
- x.fillStyle='#c7b3db';x.fillRect(px+7,py+27,8,18);x.fillRect(px+33,py+27,8,18);
- x.fillStyle='#3b2850';x.fillRect(px+13,py+44,9,21);x.fillRect(px+27,py+44,9,21);
- x.fillStyle='#f4d9ff';x.font='16px system-ui';x.fillText('Karakter sementara',20,58);
- x.font='12px system-ui';x.fillText('Pilih PNG manual jika sprite belum dimuat.',20,78);x.restore();
- } else{
- // Animation panels are separate regions on the Rogue sheet, not a uniform grid.
- const kx=img.width/1536, ky=img.height/1024;
- let panel, count, i, sx, sy, sw, sh;
- if(p.attack>0){
-   // Attack panel: four frames in the third row, left side.
-   panel={x:25,y:475,w:590,h:190}; count=4;
-   i=Math.min(count-1,Math.floor((.34-p.attack)/.085));
- } else if(!p.ground){
-   // Jump panel: four frames in the second row, left/center.
-   panel={x:300,y:245,w:460,h:205}; count=4;
-   i=Math.floor(p.tick*7)%count;
- } else if(Math.abs(p.vx)>.1){
-   // Run/walk panel: six frames across the top-right section.
-   panel={x:800,y:35,w:700,h:200}; count=6;
-   i=Math.floor(p.tick*10)%count;
+   const px=Math.round(p.x),py=Math.round(p.y);
+   x.fillStyle='#21152f';x.fillRect(px+11,py+3,26,18);
+   x.fillStyle='#eadfef';x.fillRect(px+14,py+8,20,13);
+   x.fillStyle='#d9bfae';x.fillRect(px+15,py+9,18,17);
+   x.fillStyle='#171020';x.fillRect(px+18,py+14,4,4);x.fillRect(px+27,py+14,4,4);
+   x.fillStyle='#8060a0';x.fillRect(px+12,py+26,24,19);
+   x.fillStyle='#c7b3db';x.fillRect(px+7,py+27,8,18);x.fillRect(px+33,py+27,8,18);
+   x.fillStyle='#3b2850';x.fillRect(px+13,py+44,9,21);x.fillRect(px+27,py+44,9,21);
  } else {
-   // Idle panel: four frames across the top-middle section.
-   panel={x:315,y:35,w:475,h:200}; count=4;
-   i=Math.floor(p.tick*4)%count;
- }
- sx=(panel.x+i*(panel.w/count)+panel.w/count*.12)*kx;
- sy=(panel.y+panel.h*.08)*ky;
- sw=(panel.w/count*.76)*kx;
- sh=(panel.h*.84)*ky;
- drawSprite(sx,sy,sw,sh,p.face<0);
- }ns.
- const kx=img.width/1536,ky=img.height/1024;
- drawSprite(sx*kx,sy*ky,sw*kx,sh*ky,p.face<0);
+   const kx=img.width/1536,ky=img.height/1024;
+   let sx,sy,sw,sh,i;
+   if(p.attack>0){i=Math.min(3,Math.floor((.34-p.attack)/.085));sx=[45,190,335,495][i];sy=510;sw=105;sh=135;}
+   else if(!p.ground){i=Math.floor(p.tick*7)%4;sx=340+i*110;sy=275;sw=90;sh=130;}
+   else if(Math.abs(p.vx)>.1){i=Math.floor(p.tick*10)%6;sx=815+i*110;sy=65;sw=90;sh=135;}
+   else{i=Math.floor(p.tick*4)%4;sx=350+i*110;sy=65;sw=90;sh=135;}
+   drawSprite(sx*kx,sy*ky,sw*kx,sh*ky,p.face<0);
  }
  x.fillStyle='#f4d9ff';x.font='13px system-ui';x.fillText('← → bergerak     SPACE lompat     J tebas',20,515);
  requestAnimationFrame(frame)
