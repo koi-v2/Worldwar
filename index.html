@@ -268,7 +268,8 @@ function reinforceFronts(){
    return score(x)-score(y);
   });
   const target=pressure[0];if(!target)return;
-  const sources=owned.filter(r=>r.id!==target.id&&(r.garrison.troops||0)>1200).sort((x,y)=>((y.garrison.troops||0)+(y.garrison.tanks||0)*100+(y.garrison.artillery||0)*60)-((x.garrison.troops||0)+(x.garrison.tanks||0)*100+(x.garrison.artillery||0)*60));
+  const regionStrength=r=>{const g=r.garrison||{};return (g.troops||0)+(g.tanks||0)*100+(g.aircraft||0)*90+(g.ships||0)*35+(g.artillery||0)*60+(g.missiles||0)*75;};
+  const sources=owned.filter(r=>r.id!==target.id&&(r.garrison.troops||0)>1200).sort((x,y)=>regionStrength(y)-regionStrength(x));
   const source=sources[0];if(!source)return;
   const moved={};
   ["troops","tanks","aircraft","ships","artillery","missiles"].forEach(k=>{
@@ -309,7 +310,13 @@ function resolveWars(){
    missiles:share*(1+Math.min(.35,((defg.aircraft||0)+(defg.tanks||0))/Math.max(1,(a.aircraft||1)+(a.tanks||1))*.12))
   };
   const attack={};["troops","tanks","aircraft","ships","artillery","missiles"].forEach(k=>{const portion=clamp(weights[k],.12,.68);attack[k]=Math.floor((sg[k]||0)*portion);sg[k]=Math.max(0,(sg[k]||0)-attack[k]);});
-  if(attack.troops<300){sg.troops+=attack.troops;w.battles++;return;}
+  if(attack.troops<300){
+   Object.keys(attack).forEach(k=>sg[k]=(sg[k]||0)+attack[k]);
+   w.battles++;
+   addEvent("battle",a.name+" membatalkan pengerahan","Pasukan yang siap diberangkatkan terlalu sedikit untuk operasi ofensif; seluruh unit kembali ke garnisun "+source.name+".","🪖");
+   if(w.battles>=4){w.active=false;addEvent("war","Gencatan senjata: "+a.name+" — "+b.name,"Konflik dihentikan setelah beberapa kali gagal mengumpulkan pasukan yang layak.","🕊️");a.enemies=a.enemies.filter(x=>x!==b.id);b.enemies=b.enemies.filter(x=>x!==a.id);}
+   return;
+  }
   const n=Math.max(1,targets.length);
   if(!target.garrison){target.garrison={troops:Math.max(500,Math.round(b.troops/n)),tanks:Math.round(b.tanks/n),aircraft:Math.round(b.aircraft/n),ships:Math.round(b.ships/n),artillery:Math.round(b.artillery/n),missiles:Math.round(b.missiles/n)};}
   const g=target.garrison;
