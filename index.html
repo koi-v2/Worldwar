@@ -359,8 +359,14 @@ function resolveWars(){
    return;
   }
   const n=Math.max(1,targets.length);
-  if(!target.garrison){target.garrison={troops:Math.max(500,Math.round(b.troops/n)),tanks:Math.round(b.tanks/n),aircraft:Math.round(b.aircraft/n),ships:Math.round(b.ships/n),artillery:Math.round(b.artillery/n),missiles:Math.round(b.missiles/n)};}
+  if(!target.garrison)target.garrison={troops:0,tanks:0,aircraft:0,ships:0,artillery:0,missiles:0};
   const g=target.garrison;
+  // Save lama mungkin memiliki objek garnisun kosong; isi dari inventaris nasional agar pertahanan tidak bernilai nol.
+  const garrisonKeys=["troops","tanks","aircraft","ships","artillery","missiles"];
+  if(garrisonKeys.every(k=>(Number(g[k])||0)<=0)){
+   garrisonKeys.forEach(k=>{g[k]=Math.max(0,Math.round((b[k]||0)/n));});
+   if((b.troops||0)>0&&g.troops<500)g.troops=Math.min(b.troops,500);
+  }
   const logisticsA=(a.resources?.oil||0)>=8?1.08:.78,logisticsB=(b.resources?.oil||0)>=5?1.05:.8;
   // Pertahanan wilayah punya keuntungan posisi; penyerang tidak otomatis menang.
   const attackBase=attack.troops*.001+attack.tanks*2.2+attack.aircraft*2.5+attack.ships*.8+attack.artillery*1.7+attack.missiles*2.8;
