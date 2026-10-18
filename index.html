@@ -362,10 +362,14 @@ function resolveWars(){
   if(!target.garrison){target.garrison={troops:Math.max(500,Math.round(b.troops/n)),tanks:Math.round(b.tanks/n),aircraft:Math.round(b.aircraft/n),ships:Math.round(b.ships/n),artillery:Math.round(b.artillery/n),missiles:Math.round(b.missiles/n)};}
   const g=target.garrison;
   const logisticsA=(a.resources?.oil||0)>=8?1.08:.78,logisticsB=(b.resources?.oil||0)>=5?1.05:.8;
-  const scoreA=(attack.troops*.001+attack.tanks*2.2+attack.aircraft*2.5+attack.ships*.8+attack.artillery*1.7+attack.missiles*2.8)*(.65+Math.random()*.7)*(a.morale/70)*logisticsA+(a.research||40)*.12+(a.economy||40)*.08;
-  const scoreB=(g.troops*.001+g.tanks*2.2+g.aircraft*2.5+g.ships*.8+g.artillery*1.7+g.missiles*2.8)*(.7+Math.random()*.55)*(b.morale/70)*logisticsB+(b.research||40)*.12+(b.infrastructure||40)*.18+8;
+  // Pertahanan wilayah punya keuntungan posisi; penyerang tidak otomatis menang.
+  const attackBase=attack.troops*.001+attack.tanks*2.2+attack.aircraft*2.5+attack.ships*.8+attack.artillery*1.7+attack.missiles*2.8;
+  const defenseBase=(g.troops||0)*.001+(g.tanks||0)*2.2+(g.aircraft||0)*2.5+(g.ships||0)*.8+(g.artillery||0)*1.7+(g.missiles||0)*2.8;
+  const scoreA=attackBase*(.72+Math.random()*.56)*clamp((a.morale||50)/70,.55,1.25)*logisticsA+(a.research||40)*.08+(a.economy||40)*.05;
+  const defenseBonus=target.kind==="Pusat"?1.28:1.18;
+  const scoreB=defenseBase*defenseBonus*(.78+Math.random()*.52)*clamp((b.morale||50)/70,.55,1.3)*logisticsB+(b.research||40)*.1+(b.infrastructure||40)*.2+12;
   const won=scoreA>scoreB,winner=won?a:b,loser=won?b:a;
-  const lossRateA=(won?.08:.16)+Math.random()*.09,lossRateB=(won?.13:.07)+Math.random()*.08;
+  const lossRateA=(won?.10:.17)+Math.random()*.10,lossRateB=(won?.09:.13)+Math.random()*.09;
   const lost={};["troops","tanks","aircraft","ships","artillery","missiles"].forEach(k=>{const rate=k==="troops"?(won?lossRateA:lossRateB):(.04+Math.random()*.08);lost[k]=Math.min(k==="troops"?attack[k]:attack[k],Math.round(attack[k]*rate));});
   const defLost={};["troops","tanks","aircraft","ships","artillery","missiles"].forEach(k=>{defLost[k]=Math.min(g[k]||0,Math.round((g[k]||0)*(k==="troops"?lossRateB:.04+Math.random()*.08)));g[k]=Math.max(0,(g[k]||0)-defLost[k]);});
   const survivors={};Object.keys(attack).forEach(k=>{survivors[k]=Math.max(0,attack[k]-lost[k]);});
