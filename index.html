@@ -268,7 +268,7 @@ function reinforceFronts(){
    return score(x)-score(y);
   });
   const target=pressure[0];if(!target)return;
-  const sources=owned.filter(r=>r.id!==target.id&&(r.garrison.troops||0)>1200).sort((x,y)=>(y.garrison.troops+x.garrison.tanks*100)-(x.garrison.troops+y.garrison.tanks*100));
+  const sources=owned.filter(r=>r.id!==target.id&&(r.garrison.troops||0)>1200).sort((x,y)=>((y.garrison.troops||0)+(y.garrison.tanks||0)*100+(y.garrison.artillery||0)*60)-((x.garrison.troops||0)+(x.garrison.tanks||0)*100+(x.garrison.artillery||0)*60));
   const source=sources[0];if(!source)return;
   const moved={};
   ["troops","tanks","aircraft","ships","artillery","missiles"].forEach(k=>{
@@ -297,9 +297,18 @@ function resolveWars(){
   const strength=r=>{const g=r.garrison||{};return (g.troops||0)*.001+(g.tanks||0)*2.2+(g.aircraft||0)*2.5+(g.artillery||0)*1.7+(g.missiles||0)*2.8;};
   // Pilih wilayah asal dengan kekuatan terbesar, tetapi sisakan garnisun untuk bertahan.
   sources.sort((x,y)=>strength(y)-strength(x));
-  const source=sources[0],sg=source.garrison;
+  const source=sources[0],sg=source.garrison,defg=target.garrison||{};
   const share=.22+Math.random()*.28;
-  const attack={};["troops","tanks","aircraft","ships","artillery","missiles"].forEach(k=>{attack[k]=Math.floor((sg[k]||0)*share);sg[k]=Math.max(0,(sg[k]||0)-attack[k]);});
+  // AI mengatur komposisi ekspedisi berdasarkan kekuatan pertahanan target.
+  const weights={
+   troops:share,
+   tanks:share,
+   aircraft:share*(1+Math.min(.35,(defg.aircraft||0)/Math.max(1,a.aircraft||1)*.25)),
+   ships:share*(1+Math.min(.25,(defg.ships||0)/Math.max(1,a.ships||1)*.15)),
+   artillery:share*(1+Math.min(.4,(defg.tanks||0)/Math.max(1,a.tanks||1)*.25)),
+   missiles:share*(1+Math.min(.35,((defg.aircraft||0)+(defg.tanks||0))/Math.max(1,(a.aircraft||1)+(a.tanks||1))*.12))
+  };
+  const attack={};["troops","tanks","aircraft","ships","artillery","missiles"].forEach(k=>{const portion=clamp(weights[k],.12,.68);attack[k]=Math.floor((sg[k]||0)*portion);sg[k]=Math.max(0,(sg[k]||0)-attack[k]);});
   if(attack.troops<300){sg.troops+=attack.troops;w.battles++;return;}
   const n=Math.max(1,targets.length);
   if(!target.garrison){target.garrison={troops:Math.max(500,Math.round(b.troops/n)),tanks:Math.round(b.tanks/n),aircraft:Math.round(b.aircraft/n),ships:Math.round(b.ships/n),artillery:Math.round(b.artillery/n),missiles:Math.round(b.missiles/n)};}
@@ -336,6 +345,16 @@ function diplomacy(){
   else if(Math.random()<.32){const d=Math.random()<.53?1:-1;a.relations[b.id]=clamp(rel+d*(3+Math.random()*5),-100,100);b.relations[b.id]=a.relations[b.id];}
  }
 }
+function addProducedUnits(c,key,amount){
+ if(!c||!Number.isFinite(amount)||amount<=0)return;
+ c[key]=(c[key]||0)+amount;
+ const regions=state.regions.filter(r=>r.owner===c.id&&r.garrison);
+ if(!regions.length)return;
+ const capital=regions.find(r=>r.kind==="Pusat");
+ const score=x=>(x.garrison.troops||0)+(x.garrison.tanks||0)*100+(x.garrison.aircraft||0)*90+(x.garrison.artillery||0)*60;
+ const target=capital||regions.reduce((best,x)=>score(x)<score(best)?x:best,regions[0]);
+ target.garrison[key]=(target.garrison[key]||0)+amount;
+}
 function economyTick(){
  living().forEach(c=>{
   const atWar=state.wars.some(w=>w.active&&(w.a===c.id||w.b===c.id));
@@ -355,12 +374,12 @@ function economyTick(){
   r.oil=clamp(r.oil-Math.min(r.oil,.025+c.tanks*.000025+c.aircraft*.000035+c.ships*.00012+(atWar?.18:0)),0,150);
   r.food=clamp(r.food-.12-(c.population>50000000?.05:0),0,150);
   if(r.food<8){c.stability=clamp(c.stability-.65,5,100);c.economy=clamp(c.economy-.2,10,100);}
-  if(c.budget>=18&&r.food>=2&&Math.random()<.22){const n=Math.max(1,Math.round(c.industry/35));const cost=12+n*2;const foodCost=n*.35;if(c.budget>=cost&&r.food>=foodCost){c.troops+=n*180;c.budget-=cost;r.food-=foodCost;}}
-  if(c.budget>=24&&Math.random()<.14){const n=Math.max(1,Math.round(c.industry/40));const cost=10+n*4,iron=n*.8,oil=n*.55;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil){c.tanks+=n;c.budget-=cost;r.iron-=iron;r.oil-=oil;}}
-  if(c.budget>=30&&Math.random()<.10){const n=Math.max(1,Math.round(c.industry/55));const cost=14+n*5,iron=n*.65,oil=n*.8;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil){c.aircraft+=n;c.budget-=cost;r.iron-=iron;r.oil-=oil;}}
-  if(c.budget>=38&&Math.random()<.055){const cost=22,iron=1.8,oil=1.2;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil){c.ships++;c.budget-=cost;r.iron-=iron;r.oil-=oil;}}
-  if(c.budget>=22&&Math.random()<.08){const n=Math.max(1,Math.round(c.industry/45));const cost=9+n*3,iron=n*.5;if(c.budget>=cost&&r.iron>=iron){c.artillery+=n;c.budget-=cost;r.iron-=iron;}}
-  if(c.budget>=28&&Math.random()<.055){const n=Math.max(1,Math.round(c.industry/50));const cost=12+n*4,iron=n*.35,oil=n*.25,uranium=n*.025;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil&&r.uranium>=uranium){c.missiles+=n;c.budget-=cost;r.iron-=iron;r.oil-=oil;r.uranium-=uranium;}}
+  if(c.budget>=18&&r.food>=2&&Math.random()<.22){const n=Math.max(1,Math.round(c.industry/35));const cost=12+n*2;const foodCost=n*.35;if(c.budget>=cost&&r.food>=foodCost){addProducedUnits(c,"troops",n*180);c.budget-=cost;r.food-=foodCost;}}
+  if(c.budget>=24&&Math.random()<.14){const n=Math.max(1,Math.round(c.industry/40));const cost=10+n*4,iron=n*.8,oil=n*.55;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil){addProducedUnits(c,"tanks",n);c.budget-=cost;r.iron-=iron;r.oil-=oil;}}
+  if(c.budget>=30&&Math.random()<.10){const n=Math.max(1,Math.round(c.industry/55));const cost=14+n*5,iron=n*.65,oil=n*.8;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil){addProducedUnits(c,"aircraft",n);c.budget-=cost;r.iron-=iron;r.oil-=oil;}}
+  if(c.budget>=38&&Math.random()<.055){const cost=22,iron=1.8,oil=1.2;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil){addProducedUnits(c,"ships",1);c.budget-=cost;r.iron-=iron;r.oil-=oil;}}
+  if(c.budget>=22&&Math.random()<.08){const n=Math.max(1,Math.round(c.industry/45));const cost=9+n*3,iron=n*.5;if(c.budget>=cost&&r.iron>=iron){addProducedUnits(c,"artillery",n);c.budget-=cost;r.iron-=iron;}}
+  if(c.budget>=28&&Math.random()<.055){const n=Math.max(1,Math.round(c.industry/50));const cost=12+n*4,iron=n*.35,oil=n*.25,uranium=n*.025;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil&&r.uranium>=uranium){addProducedUnits(c,"missiles",n);c.budget-=cost;r.iron-=iron;r.oil-=oil;r.uranium-=uranium;}}
   c.territory=ownedCount(c.id);
   if(c.stability<20&&Math.random()<.08){c.stability=clamp(c.stability+8,0,100);addEvent("economy","Krisis pemerintahan di "+c.name,"Ketidakpuasan publik memaksa pemerintah mengumumkan reformasi darurat.","🏛️");}
  });
