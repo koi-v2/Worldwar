@@ -324,7 +324,7 @@ function resolveWars(){
    return (strength(x)-strategic(x))-(strength(y)-strategic(y));
   });
   const target=pool[0];
-  const sources=state.regions.filter(r=>r.owner===a.id&&r.garrison&&(access.mode==="ground"?(r.garrison.troops||0)>=1600:((r.garrison.aircraft||0)>0||(r.garrison.missiles||0)>0)));
+  const sources=state.regions.filter(r=>r.owner===a.id&&r.garrison&&(access.mode==="ground"?(r.garrison.troops||0)>=1600:access.mode==="air"?(r.garrison.aircraft||0)>0:(r.garrison.missiles||0)>0));
   if(!sources.length){addEvent("battle",a.name+" menunda serangan","Tidak ada garnisun yang cukup kuat untuk menyerang; perang memasuki jeda operasional.","🪖");w.battles++;if(w.battles>=4){w.active=false;addEvent("war","Gencatan senjata: "+a.name+" — "+b.name,"Serangan dihentikan karena pasukan penyerang tidak siap.","🕊️");}return;}
   const strength=r=>{const g=r.garrison||{};return (g.troops||0)*.001+(g.tanks||0)*2.2+(g.aircraft||0)*2.5+(g.artillery||0)*1.7+(g.missiles||0)*2.8;};
   // Pilih wilayah asal dengan kekuatan terbesar, tetapi sisakan garnisun untuk bertahan.
@@ -332,9 +332,10 @@ function resolveWars(){
   const source=sources[0],sg=source.garrison,defg=target.garrison||{};
   if(access.mode!=="ground"){
    const kind=access.mode==="air"?"aircraft":"missiles",available=Math.max(0,sg[access.mode==="air"?"aircraft":"missiles"]||0),deployed=Math.min(Math.max(0,available-Math.max(1,Math.round(available*.35))),Math.max(1,Math.floor(available*(.18+Math.random()*.22))));
-   if(deployed<1){w.battles++;return;}sg[kind]-=deployed;
+   if(deployed<1){w.battles++;return;}
+   const ownLoss=Math.min(deployed,Math.round(deployed*(access.mode==="air"?.035:.015)));sg[kind]-=ownLoss;
    const casualties=Math.min(defg.troops||0,Math.round(deployed*(access.mode==="air"?8:13)*(.6+Math.random()*.8))),destroyed=Math.min(defg[kind]||0,Math.round(deployed*(access.mode==="air"?.035:.06)));
-   defg.troops=Math.max(0,(defg.troops||0)-casualties);defg[kind]=Math.max(0,(defg[kind]||0)-destroyed);b.troops=Math.max(0,(b.troops||0)-casualties);b[kind]=Math.max(0,(b[kind]||0)-destroyed);a[kind]=Math.max(0,(a[kind]||0)-Math.round(deployed*(access.mode==="air"?.035:.015)));
+   defg.troops=Math.max(0,(defg.troops||0)-casualties);defg[kind]=Math.max(0,(defg[kind]||0)-destroyed);b.troops=Math.max(0,(b.troops||0)-casualties);b[kind]=Math.max(0,(b[kind]||0)-destroyed);a[kind]=Math.max(0,(a[kind]||0)-ownLoss);
    state.battles.unshift({day:state.day,a:a.id,b:b.id,winner:a.id,loser:b.id,scoreA:Math.round(deployed*(access.mode==="air"?2.5:2.8)),scoreB:0,troopsA:0,troopsB:casualties,region:target.name,sourceRegion:source.name,attackForce:{[kind]:deployed},attackerWon:true,ranged:true,mode:access.mode});if(state.battles.length>80)state.battles.length=80;
    w.battles++;addEvent("battle",a.name+" menyerang "+b.name+" dari jarak jauh",a.name+" mengerahkan "+fmt(deployed)+" "+(access.mode==="air"?"pesawat":"rudal")+" dari "+source.name+". Sekitar "+fmt(casualties)+" personel lawan terdampak. Serangan ini tidak merebut wilayah; jarak peta "+access.distance+" langkah.","✈️");
    if(w.battles>=7||Math.random()<.035){w.active=false;a.enemies=a.enemies.filter(x=>x!==b.id);b.enemies=b.enemies.filter(x=>x!==a.id);a.relations[b.id]=-15;b.relations[a.id]=-15;addEvent("war","Perjanjian gencatan senjata jarak jauh",a.name+" dan "+b.name+" menghentikan operasi jarak jauh.","🕊️");}return;
@@ -501,11 +502,26 @@ function internationalOrganizationTick(){if(!state.council)state.council={member
 function espionageTick(){const cs=living();if(cs.length<2||Math.random()>=.055)return;const a=rand(cs),b=rand(cs.filter(c=>c.id!==a.id&&!isAtWar(a.id,c.id)));if(!a||!b)return;state.stats.espionageOps++;if(Math.random()<(0.25+(a.espionage||20)/180)){const op=rand(["mengungkap rencana pertahanan","mencuri sebagian riset industri","mengganggu rantai pasok","membocorkan informasi diplomatik"]);if(op.includes("riset")){a.research=clamp((a.research||20)+2,0,100);b.research=clamp((b.research||20)-2,0,100);}else if(op.includes("rantai pasok")){b.economy=clamp(b.economy-2,0,100);b.stability=clamp(b.stability-1,0,100);}else{a.relations[b.id]=clamp((a.relations[b.id]||0)-3,-100,100);b.relations[a.id]=a.relations[b.id];}if(Math.random()<.28)addEvent("diplomacy","Operasi intelijen terungkap","Operasi rahasia "+a.name+" terhadap "+b.name+" terdeteksi, meningkatkan ketegangan.","🕵️");}}
 function goalsTick(){const cs=living();if(!cs.length)return;const score=c=>power(c)*.38+c.economy*.7+c.stability*.25+ownedCount(c.id)*8+(c.research||0)*.2;const leader=cs.slice().sort((a,b)=>score(b)-score(a))[0];if(state.day%365===0)addEvent("world","Evaluasi tujuan nasional",leader.name+" memimpin indeks pengaruh global sementara. Negara lain tetap mengejar jalur pembangunan dan diplomasi.","🏆");if(state.day%365===0&&state.victory&&!state.victory.announced&&score(leader)>115){state.victory.leader=leader.id;state.victory.announced=true;addEvent("world","Kekuatan global terkemuka",leader.name+" mencapai status kekuatan paling berpengaruh berdasarkan gabungan ekonomi, keamanan, pembangunan, dan pengaruh wilayah.","👑");}if(state.day%365===1&&state.victory)state.victory.announced=false;}
 
+function negotiatePeace(){
+ state.wars.filter(w=>w.active&&(w.battles||0)>=2).forEach(w=>{
+  const a=getC(w.a),b=getC(w.b);if(!a||!b||!a.alive||!b.alive)return;
+  const pressure=c=>(100-(c.morale||50))*.55+(c.battleLosses||0)/Math.max(1,c.troops||1)*100+(100-(c.stability||50))*.12;
+  const pa=pressure(a),pb=pressure(b);
+  if(Math.max(pa,pb)<38||Math.random()>.12)return;
+  const winner=pa<pb?a:b,loser=winner===a?b:a;
+  const payment=Math.min(Math.max(0,loser.budget||0),Math.max(2,Math.round((loser.budget||0)*.08)));
+  loser.budget=Math.max(0,(loser.budget||0)-payment);winner.budget=(winner.budget||0)+payment;
+  loser.stability=clamp((loser.stability||50)-2,5,100);
+  winner.relations[loser.id]=Math.max(-25,winner.relations[loser.id]||-15);loser.relations[winner.id]=winner.relations[loser.id];
+  w.active=false;a.enemies=a.enemies.filter(x=>x!==b.id);b.enemies=b.enemies.filter(x=>x!==a.id);
+  addEvent("war","Perundingan damai: "+a.name+" — "+b.name,"Setelah "+w.battles+" pertempuran, kedua pihak menyepakati gencatan senjata. "+loser.name+" membayar "+fmt(payment)+" anggaran sebagai kompensasi; wilayah yang telah direbut tidak berubah.","🕊️");
+ });
+}
 function tick(){
  state.day++;state.year=Math.floor((state.day-1)/365)+1;
  economyTick();resourceMarketTick();politicsTick();developmentTick();internationalOrganizationTick();espionageTick();goalsTick();
  reinforceFronts();
- resolveWars();diplomacy();maybeEvents();peacefulDevelopment();
+ resolveWars();negotiatePeace();diplomacy();maybeEvents();peacefulDevelopment();
  if(Math.random()<.025)chooseWar();
  state.countries.forEach(c=>{c.territory=ownedCount(c.id);if(c.alive&&c.territory===0){c.alive=false;addEvent("war",c.name+" kehilangan seluruh wilayah","Pemerintahan kehilangan kendali atas wilayah terakhirnya dan tidak lagi menjadi kekuatan aktif. Sisa inventaris militernya tidak lagi dihitung sebagai pasukan lapangan.","🏳️");}});
  if(state.day%10===0)addEvent("world","Laporan situasi global","Hari ke-"+state.day+": "+state.wars.filter(w=>w.active).length+" konflik masih aktif di seluruh dunia.","🌐");
