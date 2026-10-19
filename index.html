@@ -301,16 +301,31 @@ function alliedOperationalSupport(country,enemy){
 }
 function updateWarObjective(w,a,b){
  if(!w||!a||!b)return;
- if(!Number.isFinite(w.initialEnemyTerritory))w.initialEnemyTerritory=Math.max(1,ownedCount(b.id));
- if(!Number.isFinite(w.initialEnemyStrength))w.initialEnemyStrength=Math.max(1,(b.army||0)+(b.tanks||0)*90+(b.aircraft||0)*75+(b.artillery||0)*45+(b.missiles||0)*65);
- const captured=Math.max(0,w.initialEnemyTerritory-ownedCount(b.id));
+ // Setiap pihak menyimpan sasaran dan titik awalnya sendiri karena giliran ofensif berganti.
+ if(!w.objectiveMetrics||typeof w.objectiveMetrics!=="object")w.objectiveMetrics={};
+ if(!w.objectiveByCountry||typeof w.objectiveByCountry!=="object")w.objectiveByCountry={};
+ if(!w.objectiveProgressByCountry||typeof w.objectiveProgressByCountry!=="object")w.objectiveProgressByCountry={};
+ if(!w.objectiveAchievedByCountry||typeof w.objectiveAchievedByCountry!=="object")w.objectiveAchievedByCountry={};
+ if(!w.doctrineByCountry||typeof w.doctrineByCountry!=="object")w.doctrineByCountry={};
+ const doctrine=ensureWarDoctrine(a),key=a.id;
+ if(!w.objectiveMetrics[key])w.objectiveMetrics[key]={enemyTerritory:Math.max(1,ownedCount(b.id)),enemyStrength:Math.max(1,(b.army||0)+(b.tanks||0)*90+(b.aircraft||0)*75+(b.artillery||0)*45+(b.missiles||0)*65)};
+ if(!w.objectiveByCountry[key])w.objectiveByCountry[key]=chooseWarObjective(a,b);
+ w.doctrineByCountry[key]=doctrine?.id||"unknown";
+ const initial=w.objectiveMetrics[key],captured=Math.max(0,initial.enemyTerritory-ownedCount(b.id));
  const currentStrength=(b.army||0)+(b.tanks||0)*90+(b.aircraft||0)*75+(b.artillery||0)*45+(b.missiles||0)*65;
- const attrition=clamp(1-currentStrength/w.initialEnemyStrength,0,1);
- const doctrine=ensureWarDoctrine(a);
- const progress=Math.round(doctrine&&(doctrine.id==="longrange"||doctrine.id==="attrition")?attrition*100:Math.max(captured/Math.max(1,w.initialEnemyTerritory)*100,attrition*70));
- const old=Math.max(0,Number(w.objectiveProgress)||0);w.objectiveProgress=clamp(progress,0,100);
- if(w.objectiveProgress>=100&&!w.objectiveAchieved){w.objectiveAchieved=true;w.objectiveAchievedDay=state.day;addEvent("war","Tujuan operasi tercapai: "+a.name,w.objective+" terhadap "+b.name+" dinilai tercapai setelah tekanan militer dan hasil operasi mencapai ambang sasaran.","🎯");}
- else if(w.objectiveProgress>=50&&old<50)addEvent("war","Kemajuan strategi: "+a.name,"Operasi melawan "+b.name+" mencapai sekitar "+w.objectiveProgress+"% dari sasaran strategis: "+w.objective+".","🧠");
+ const attrition=clamp(1-currentStrength/Math.max(1,initial.enemyStrength),0,1);
+ const progress=Math.round(doctrine&&(doctrine.id==="longrange"||doctrine.id==="attrition")?attrition*100:Math.max(captured/Math.max(1,initial.enemyTerritory)*100,attrition*70));
+ const old=Math.max(0,Number(w.objectiveProgressByCountry[key])||0);
+ w.objectiveProgressByCountry[key]=clamp(progress,0,100);
+ w.objectiveProgress=w.objectiveProgressByCountry[key];
+ w.objective=w.objectiveByCountry[key];
+ w.doctrine=w.doctrineByCountry[key];
+ if(w.objectiveProgress>=100&&!w.objectiveAchievedByCountry[key]){
+  w.objectiveAchievedByCountry[key]=true;
+  addEvent("war","Tujuan operasi tercapai: "+a.name,w.objective+" terhadap "+b.name+" dinilai tercapai setelah tekanan militer dan hasil operasi mencapai ambang sasaran.","🎯");
+ }else if(w.objectiveProgress>=50&&old<50){
+  addEvent("war","Kemajuan strategi: "+a.name,"Operasi melawan "+b.name+" mencapai sekitar "+w.objectiveProgress+"% dari sasaran strategis: "+w.objective+".","🧠");
+ }
 }
 function adaptWarPlan(w,a,b,access){
  const d=ensureWarDoctrine(a);if(!d)return;
