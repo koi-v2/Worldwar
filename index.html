@@ -140,9 +140,9 @@ th,td{padding:9px 10px}
    <p class="board-note">Grafik merangkum ekonomi rata-rata, perang aktif, dan wilayah yang dikuasai. Garis memakai skala masing-masing agar perubahan tetap terlihat. Data disimpan bersama simulasi.</p>
   </section>
   <section class="panel section">
-   <div class="panel-head"><div><div class="eyebrow">National economy</div><h2>EKONOMI & PRODUKSI MILITER</h2></div><span class="badge">DINAMIS</span></div>
-   <div class="table-wrap"><table><thead><tr><th>NEGARA</th><th>ANGGARAN</th><th>INDUSTRI</th><th>TANK</th><th>PESAWAT</th><th>KAPAL</th><th>RUDAL</th></tr></thead><tbody id="economyTable"></tbody></table></div>
-   <p class="board-note">Angka adalah nilai simulasi, bukan inventaris resmi. Ekonomi dan stabilitas memengaruhi produksi, sedangkan perang menguras anggaran.</p>
+   <div class="panel-head"><div><div class="eyebrow">National economy</div><h2>EKONOMI, POPULASI & PRODUKSI</h2></div><span class="badge">DINAMIS</span></div>
+   <div class="table-wrap"><table><thead><tr><th>NEGARA</th><th>PENDUDUK</th><th>EKONOMI</th><th>PENGANGGURAN</th><th>INFLASI</th><th>ANGGARAN</th><th>UTANG</th><th>INDUSTRI</th></tr></thead><tbody id="economyTable"></tbody></table></div>
+   <p class="board-note">Populasi, lapangan kerja, inflasi, utang, layanan publik, dan produksi saling memengaruhi. Data negara asing dirahasiakan jika intelijen belum memiliki laporan valid.</p>
   </section>
   <section class="panel section"><div class="panel-head"><div><div class="eyebrow">National systems</div><h2>SISTEM NASIONAL & DUNIA</h2></div><span class="badge">AI SIMULATION</span></div><div id="systemsPanel"></div></section>
   <section class="panel section">
@@ -203,7 +203,8 @@ const $=id=>document.getElementById(id);
 let state,selected="USA",paused=false,timer=null,feedFilter="all",speed=3000;
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 function initialState(){
- const countries=baseCountries.map((x,i)=>({id:x[0],name:x[1],flag:x[2],region:x[3],power:x[4],economy:x[5],army:x[6],population:x[7],color:x[8],alive:true,capital:x[1].split(" ")[0],morale:65+Math.floor(Math.random()*26),stability:65+Math.floor(Math.random()*25),territory:2,owned:[],wins:0,losses:0,allies:[],enemies:[],relations:{},troops:Math.round(x[6]*8500+20000),tanks:Math.round(x[6]*115+120),aircraft:Math.round(x[6]*72+35),ships:Math.round(x[6]*5+8),artillery:Math.round(x[6]*145+100),missiles:Math.round(x[6]*22+10),budget:Math.round(x[5]*8),battleLosses:0}));
+ const populationById={USA:340000000,CHN:1410000000,RUS:144000000,IND:1450000000,IDN:282000000,JPN:123000000,KOR:52000000,PRK:26000000,GBR:69000000,FRA:68000000,DEU:84000000,POL:37000000,UKR:37000000,ESP:49000000,NLD:18000000,ITA:59000000,TUR:87000000,SAU:35000000,ISR:10000000,IRN:92000000,PAK:255000000,BRA:212000000,MEX:130000000,CAN:41000000,AUS:27000000,EGY:116000000,ZAF:64000000,VNM:101000000,THA:72000000,PHL:117000000};
+ const countries=baseCountries.map((x,i)=>({id:x[0],name:x[1],flag:x[2],region:x[3],power:x[4],economy:x[5],army:x[6],population:populationById[x[0]]||50000000,color:x[8],alive:true,capital:x[1].split(" ")[0],morale:65+Math.floor(Math.random()*26),stability:65+Math.floor(Math.random()*25),territory:2,owned:[],wins:0,losses:0,allies:[],enemies:[],relations:{},troops:Math.round(x[6]*8500+20000),tanks:Math.round(x[6]*115+120),aircraft:Math.round(x[6]*72+35),ships:Math.round(x[6]*5+8),artillery:Math.round(x[6]*145+100),missiles:Math.round(x[6]*22+10),budget:Math.round(x[5]*8),battleLosses:0}));
  countries.forEach(c=>{c.owned=[c.id+"-A",c.id+"-B"];});
  const regions=[];
  countries.forEach((c,i)=>{
@@ -809,6 +810,9 @@ function militaryProductionChance(c,key,base){
 }
 function economyTick(){
  living().forEach(c=>{
+  const populationById={USA:340000000,CHN:1410000000,RUS:144000000,IND:1450000000,IDN:282000000,JPN:123000000,KOR:52000000,PRK:26000000,GBR:69000000,FRA:68000000,DEU:84000000,POL:37000000,UKR:37000000,ESP:49000000,NLD:18000000,ITA:59000000,TUR:87000000,SAU:35000000,ISR:10000000,IRN:92000000,PAK:255000000,BRA:212000000,MEX:130000000,CAN:41000000,AUS:27000000,EGY:116000000,ZAF:64000000,VNM:101000000,THA:72000000,PHL:117000000};
+  if(!Number.isFinite(c.population)||c.population<1000)c.population=populationById[c.id]||50000000;
+  if(!Number.isFinite(c.inflation))c.inflation=2.5;if(!Number.isFinite(c.debt))c.debt=0;if(!Number.isFinite(c.recessionDays))c.recessionDays=0;if(!Number.isFinite(c.educationBudget))c.educationBudget=8;if(!Number.isFinite(c.healthBudget))c.healthBudget=8;
   const atWar=state.wars.some(w=>w.active&&(w.a===c.id||w.b===c.id));
   const economicProfile=strategicPersonality(c);
   if(!Number.isFinite(c.unemployment))c.unemployment=clamp(42-(c.industry||40)*.22,4,55);
@@ -821,9 +825,11 @@ function economyTick(){
   const jobDrag=Math.max(0,c.unemployment-25)*.012;
   const tradeLift=clamp(Number(c.tradeBalance)||0,-12,12)*.012;
   const cycle=Number(c.economicTrend)||0;
-  const randomGrowth=Math.random()*1.05-.28;
-  const growth=(randomGrowth+productivity+tradeLift+cycle*.035+((c.stability>65)?.18:c.stability<35?-.32:-.05)+(ownedCount(c.id)>2?.12:0)-corruptionDrag-jobDrag)*(c.personality==="Kapitalis"?1.14:c.personality==="Pasifis"||c.personality==="Diplomatis"?1.05:1);
-  c.economy=clamp(c.economy+growth-(atWar?.42:0),10,100);
+  const randomGrowth=Math.random()*.72-.12,recessionDrag=c.recessionDays>0?.22:0;
+  const growth=(randomGrowth+productivity+tradeLift+cycle*.035+((c.stability>65)?.18:c.stability<35?-.32:-.05)+(ownedCount(c.id)>2?.12:0)-corruptionDrag-jobDrag-recessionDrag)*(c.personality==="Kapitalis"?1.14:c.personality==="Pasifis"||c.personality==="Diplomatis"?1.05:1);
+  c.economy=clamp(c.economy+growth-(atWar?.42:0),5,100);
+  if(c.economy<27&&c.unemployment>22)c.recessionDays=Math.min(180,c.recessionDays+1);else c.recessionDays=Math.max(0,c.recessionDays-1);
+  if(c.recessionDays===15)addEvent("economy","Resesi mulai terasa di "+c.name,"Aktivitas ekonomi melemah dan pengangguran meningkat. Pemerintah perlu memulihkan produksi, pekerjaan, serta daya beli.","📉");
   // Pasar kerja merespons industri, investasi, dan guncangan ekonomi secara bertahap.
   c.unemployment=clamp(c.unemployment+((c.industry||40)>55?-.12:.04)+(c.economy>70?-.1:c.economy<30?.18:0)+(atWar?.12:0)+(c.stability<30?.08:0),3,65);
   c.economicTrend=clamp(c.economicTrend+(c.economy>72?.06:c.economy<30?-.08:0)+(atWar?-.06:.01),-10,10);
@@ -840,7 +846,12 @@ function economyTick(){
   const portBonus=ownedRegions.filter(r=>/pesisir|pelabuhan/i.test(r.name||"")).length*.16;
   const taxEfficiency=clamp(1-(Number(c.corruption??25)/180),.35,1);
   const taxBurden=clamp(1-Math.abs(Number(c.taxRate||18)-18)*.012,.72,1);
-  const income=Math.max(1,Math.round((c.economy*.068+(c.stability>60?1.2:.2)+(c.infrastructure||35)*.012+industryBonus+portBonus+Math.max(0,c.population||0)/50000000*.35)*taxEfficiency*taxBurden));
+  const populationScale=Math.sqrt(Math.max(1,c.population||50000000)/100000000);
+  const income=Math.max(1,Math.round((c.economy*.045+(c.stability>60?1.2:.2)+(c.infrastructure||35)*.012+industryBonus+portBonus+populationScale*.9)*taxEfficiency*taxBurden));
+  const educationSpend=Math.min(Math.max(0,c.budget||0),Math.max(.05,income*(Number(c.educationBudget||8)/100)));
+  const healthSpend=Math.min(Math.max(0,(c.budget||0)-educationSpend),Math.max(.05,income*(Number(c.healthBudget||8)/100)));
+  c.education=clamp((c.education||40)+(educationSpend/(1+populationScale))*.018+(c.education>70?-.008:0),0,100);
+  c.health=clamp((c.health||40)+(healthSpend/(1+populationScale))*.02+(c.health>75?-.006:0),0,100);
   // Anggaran kuat mendorong investasi sipil; negara yang boros perang lebih sulit membiayai pertumbuhan.
   if(c.budget>55&&!atWar&&Math.random()<.06){
    const investment=Math.min(5,Math.floor(c.budget*.04));
@@ -848,7 +859,10 @@ function economyTick(){
   }
   const supply=((c.resources?.oil??40)<8||(c.resources?.food??60)<8||(c.resources?.iron??40)<5)?1.18:1;
   const upkeep=atWar?Math.max(4,Math.round((2+c.army*.055+c.tanks*.018+c.aircraft*.025+c.ships*.12)*supply)):Math.max(1,Math.round((1+c.army*.012)*supply));
-  c.budget=Math.max(0,(c.budget||0)+income-upkeep);
+  const balance=income-upkeep-educationSpend-healthSpend;
+  c.budget=Math.max(0,(c.budget||0)+balance);
+  if(balance<0)c.debt=Math.max(0,(c.debt||0)+Math.abs(balance));else if(c.debt>0){const interest=Math.min(c.debt,Math.max(.02,c.debt*.0008));c.debt-=interest;c.budget=Math.max(0,c.budget-interest);}
+  if(c.debt>Math.max(100,c.economy*2)){c.economicTrend=clamp(c.economicTrend-.025,-10,10);c.popularity=clamp((c.popularity||50)-.025,0,100);}
   // Produksi militer membutuhkan anggaran sekaligus bahan mentah.
   if(!c.resources)c.resources={oil:40,coal:40,iron:40,food:60,uranium:10};
   const r=c.resources;
@@ -857,7 +871,13 @@ function economyTick(){
   r.uranium=clamp((Number(r.uranium)||0)+.003+(c.industry||40)*.00003,0,150);
   // Logistik harian: armada dan perang memakai bahan bakar, penduduk membutuhkan pangan.
   r.oil=clamp(r.oil-Math.min(r.oil,.012+c.tanks*.000006+c.aircraft*.000009+c.ships*.000035+(atWar?.035:0)),0,150);
-  r.food=clamp(r.food+.18+(c.industry||40)*.001-(c.population>50000000?.12:.07),0,150);
+  const popScale=Math.max(.1,(c.population||50000000)/100000000),foodProduction=.18+(c.industry||40)*.001+(c.health>65?.025:0)+(c.infrastructure>65?.025:0),foodDemand=.06+Math.min(.42,popScale*.055);
+  r.food=clamp(r.food+foodProduction-foodDemand,0,150);
+  const foodStress=r.food<12?.85:r.food<25?.32:r.food>85?-.12:0,energyStress=(r.oil<8||r.coal<8)?.28:0,demandPressure=(c.economy>78&&c.unemployment<10)?.08:0;
+  c.inflation=clamp(c.inflation+foodStress+energyStress+demandPressure+(atWar?.08:0)-(r.food>45?.035:0)-(c.recessionDays>0?.06:0)+(Math.random()-.52)*.12,.2,35);
+  if(c.inflation>12&&Math.random()<.12)addEvent("economy","Inflasi tinggi di "+c.name,"Harga barang naik cepat karena tekanan pasokan dan permintaan. Daya beli serta stabilitas nasional berisiko melemah.","💸");
+  if(c.inflation>8){c.popularity=clamp((c.popularity||50)-.08,0,100);c.stability=clamp(c.stability-.04,5,100);}
+  if(r.food<10){c.stability=clamp(c.stability-.12,5,100);c.popularity=clamp((c.popularity||50)-.15,0,100);}
   r.coal=clamp(r.coal+.08+(c.industry||40)*.0008-.035-(c.industry||40)*.0007,0,150);
   if(r.coal<8){c.energy=clamp((c.energy||40)-.15,5,100);c.economy=clamp(c.economy-.08,10,100);}
   if(r.food<8){c.stability=clamp(c.stability-.65,5,100);c.economy=clamp(c.economy-.2,10,100);}
@@ -1248,11 +1268,21 @@ function updateMilitaryReadiness(){
   c.army=clamp((Number(c.army)||50)+change,5,100);
  });
 }
+function demographyTick(){
+ const populationById={USA:340000000,CHN:1410000000,RUS:144000000,IND:1450000000,IDN:282000000,JPN:123000000,KOR:52000000,PRK:26000000,GBR:69000000,FRA:68000000,DEU:84000000,POL:37000000,UKR:37000000,ESP:49000000,NLD:18000000,ITA:59000000,TUR:87000000,SAU:35000000,ISR:10000000,IRN:92000000,PAK:255000000,BRA:212000000,MEX:130000000,CAN:41000000,AUS:27000000,EGY:116000000,ZAF:64000000,VNM:101000000,THA:72000000,PHL:117000000};
+ living().forEach(c=>{
+  if(!Number.isFinite(c.population)||c.population<1000)c.population=populationById[c.id]||50000000;
+  const atWar=state.wars.some(w=>w.active&&(w.a===c.id||w.b===c.id)),food=Number(c.resources?.food)||0,health=Number(c.health)||40,stability=Number(c.stability)||40;
+  const rate=.000018+(health-50)*.00000018+(stability-50)*.00000012+(c.education>65?.000003:0)-(c.inflation>12?.000008:0)-(food<10?.000025:food<25?.00001:0)-(atWar?.000025:0);
+  const change=Math.round(c.population*clamp(rate,-.00008,.00009));c.population=Math.max(100000,Math.round(c.population+change));c.populationGrowth=change;
+  if(food<7&&Math.random()<.035)addEvent("economy","Krisis kebutuhan dasar di "+c.name,"Pasokan pangan tidak mencukupi kebutuhan penduduk. Pemerintah harus memperbaiki produksi atau mencari pemasok melalui perdagangan.","🌾");
+ });
+}
 function tick(){
  state.day++;state.year=Math.floor((state.day-1)/365)+1;
  if(!Array.isArray(state.trends))state.trends=[];
  if(state.day%10===0){const cs=living();state.trends.push({day:state.day,year:state.year,averageEconomy:cs.length?cs.reduce((n,c)=>n+(c.economy||0),0)/cs.length:0,activeWars:state.wars.filter(w=>w.active).length,activeCountries:cs.length,territories:state.regions.filter(r=>r.owner).length});if(state.trends.length>60)state.trends.shift();}
- economyTick();resourceMarketTick();tradeAgreementTick();politicsTick();developmentTick();internationalOrganizationTick();espionageTick();goalsTick();updateMilitaryReadiness();
+economyTick();demographyTick();resourceMarketTick();tradeAgreementTick();politicsTick();developmentTick();internationalOrganizationTick();espionageTick();goalsTick();updateMilitaryReadiness();
  reinforceFronts();
  resolveWars();negotiatePeace();diplomacy();maybeEvents();peacefulDevelopment();
  if(Math.random()<.025)chooseWar();
@@ -1381,12 +1411,9 @@ function renderRelations(){
  $("relations").innerHTML=active.length?active.map(w=>{const a=getC(w.a),b=getC(w.b);return '<div class="country-row"><span class="flag">⚔️</span><div><b>'+a.flag+' '+a.name+' vs '+b.flag+' '+b.name+'</b><small>Sejak hari '+w.started+' · '+w.battles+' pertempuran</small></div><span class="badge red">PERANG</span></div>'}).join(""):'<div class="detail-empty">Saat ini tidak ada perang aktif. Diplomasi terus berjalan di belakang layar.</div>';
 }
 function renderEconomy(){
- const cs=[...state.countries].sort((a,b)=>ownedCount(b.id)-ownedCount(a.id)),observer=getC(selected);
- $("economyTable").innerHTML=cs.map(c=>{
-  const intel=observer&&observer.intelMemory&&observer.intelMemory[c.id],age=intel?Math.max(0,state.day-intel.day):9999,valid=c.id===selected||(intel&&age<=45),snap=valid&&intel?intel.snapshot:null;
-  const val=(key,own)=>c.id===selected?fmt(own):snap&&snap[key]!=null?"Estimasi "+fmt(snap[key]):"Belum diketahui";
-  return '<tr><td><b>'+c.flag+' '+c.name+'</b></td><td>'+(c.id===selected?fmt(c.budget):"Dirahasiakan")+'</td><td>'+val("industry",c.industry||Math.round(c.economy*.7))+'</td><td>'+val("tanks",c.tanks)+'</td><td>'+val("aircraft",c.aircraft)+'</td><td>'+(c.id===selected?fmt(c.ships):"Belum diketahui")+'</td><td>'+val("missiles",c.missiles)+'</td></tr>';
- }).join("");
+ const cs=[...state.countries].sort((a,b)=>ownedCount(b.id)-ownedCount(a.id));
+ const shortPop=n=>{n=Number(n)||0;if(n>=1e9)return (n/1e9).toFixed(2).replace(/0+$/,"").replace(/\\.$/,"")+" miliar";if(n>=1e6)return (n/1e6).toFixed(1).replace(/\\.0$/,"")+" jt";return fmt(n);};
+ $("economyTable").innerHTML=cs.map(c=>{const own=c.id===selected;return '<tr><td><b>'+c.flag+' '+c.name+'</b></td><td>'+(own?shortPop(c.population):"Dirahasiakan")+'</td><td>'+(own?Math.round(c.economy):"Dirahasiakan")+'</td><td>'+(own?Math.round(c.unemployment||0)+"%":"Belum diketahui")+'</td><td>'+(own?Number(c.inflation||0).toFixed(1)+"%":"Belum diketahui")+'</td><td>'+(own?fmt(c.budget):"Dirahasiakan")+'</td><td>'+(own?fmt(Math.round(c.debt||0)):"Dirahasiakan")+'</td><td>'+(own?Math.round(c.industry||0):"Belum diketahui")+'</td></tr>';}).join("");
 }
 function renderHistory(){
  const battles=state.battles||[], wars=state.wars||[], wins={};
