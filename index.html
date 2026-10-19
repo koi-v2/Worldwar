@@ -1234,7 +1234,7 @@ function renderDetail(){
  '<p class="detail-desc"><b>📜 Rekor perang:</b> '+fmt(c.wins)+' kemenangan · '+fmt(c.losses)+' kekalahan</p>';
 }
 function renderRanking(){
- const key=$("rankFilter").value;const sorted=[...state.countries].sort((a,b)=>((key==="power"?power(b):key==="economy"?b.economy:key==="army"?b.army:ownedCount(b.id))- (key==="power"?power(a):key==="economy"?a.economy:key==="army"?a.army:ownedCount(a.id))));
+ const key=$("rankFilter").value;const sorted=[...state.countries].sort((a,b)=>ownedCount(b.id)-ownedCount(a.id));
  const observer=getC(selected);
  $("ranking").innerHTML=sorted.map((c,i)=>{
   const intel=observer&&observer.intelMemory&&observer.intelMemory[c.id],age=intel?Math.max(0,state.day-intel.day):9999;
@@ -1301,11 +1301,11 @@ function renderRelations(){
  $("relations").innerHTML=active.length?active.map(w=>{const a=getC(w.a),b=getC(w.b);return '<div class="country-row"><span class="flag">⚔️</span><div><b>'+a.flag+' '+a.name+' vs '+b.flag+' '+b.name+'</b><small>Sejak hari '+w.started+' · '+w.battles+' pertempuran</small></div><span class="badge red">PERANG</span></div>'}).join(""):'<div class="detail-empty">Saat ini tidak ada perang aktif. Diplomasi terus berjalan di belakang layar.</div>';
 }
 function renderEconomy(){
- const cs=[...state.countries].sort((a,b)=>(b.budget||0)-(a.budget||0)),observer=getC(selected);
+ const cs=[...state.countries].sort((a,b)=>ownedCount(b.id)-ownedCount(a.id)),observer=getC(selected);
  $("economyTable").innerHTML=cs.map(c=>{
   const intel=observer&&observer.intelMemory&&observer.intelMemory[c.id],age=intel?Math.max(0,state.day-intel.day):9999,valid=c.id===selected||(intel&&age<=45),snap=valid&&intel?intel.snapshot:null;
   const val=(key,own)=>c.id===selected?fmt(own):snap&&snap[key]!=null?"Estimasi "+fmt(snap[key]):"Belum diketahui";
-  return '<tr><td><b>'+c.flag+' '+c.name+'</b></td><td>'+val("economy",c.budget)+'</td><td>'+val("industry",c.industry||Math.round(c.economy*.7))+'</td><td>'+val("tanks",c.tanks)+'</td><td>'+val("aircraft",c.aircraft)+'</td><td>'+(c.id===selected?fmt(c.ships):"Belum diketahui")+'</td><td>'+val("missiles",c.missiles)+'</td></tr>';
+  return '<tr><td><b>'+c.flag+' '+c.name+'</b></td><td>'+(c.id===selected?fmt(c.budget):"Dirahasiakan")+'</td><td>'+val("industry",c.industry||Math.round(c.economy*.7))+'</td><td>'+val("tanks",c.tanks)+'</td><td>'+val("aircraft",c.aircraft)+'</td><td>'+(c.id===selected?fmt(c.ships):"Belum diketahui")+'</td><td>'+val("missiles",c.missiles)+'</td></tr>';
  }).join("");
 }
 function renderHistory(){
