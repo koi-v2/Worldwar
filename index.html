@@ -455,14 +455,16 @@ function resolveWars(){
     ownLoss.missiles=Math.min(deployed,Math.round(deployed*(.008+Math.random()*.02)));
     sg.missiles=Math.max(0,sg.missiles-ownLoss.missiles);a.missiles=Math.max(0,a.missiles-ownLoss.missiles);
    }
-   Object.keys(casualties).forEach(k=>{defg[k]=Math.max(0,(defg[k]||0)-casualties[k]);b[k]=Math.max(0,(b[k]||0)-casualties[k]);});
+   // Hitung pertahanan dari aset yang masih tersedia sebelum kerugian pertempuran diterapkan.
+   // Kerugian diterapkan satu kali setelah hasil serangan diketahui.
    // Pertahanan target dapat menggagalkan serangan jarak jauh.
    const defenseScore=access.mode==="air"
-     ?(defg.aircraft||0)*1.7+(defg.artillery||0)*.65+(defg.ships||0)*.45+(defg.tanks||0)*.08
-     :(defg.missiles||0)*.8+(defg.artillery||0)*.22+(defg.aircraft||0)*.12;
+     ?(defg.aircraft||0)*1.7+(defg.artillery||0)*.65+(defg.ships||0)*.45+(defg.tanks||0)*.08+(defg.troops||0)*.00035
+     :(defg.missiles||0)*.8+(defg.artillery||0)*.22+(defg.aircraft||0)*.12+(defg.troops||0)*.0003+(defg.tanks||0)*.12;
    const attackScore=deployed*(access.mode==="air"?2.5:2.8);
-   const defenseRatio=defenseScore/Math.max(1,attackScore);
-   const attackerWon=Math.random()<Math.max(.12,Math.min(.88,.72-defenseRatio*.42+(a.morale-b.morale)*.0015));
+   const balance=(attackScore-defenseScore)/Math.max(1,attackScore+defenseScore);
+   const attackerChance=clamp(.5+balance*.34+(Number(a.morale||50)-Number(b.morale||50))*.002, .15, .85);
+   const attackerWon=Math.random()<attackerChance;
    if(!attackerWon){
      Object.keys(casualties).forEach(k=>{casualties[k]=Math.floor(casualties[k]*.35);});
      if(access.mode==="air"){
