@@ -660,7 +660,8 @@ function addProducedUnits(c,key,amount){
 function economyTick(){
  living().forEach(c=>{
   const atWar=state.wars.some(w=>w.active&&(w.a===c.id||w.b===c.id));
-  const growth=(Math.random()*1.5-.35)+(c.stability>65?.2:-.35)+(ownedCount(c.id)>2?.12:0);
+  const economicProfile=strategicPersonality(c);
+  const growth=((Math.random()*1.5-.35)+(c.stability>65?.2:-.35)+(ownedCount(c.id)>2?.12:0))*(c.personality==="Kapitalis"?1.12:c.personality==="Pasifis"||c.personality==="Diplomatis"?1.04:1);
   c.economy=clamp(c.economy+growth-(atWar?.45:0),10,100);
   c.stability=clamp(c.stability+(Math.random()*2-1)+(c.morale>50?.2:-.5),8,100);
   c.morale=clamp(c.morale+(Math.random()*3-1.5),5,100);
@@ -749,7 +750,8 @@ function resourceMarketTick(){
   const a=rand(sellers);if(!a)continue;
   const resources=["oil","coal","iron","food","uranium"].filter(res=>tradeNeed(b,res)&&tradeSurplus(a,res));
   const res=rand(resources);if(!res)continue;
-  const unitPrice=Math.max(.1,(Number(state.market[res])||30)/20);
+  const profileA=strategicPersonality(a),profileB=strategicPersonality(b);
+  const unitPrice=Math.max(.1,((Number(state.market[res])||30)/20)*(profileA.trade>1.2?1.04:profileA.trade<.9?.96:1)*(profileB.trade>1.2?.96:1));
   const qty=Math.min(3,Math.floor(((Number(a.resources[res])||0)-({oil:58,coal:55,iron:48,food:62,uranium:22}[res]||50))),Math.floor(150-(Number(b.resources[res])||0)),Math.floor((Number(b.budget)||0)/unitPrice));
   if(qty<1)continue;
   const payment=Math.max(1,Math.round(qty*unitPrice));
@@ -799,19 +801,29 @@ function tradeAgreementTick(){
 
 function politicsTick(){living().forEach(c=>{if(c.popularity==null)c.popularity=50;if(c.corruption==null)c.corruption=25;c.popularity=clamp(c.popularity+(Math.random()*2-1)+(c.economy>65?.5:-.7)+(c.stability>65?.3:-.4)-(c.corruption>60?.6:0),5,100);c.corruption=clamp(c.corruption+(Math.random()-.48)*1.4,0,100);if(c.popularity<25&&Math.random()<.045){c.stability=clamp(c.stability-5,5,100);c.government=["Koalisi","Teknokratis","Demokratis"][Math.floor(Math.random()*3)];c.popularity=clamp(c.popularity+8,5,100);state.stats.politicalCrises++;addEvent("diplomacy","Krisis politik di "+c.name,"Protes publik memaksa pemerintah melakukan perombakan kabinet dan menjanjikan reformasi.","🏛️");}else if(c.popularity>72&&c.corruption<35&&Math.random()<.025){c.stability=clamp(c.stability+3,5,100);c.corruption=clamp(c.corruption-2,0,100);addEvent("diplomacy","Reformasi antikorupsi","Pemerintah "+c.name+" memperketat pengawasan anggaran dan meningkatkan transparansi.","⚖️");}if(c.popularity<18&&c.stability<28&&Math.random()<.018){const old=c.government||"Pemerintahan";c.government=rand(["Koalisi darurat","Teknokratis","Militer transisi","Pemerintahan reformis"]);c.stability=clamp(c.stability+5,5,100);c.popularity=clamp(c.popularity+10,5,100);c.relations=Object.fromEntries(Object.entries(c.relations||{}).map(([id,v])=>[id,clamp(v+(Math.random()<.5?-8:4),-100,100)]));addEvent("diplomacy","Pergantian pemerintahan di "+c.name,old+" digantikan oleh "+c.government+" setelah krisis domestik. Kebijakan luar negeri dapat berubah.","🏛️");}
  if(!c.goals||!c.goals.length)c.goals=[c.personality==="Ekspansionis"?"Perluas pengaruh regional":c.personality==="Pasifis"?"Jaga perdamaian dan stabilitas":c.personality==="Kapitalis"?"Dominasi perdagangan":c.personality==="Militeris"?"Modernisasi militer":c.personality==="Hegemon"?"Menjadi kekuatan utama":"Bangun aliansi strategis"];});}
+function developmentPriority(c){
+ const p=String(c&&c.personality||"");
+ if(p==="Kapitalis")return ["infrastructure","energy","research","infrastructure","education"];
+ if(p==="Militeris")return ["research","energy","infrastructure","research","education"];
+ if(p==="Diplomatis")return ["education","health","infrastructure","education","research"];
+ if(p==="Pasifis")return ["health","education","energy","health","infrastructure"];
+ if(p==="Ekspansionis"||p==="Hegemon")return ["infrastructure","energy","research","infrastructure","research"];
+ return ["infrastructure","education","research","energy","health"];
+}
+function chooseDevelopmentInvestment(c){return rand(developmentPriority(c))||"infrastructure";}
 function developmentTick(){living().forEach(c=>{
  ["infrastructure","education","research","energy","health"].forEach(k=>{if(c[k]==null)c[k]=40;});
  if(!c.resources)c.resources={oil:40,coal:40,iron:40,food:60,uranium:10};
  const r=c.resources;
  if(c.budget>=18&&Math.random()<(c.budget>45?.09:.035)){
-  const key=rand(["infrastructure","education","research","energy","health"]),cost=12;
+  const key=chooseDevelopmentInvestment(c),cost=12;
   const needs=key==="infrastructure"?{iron:1,coal:1}:key==="energy"?{coal:2,iron:.5}:key==="research"?{uranium:.25,iron:.25}:{};
   const canPay=Object.keys(needs).every(k=>r[k]>=needs[k]);
   if(c.budget>=cost&&canPay){c[key]=clamp(c[key]+1+Math.random()*2,0,100);c.budget-=cost;Object.keys(needs).forEach(k=>r[k]-=needs[k]);state.stats.developmentProjects++;if(Math.random()<.12)addEvent("economy","Program pembangunan nasional",c.name+" menginvestasikan "+cost+" poin anggaran dan bahan mentah pada "+({infrastructure:"infrastruktur",education:"pendidikan",research:"riset dan teknologi",energy:"ketahanan energi",health:"layanan kesehatan"}[key])+".","🏗️");}
  }
  c.industry=clamp((c.industry||30)+((c.research>60&&c.energy>50&&r.coal>5)?0.25:0),5,100);
  // Produksi sumber daya dan ketahanan energi.
- r.food=clamp(r.food+(c.health>55?.48:-.28)+(c.infrastructure>60?.25:0),0,150);
+ r.food=clamp(r.food+(c.health>55?.48:-.28)+(c.infrastructure>60?.25:0)+((c.personality==="Pasifis"||c.personality==="Diplomatis")?.06:0),0,150);
  r.iron=clamp(r.iron+(c.industry>60?.24:.08)-.15,0,150);
  r.coal=clamp(r.coal-.04+(c.energy>70?.16:0),0,150);
  r.uranium=clamp(r.uranium+(c.research>70?.025:0)-.005,0,150);
