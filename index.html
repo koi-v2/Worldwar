@@ -255,43 +255,68 @@ function toast(msg){const t=$("toast");t.textContent=msg;t.style.display="block"
 function rand(arr){return arr[Math.floor(Math.random()*arr.length)]}
 function living(){return state.countries.filter(c=>c.alive)}
 function chooseWar(){
- // Perang bukan aktivitas utama: batasi konflik aktif dan utamakan hubungan damai.
- if(state.wars.filter(w=>w.active).length>=2)return;
- const eligible=living().filter(c=>c.army>30&&c.stability>28);
- for(let tries=0;tries<35;tries++){
-  const a=rand(eligible);if(!a)break;
-  const ns=living().filter(b=>b.id!==a.id&&!isAtWar(a.id,b.id)&&!a.allies.includes(b.id)&&!a.enemies.includes(b.id)&&attackAccess(a,b));
-  if(!ns.length)continue;
-  const b=rand(ns);
-  if((a.relations[b.id]||0)>25)continue;
-  // Perbedaan kekuatan saja jarang memicu perang; hubungan buruk dan stabilitas rendah lebih berpengaruh.
-  const hostility=Math.max(0,35-(a.relations[b.id]||0));
-  const access=attackAccess(a,b);
-  const militaryRatio=(a.army+1)/(b.army+1);
-  let chance=0.012+hostility/1100+Math.max(0,a.power-b.power)/2400;
-  if(access&&access.mode!=="ground")chance*=.5;
-  if(militaryRatio<.65)chance*=.35;else if(militaryRatio>1.35)chance*=1.18;
-  if((a.resources?.oil||0)<8||(a.budget||0)<5)chance*=.45;
-  if((a.nonAggression||[]).includes(b.id))chance*=.08;
-  if(a.personality==="Pasifis")chance*=.25;
-  if(a.personality==="Ekspansionis"||a.personality==="Militeris"||a.personality==="Hegemon")chance*=1.5;
-  if(a.personality==="Kapitalis")chance*=.55;
-  if(a.personality==="Diplomatis")chance*=.45;
-  if(Math.random()<clamp(chance,.008,.09)){
-   state.wars.push({id:state.seq+1,a:a.id,b:b.id,started:state.day,active:true,battles:0});
-   a.enemies.push(b.id);b.enemies.push(a.id);
-   addEvent("war","Perang pecah: "+a.name+" vs "+b.name,"Diplomasi gagal setelah ketegangan panjang. Konflik bersenjata menjadi pilihan terakhir.", "⚔️");
-   // Pakta pertahanan: sekutu pihak yang diserang ikut melawan penyerang.
-   const defenders=(b.allies||[]).map(getC).filter(x=>x&&x.alive&&x.id!==a.id&&!isAtWar(x.id,a.id)&&!(a.allies||[]).includes(x.id)).slice(0,Math.max(0,2-state.wars.filter(w=>w.active).length));
-   defenders.forEach(x=>{
-    state.wars.push({id:++state.seq,a:x.id,b:a.id,started:state.day,active:true,battles:0,allianceWar:true,forCountry:b.id});
-    if(!x.enemies.includes(a.id))x.enemies.push(a.id);
-    if(!a.enemies.includes(x.id))a.enemies.push(x.id);
-    addEvent("diplomacy","Sekutu turun membela "+b.name,x.name+" mengaktifkan pakta pertahanan dan ikut melawan "+a.name+".","🛡️");
-   });
-   return;
-  }
- }
+ // AI menilai ancaman, keuntungan strategis, diplomasi, dan kesiapan logistik sebelum memilih konflik.
+ const activeWars=state.wars.filter(w=>w.active).length;
+ if(activeWars>=2)return;
+ const eligible=living().filter(c=>c.army>30&&c.stability>24);
+ if(!eligible.length)return;
+ const candidates=[];
+ eligible.forEach(a=>{
+  const aRelations=a.relations||{},aAllies=a.allies||[],aEnemies=a.enemies||[],aPacts=a.nonAggression||[];
+  living().forEach(b=>{
+   if(a.id===b.id||isAtWar(a.id,b.id)||aAllies.includes(b.id)||aEnemies.includes(b.id)||aPacts.includes(b.id))return;
+   const rel=Number(aRelations[b.id]||0);
+   if(rel>25)return;
+   const access=attackAccess(a,b);if(!access)return;
+   const ratio=(Math.max(1,a.army)+Math.max(0,a.tanks)*90+Math.max(0,a.aircraft)*75+Math.max(0,a.artillery)*45+Math.max(0,a.missiles)*65)/(Math.max(1,b.army)+Math.max(0,b.tanks)*90+Math.max(0,b.aircraft)*75+Math.max(0,b.artillery)*45+Math.max(0,b.missiles)*65);
+   const allyStrength=(b.allies||[]).map(getC).filter(x=>x&&x.alive&&!isAtWar(x.id,a.id)).reduce((n,x)=>n+(x.army||0)*.35+(x.tanks||0)*35+(x.aircraft||0)*25,0);
+   const ownStrength=(a.army||0)*.35+(a.tanks||0)*35+(a.aircraft||0)*25;
+   const oil=Number(a.resources?.oil??40),food=Number(a.resources?.food??60),budget=Number(a.budget||0);
+   const logistics=clamp((oil/35)*.38+(food/40)*.28+(budget/30)*.34,.12,1.25);
+   const hostility=clamp((25-rel)/75,0,1.2);
+   const strategicValue=(b.economy||0)*.22+(b.industry||0)*.18+Math.min(6,ownedCount(b.id))*.8;
+   const allyRisk=allyStrength>ownStrength*.7? .52 : allyStrength>ownStrength*.35? .75 : 1;
+   let score=hostility*1.4+Math.log(Math.max(.25,ratio))*1.05+strategicValue/100+logistics*.65;
+   if(access.mode==="air")score-=.22;
+   if(access.mode==="missile")score-=.32;
+   if(a.personality==="Ekspansionis"||a.personality==="Militeris"||a.personality==="Hegemon")score+=.35;
+   if(a.personality==="Pasifis")score-=.75;
+   if(a.personality==="Diplomatis")score-=.42;
+   if(a.personality==="Kapitalis")score-=.18;
+   score*=allyRisk;
+   if(a.stability<35)score-=.25;
+   if(oil<8||food<8||budget<5)score-=.85;
+   if(ratio<.72)score-=.7;
+   candidates.push({a,b,score,ratio,access,logistics});
+  });
+ });
+ if(!candidates.length)return;
+ candidates.sort((x,y)=>y.score-x.score);
+ // Pilih di antara kandidat terbaik dengan sedikit variasi, bukan perang acak terhadap target mana pun.
+ const top=candidates.filter(x=>x.score>=candidates[0].score-.22).slice(0,5);
+ const pick=rand(top);if(!pick)return;
+ const {a,b,score,ratio,access,logistics}=pick;
+ let chance=.018+Math.max(0,score)*.023;
+ if(ratio<.85)chance*=.45;else if(ratio>1.5)chance*=1.22;
+ chance*=clamp(logistics,.25,1);
+ if(a.personality==="Pasifis")chance*=.22;
+ if(a.personality==="Ekspansionis"||a.personality==="Militeris"||a.personality==="Hegemon")chance*=1.35;
+ if(a.personality==="Diplomatis")chance*=.55;
+ if(access.mode!=="ground")chance*=.65;
+ if(Math.random()>=clamp(chance,.004,.085))return;
+ state.wars.push({id:++state.seq,a:a.id,b:b.id,started:state.day,active:true,battles:0,strategicScore:score});
+ if(!Array.isArray(a.enemies))a.enemies=[];if(!Array.isArray(b.enemies))b.enemies=[];
+ if(!a.enemies.includes(b.id))a.enemies.push(b.id);if(!b.enemies.includes(a.id))b.enemies.push(a.id);
+ addEvent("war","Perang pecah: "+a.name+" vs "+b.name,"AI memilih konflik setelah menilai hubungan ("+Math.round((a.relations?.[b.id]||0))+"), rasio kekuatan "+ratio.toFixed(2)+", logistik "+Math.round(logistics*100)+"%, dan risiko sekutu lawan.","⚔️");
+ // Sekutu pihak yang diserang dapat ikut bertahan, selama batas konflik dunia belum tercapai.
+ const room=Math.max(0,2-state.wars.filter(w=>w.active).length);
+ const defenders=(b.allies||[]).map(getC).filter(x=>x&&x.alive&&x.id!==a.id&&!isAtWar(x.id,a.id)&&!(a.allies||[]).includes(x.id))
+  .sort((x,y)=>((y.army||0)+(y.tanks||0)*90+(y.aircraft||0)*75)-((x.army||0)+(x.tanks||0)*90+(x.aircraft||0)*75)).slice(0,room);
+ defenders.forEach(x=>{
+  state.wars.push({id:++state.seq,a:x.id,b:a.id,started:state.day,active:true,battles:0,allianceWar:true,forCountry:b.id});
+  if(!Array.isArray(x.enemies))x.enemies=[];if(!x.enemies.includes(a.id))x.enemies.push(a.id);if(!a.enemies.includes(x.id))a.enemies.push(x.id);
+  addEvent("diplomacy","Sekutu turun membela "+b.name,x.name+" mengaktifkan pakta pertahanan dan ikut melawan "+a.name+".","🛡️");
+ });
 }
 function reinforceFronts(){
  // Saat perang, AI memindahkan sebagian pasukan dari wilayah belakang ke wilayah yang terancam.
