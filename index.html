@@ -960,7 +960,7 @@ function negotiatePeace(){
    if(!c.relations)c.relations={};
   });
   loser.stability=clamp((loser.stability||50)-1,5,100);
-  const settledRelation=clamp(Math.max(Number(winner.relations[loser.id]??-15),-12)+3,-12,10);
+  const settledRelation=clamp(Number(winner.relations[loser.id]??-15)+3,-25,10);
   winner.relations[loser.id]=settledRelation;loser.relations[winner.id]=settledRelation;
   endWar(w,"ceasefire");
   addEvent("war","Perundingan damai: "+a.name+" — "+b.name,"Setelah "+w.battles+" pertempuran, kedua pihak menyepakati gencatan senjata. "+loser.name+" membayar "+fmt(payment)+" anggaran sebagai kompensasi; moral dan stabilitas mulai pulih selama beberapa hari, sementara wilayah yang direbut tetap dipertahankan.","🕊️");
