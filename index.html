@@ -1284,19 +1284,19 @@ function publishWorldNews(force){
  const fresh=(state.events||[]).filter(e=>Number(e.id)>state.newsCursor);
  if(!fresh.length){
   if(force&&state.tvNews.length===0){
-   state.tvNews.push({id:0,day:state.day||1,year:state.year||1,category:"SIARAN PEMBUKA",headline:"World News Network mengudara",lead:"Selamat datang di Berita Dunia. Kami menyajikan perkembangan perang, diplomasi, ekonomi, dan perubahan kekuatan berdasarkan peristiwa yang benar-benar tercatat di simulasi.",sourceType:"world",icon:"📺",sourceTitle:"Siaran pembuka"});
+   state.tvNews.push({id:0,day:state.day||1,year:state.year||1,category:"SIARAN PEMBUKA",headline:"World News Network mengudara",lead:"Selamat datang di Berita Dunia. Redaksi akan melaporkan perkembangan perang, diplomasi, ekonomi, dan politik berdasarkan catatan simulasi.",sourceType:"world",icon:"📺",sourceTitle:"Siaran pembuka"});
   }
   return;
  }
  const newestId=Math.max(...fresh.map(e=>Number(e.id)||0));
- const candidates=fresh.slice().sort((a,b)=>newsPriority(b)-newsPriority(a)||b.id-a.id);
- const chosen=candidates[0];
- state.newsCursor=newestId;
- if(chosen){
-  const item=makeBroadcast(chosen);
-  if(!state.tvNews.some(n=>n.id===item.id))state.tvNews.unshift(item);
-  if(state.tvNews.length>40)state.tvNews.length=40;
+ const candidates=fresh.slice().sort((a,b)=>newsPriority(b)-newsPriority(a)||Number(b.id)-Number(a.id));
+ // Terbitkan semua peristiwa baru agar berita penting lain tidak hilang ketika banyak kejadian terjadi pada hari yang sama.
+ for(const event of candidates){
+  const item=makeBroadcast(event);
+  if(!state.tvNews.some(n=>Number(n.id)===Number(item.id)))state.tvNews.unshift(item);
  }
+ state.newsCursor=newestId;
+ if(state.tvNews.length>40)state.tvNews.length=40;
 }
 function renderTVNews(){
  const news=Array.isArray(state.tvNews)?state.tvNews:[];
