@@ -472,7 +472,11 @@ function resolveWars(){
   else {Object.keys(survivors).forEach(k=>sg[k]=(sg[k]||0)+survivors[k]);addEvent("battle",b.name+" mempertahankan "+target.name,"Serangan dari "+source.name+" dipukul mundur. Dikerahkan "+fmt(attack.troops)+" personel dan "+fmt(attack.tanks)+" tank; skor "+Math.round(scoreA)+" vs "+Math.round(scoreB)+". Pasukan yang selamat kembali ke wilayah asal.","🛡️");}
   w.battles++;const report={day:state.day,a:a.id,b:b.id,winner:winner.id,loser:loser.id,scoreA:Math.round(scoreA),scoreB:Math.round(scoreB),troopsA:lost.troops,troopsB:defLost.troops,tankLossA:lost.tanks,tankLossB:defLost.tanks,aircraftLossA:lost.aircraft,aircraftLossB:defLost.aircraft,shipLossA:lost.ships,shipLossB:defLost.ships,region:target.name,sourceRegion:source.name,attackForce:attack,attackerWon:won};state.battles.unshift(report);if(state.battles.length>80)state.battles.length=80;
   winner.wins++;loser.losses++;winner.morale=clamp(winner.morale+2,5,100);loser.morale=clamp(loser.morale-3,5,100);a.economy=clamp(a.economy-.25,10,100);b.economy=clamp(b.economy-.35,10,100);
-  if(w.battles>=4+Math.floor(Math.random()*4)||loser.morale<14||Math.random()<.025){endWar(w,"ceasefire");winner.relations[loser.id]=-15;loser.relations[winner.id]=-15;winner.economy=clamp(winner.economy+2,10,100);loser.stability=clamp(loser.stability-5,5,100);addEvent("war","Gencatan senjata: "+a.name+" — "+b.name,winner.name+" unggul setelah "+w.battles+" pertempuran.","🕊️");a.enemies=a.enemies.filter(x=>x!==b.id);b.enemies=b.enemies.filter(x=>x!==a.id);}
+  if(w.battles>=4+Math.floor(Math.random()*4)||loser.morale<14||Math.random()<.025){endWar(w,"ceasefire");winner.relations[loser.id]=-15;loser.relations[winner.id]=-15;winner.economy=clamp(winner.economy+2,10,100);loser.stability=clamp(loser.stability-5,5,100);addEvent("war","Gencatan senjata: "+a.name+" — "+b.name,winner.name+" unggul setelah "+w.battles+" pertempuran.","🕊️");a.enemies=a.enemies.filter(x=>x!==b.id);b.enemies=b.enemies.filter(x=>x!==a.id);}else{
+   // Perang darat bergiliran: setelah satu pihak menyerang, pihak lawan mendapat giliran ofensif berikutnya.
+   const previousAttacker=w.a;w.a=w.b;w.b=previousAttacker;w.counterattacks=(w.counterattacks||0)+1;
+   addEvent("war","Giliran serangan balasan: "+getC(w.a).name,"Setelah serangan "+a.name+", "+getC(w.a).name+" mendapat kesempatan membalas pada putaran perang berikutnya.","🛡️");
+  }
  });
 }
 function diplomacy(){
