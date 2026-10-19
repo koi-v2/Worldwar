@@ -573,7 +573,7 @@ function resolveWars(){
    garrisonKeys.forEach(k=>{g[k]=Math.max(0,Math.round((b[k]||0)/n));});
    if((b.troops||0)>0&&g.troops<500)g.troops=Math.min(b.troops,500);
   }
-  const logisticsA=(a.resources?.oil||0)>=8?1.08:.78,logisticsB=(b.resources?.oil||0)>=5?1.05:.8;
+  const logisticsA=clamp(.68+(Number(a.resources?.oil)||0)/100*.22+(Number(a.resources?.food)||0)/150*.14+(Number(a.budget)||0)/150*.12,.52,1.18),logisticsB=clamp(.68+(Number(b.resources?.oil)||0)/100*.22+(Number(b.resources?.food)||0)/150*.14+(Number(b.budget)||0)/150*.12,.52,1.18);
   // Pertahanan wilayah punya keuntungan posisi; penyerang tidak otomatis menang.
   const attackBase=attack.troops*.001+attack.tanks*2.2+attack.aircraft*2.5+attack.ships*.8+attack.artillery*1.7+attack.missiles*2.8;
   const defenseBase=(g.troops||0)*.001+(g.tanks||0)*2.2+(g.aircraft||0)*2.5+(g.ships||0)*.8+(g.artillery||0)*1.7+(g.missiles||0)*2.8;
@@ -585,8 +585,13 @@ function resolveWars(){
   const defenseDoctrine=ensureWarDoctrine(b);
   const defenseStyle=defenseDoctrine?.id==="fortress"?1.22:defenseDoctrine?.id==="limited"?1.04:1;
   const scoreB=defenseBase*defenseBonus*defenseStyle*(.78+Math.random()*.52)*clamp((b.morale||50)/70,.55,1.3)*logisticsB*(1+allySupportB)+(b.research||40)*.1+(b.infrastructure||40)*.2+12;
-  const won=scoreA>scoreB,winner=won?a:b,loser=won?b:a;
-  const lossRateA=(won?.10:.17)+Math.random()*.10,lossRateB=(won?.09:.13)+Math.random()*.09;
+  // Kemenangan dihitung sebagai peluang, bukan sekadar scoreA > scoreB.
+  // Keunggulan besar membantu, tetapi medan, kesiapan, dan variasi pertempuran tetap berpengaruh.
+  const readinessA=clamp((Number(a.army)||50)/70,.55,1.25),readinessB=clamp((Number(b.army)||50)/70,.55,1.25);
+  const ratioAB=(Math.max(1,scoreA*readinessA)/Math.max(1,scoreB*readinessB));
+  const probabilityA=clamp(.5+Math.tanh(Math.log(ratioAB)*.72)*.34+(Number(a.militaryExperience||20)-Number(b.militaryExperience||20))*.0012,.12,.88);
+  const won=Math.random()<probabilityA,winner=won?a:b,loser=won?b:a;
+  const lossRateA=(won?.075:.13)+Math.random()*.09,lossRateB=(won?.08:.14)+Math.random()*.09;
   const lost={troops:0,tanks:0,aircraft:0,ships:0,artillery:0,missiles:0},defLost={troops:0,tanks:0,aircraft:0,ships:0,artillery:0,missiles:0};
   const present=k=>Math.max(0,Number(g[k])||0),deployed=k=>Math.max(0,Number(attack[k])||0);
   // Unit matchups: troops fight troops; aircraft strike troops/ships/artillery;
