@@ -439,7 +439,7 @@ function chooseWar(){
  });
 }
 function reinforceFronts(){
- // Saat perang, AI memindahkan sebagian pasukan dari wilayah belakang ke wilayah yang terancam.
+ // Penguatan diarahkan ke sektor paling rentan; ibu kota ikut diprioritaskan bila ancamannya tinggi.
  const active=state.wars.filter(w=>w.active);
  if(!active.length||Math.random()>.62)return;
  const war=rand(active),a=getC(war.a),b=getC(war.b);
@@ -448,22 +448,38 @@ function reinforceFronts(){
   if(!country.alive||!enemy.alive)return;
   const owned=state.regions.filter(r=>r.owner===country.id&&r.garrison);
   if(owned.length<2)return;
-  const pressure=owned.filter(r=>r.kind!=="Pusat").sort((x,y)=>{
-   const score=r=>{const g=r.garrison;return (g.troops||0)*.001+(g.tanks||0)*2.2+(g.aircraft||0)*2.5+(g.artillery||0)*1.7+(g.missiles||0)*2.8;};
-   return score(x)-score(y);
-  });
-  const target=pressure[0];if(!target)return;
   const regionStrength=r=>{const g=r.garrison||{};return (g.troops||0)+(g.tanks||0)*100+(g.aircraft||0)*90+(g.ships||0)*35+(g.artillery||0)*60+(g.missiles||0)*75;};
-  const sources=owned.filter(r=>r.id!==target.id&&(r.garrison.troops||0)>1200).sort((x,y)=>regionStrength(y)-regionStrength(x));
+  const nationalStrength=c=>(c.army||0)+(c.tanks||0)*90+(c.aircraft||0)*75+(c.artillery||0)*45+(c.missiles||0)*65;
+  const capital=owned.find(r=>r.kind==="Pusat");
+  const nonCapital=owned.filter(r=>r.kind!=="Pusat");
+  const average=owned.reduce((n,r)=>n+regionStrength(r),0)/owned.length;
+  const enemyThreat=nationalStrength(enemy)/Math.max(1,nationalStrength(country));
+  const capitalNeedsHelp=capital&&(
+   regionStrength(capital)<average*.82 ||
+   (enemyThreat>1.12&&regionStrength(capital)<average*1.12)
+  );
+  const target=capitalNeedsHelp?capital:nonCapital.slice().sort((x,y)=>regionStrength(x)-regionStrength(y))[0];
+  if(!target)return;
+  const sources=owned.filter(r=>r.id!==target.id&&(r.garrison.troops||0)>1200)
+   .sort((x,y)=>{
+    // Jangan mengosongkan ibu kota untuk memperkuat provinsi biasa.
+    const reservePenalty=r=>r.kind==="Pusat"&&!capitalNeedsHelp?regionStrength(r)*.45:0;
+    return (regionStrength(y)-reservePenalty(y))-(regionStrength(x)-reservePenalty(x));
+   });
   const source=sources[0];if(!source)return;
   const moved={};
   ["troops","tanks","aircraft","ships","artillery","missiles"].forEach(k=>{
-   const g=source.garrison[k]||0;
-   const keep=k==="troops"?Math.max(800,Math.round(g*.55)):Math.round(g*.45);
-   const amount=Math.min(Math.max(0,g-keep),Math.floor(g*(.06+Math.random()*.07)));
-   source.garrison[k]=g-amount;target.garrison[k]=(target.garrison[k]||0)+amount;moved[k]=amount;
+   const g=Math.max(0,Number(source.garrison[k])||0);
+   const keep=k==="troops"?Math.max(800,Math.round(g*.62)):Math.round(g*.52);
+   const amount=Math.min(Math.max(0,g-keep),Math.floor(g*(.05+Math.random()*.08)));
+   source.garrison[k]=g-amount;
+   target.garrison[k]=(Math.max(0,Number(target.garrison[k])||0))+amount;
+   moved[k]=amount;
   });
-  if(moved.troops>=100)addEvent("war","Penguatan garis depan",country.name+" memindahkan "+fmt(moved.troops)+" personel dari "+source.name+" ke "+target.name+" untuk memperkuat pertahanan.","🚚");
+  if(moved.troops>=100){
+   const destination=target.kind==="Pusat"?"ibu kota "+target.name:"garis depan "+target.name;
+   addEvent("war","Penguatan pertahanan",country.name+" memindahkan "+fmt(moved.troops)+" personel dari "+source.name+" ke "+destination+". "+(capitalNeedsHelp?"Ibu kota diprioritaskan karena pertahanannya rentan.":"Pasukan dipusatkan pada wilayah dengan garnisun terlemah."),"🛡️");
+  }
  });
 }
 function recordWarLearning(w,reason){
