@@ -1098,6 +1098,15 @@ function espionageTick(){
   const confidence=Math.round(clamp(38+net*.48-counter*.2+(Math.random()*14-7),18,92));
   const report={day:state.day,year:state.year,source:a.id,target:b.id,type,headline,detail,confidence,verified:false,snapshot};
   a.intelMemory[b.id]={day:state.day,confidence,type,snapshot};
+  // Laporan militer tentang rival yang bermusuhan dapat memicu peringatan dini dan kesiapan defensif.
+  const hostile=Number(a.relations?.[b.id]??0)<-12||(a.enemies||[]).includes(b.id),threateningMilitary=type==="military"&&hostile&&snapshot.readiness>=Number(a.army||50)+12;
+  if(threateningMilitary){
+   if(!Array.isArray(a.intelAlerts))a.intelAlerts=[];
+   const alert={day:state.day,target:b.id,confidence,level:confidence>=65?"TINGGI":"SEDANG",message:"Kekuatan militer "+b.name+" diperkirakan lebih siap daripada pasukan nasional. Tinjau pertahanan dan hindari membuka front baru tanpa persiapan."};
+   a.intelAlerts.unshift(alert);if(a.intelAlerts.length>12)a.intelAlerts.length=12;
+   a.militaryTraining=clamp(Number(a.militaryTraining||35)+.8,0,100);
+   addEvent("diplomacy","Peringatan intelijen: potensi ancaman",a.name+" menerima laporan bahwa "+b.name+" memiliki kesiapan militer yang diperkirakan lebih tinggi. Pemerintah meningkatkan kesiapan latihan dan meninjau risiko keamanan. Keyakinan laporan "+confidence+"%.","🕵️");
+  }
   state.intelReports.unshift(report);if(state.intelReports.length>60)state.intelReports.length=60;
   a.intelNetwork=clamp(net+.35,0,100);
   if(Math.random()>(success*.72)){b.counterIntel=clamp(counter+.65,0,100);addEvent("diplomacy","Aktivitas intelijen dicurigai","Pihak keamanan "+b.name+" mendeteksi aktivitas asing yang mencoba mengumpulkan informasi. Pelaku belum dipastikan.","🕵️");}
