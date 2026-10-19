@@ -811,8 +811,22 @@ function economyTick(){
  living().forEach(c=>{
   const atWar=state.wars.some(w=>w.active&&(w.a===c.id||w.b===c.id));
   const economicProfile=strategicPersonality(c);
-  const growth=((Math.random()*1.5-.35)+(c.stability>65?.2:-.35)+(ownedCount(c.id)>2?.12:0))*(c.personality==="Kapitalis"?1.12:c.personality==="Pasifis"||c.personality==="Diplomatis"?1.04:1);
-  c.economy=clamp(c.economy+growth-(atWar?.45:0),10,100);
+  if(!Number.isFinite(c.unemployment))c.unemployment=clamp(42-(c.industry||40)*.22,4,55);
+  if(!Number.isFinite(c.taxRate))c.taxRate=18;
+  if(!Number.isFinite(c.tradeBalance))c.tradeBalance=0;
+  if(!Number.isFinite(c.economicTrend))c.economicTrend=0;
+  const infrastructure=Number(c.infrastructure??35),education=Number(c.education??40),research=Number(c.research??30),energy=Number(c.energy??40),health=Number(c.health??40);
+  const productivity=(infrastructure-50)*.009+(education-50)*.008+(research-50)*.006+(energy-50)*.007+(health-50)*.005;
+  const corruptionDrag=Math.max(0,Number(c.corruption??25)-35)*.009;
+  const jobDrag=Math.max(0,c.unemployment-25)*.012;
+  const tradeLift=clamp(Number(c.tradeBalance)||0,-12,12)*.012;
+  const cycle=Number(c.economicTrend)||0;
+  const randomGrowth=Math.random()*1.05-.28;
+  const growth=(randomGrowth+productivity+tradeLift+cycle*.035+((c.stability>65)?.18:c.stability<35?-.32:-.05)+(ownedCount(c.id)>2?.12:0)-corruptionDrag-jobDrag)*(c.personality==="Kapitalis"?1.14:c.personality==="Pasifis"||c.personality==="Diplomatis"?1.05:1);
+  c.economy=clamp(c.economy+growth-(atWar?.42:0),10,100);
+  // Pasar kerja merespons industri, investasi, dan guncangan ekonomi secara bertahap.
+  c.unemployment=clamp(c.unemployment+((c.industry||40)>55?-.12:.04)+(c.economy>70?-.1:c.economy<30?.18:0)+(atWar?.12:0)+(c.stability<30?.08:0),3,65);
+  c.economicTrend=clamp(c.economicTrend+(c.economy>72?.06:c.economy<30?-.08:0)+(atWar?-.06:.01),-10,10);
   const publicSupport=Number(c.popularity??50),corruption=Number(c.corruption??25),foodLevel=Number(c.resources?.food??60);
   c.stability=clamp(c.stability+(Math.random()*1.6-.8)+(c.morale>50?.22:-.38)+(publicSupport>65?.18:publicSupport<30?-.32:0)-(corruption>70?.18:0)-(atWar?.10:0),5,100);
   const moraleChange=(Math.random()*2.4-1.2)+(c.economy>65?.12:c.economy<30?-.12:0)+(c.stability>65?.12:c.stability<30?-.14:0)+(publicSupport>65?.14:publicSupport<30?-.22:0)+(atWar?-.08:.04)-(foodLevel<8?.6:0)-(c.budget<5?.22:0);
@@ -824,7 +838,14 @@ function economyTick(){
   const ownedRegions=state.regions.filter(r=>r.owner===c.id);
   const industryBonus=ownedRegions.filter(r=>/industri/i.test(r.name||"")).length*.22;
   const portBonus=ownedRegions.filter(r=>/pesisir|pelabuhan/i.test(r.name||"")).length*.16;
-  const income=Math.max(1,Math.round(c.economy*.075+(c.stability>60?1.2:.2)+(c.infrastructure||35)*.012+industryBonus+portBonus));
+  const taxEfficiency=clamp(1-(Number(c.corruption??25)/180),.35,1);
+  const taxBurden=clamp(1-Math.abs(Number(c.taxRate||18)-18)*.012,.72,1);
+  const income=Math.max(1,Math.round((c.economy*.068+(c.stability>60?1.2:.2)+(c.infrastructure||35)*.012+industryBonus+portBonus+Math.max(0,c.population||0)/50000000*.35)*taxEfficiency*taxBurden));
+  // Anggaran kuat mendorong investasi sipil; negara yang boros perang lebih sulit membiayai pertumbuhan.
+  if(c.budget>55&&!atWar&&Math.random()<.06){
+   const investment=Math.min(5,Math.floor(c.budget*.04));
+   if(investment>=2){c.budget-=investment;c.infrastructure=clamp((c.infrastructure||35)+.12,0,100);c.industry=clamp((c.industry||40)+.08,5,100);c.unemployment=clamp(c.unemployment-.08,3,65);}
+  }
   const supply=((c.resources?.oil??40)<8||(c.resources?.food??60)<8||(c.resources?.iron??40)<5)?1.18:1;
   const upkeep=atWar?Math.max(4,Math.round((2+c.army*.055+c.tanks*.018+c.aircraft*.025+c.ships*.12)*supply)):Math.max(1,Math.round((1+c.army*.012)*supply));
   c.budget=Math.max(0,(c.budget||0)+income-upkeep);
@@ -894,8 +915,14 @@ function peacefulDevelopment(){
 function utmostName(c){return c.name;}
 function resourceMarketTick(){
  if(!state.market)state.market={oil:50,coal:35,iron:30,food:20,uranium:85};
- Object.keys(state.market).forEach(k=>state.market[k]=clamp(state.market[k]+(Math.random()-.5)*2.2,5,150));
  const cs=living(),resources=["oil","coal","iron","food","uranium"];
+ // Harga global bereaksi pada kelangkaan nyata, bukan bergerak acak saja.
+ resources.forEach(k=>{
+  const avg=cs.length?cs.reduce((n,c)=>n+Math.max(0,Number(c.resources?.[k])||0),0)/cs.length:35;
+  const target={oil:42,coal:38,iron:34,food:48,uranium:14}[k]||35;
+  const scarcity=clamp((target-avg)/Math.max(10,target),-1,1);
+  state.market[k]=clamp(Number(state.market[k]||30)+(Math.random()-.5)*1.1+scarcity*.85,5,150);
+ });
  const thresholds={oil:42,coal:38,iron:32,food:42,uranium:12};
  const reserve={oil:58,coal:55,iron:48,food:62,uranium:22};
  const urgency=(c,res)=>{
@@ -943,6 +970,9 @@ function resourceMarketTick(){
   b.resources[res]=Math.min(150,(Number(b.resources[res])||0)+qty);
   b.budget=Math.max(0,(Number(b.budget)||0)-payment);a.budget=(Number(a.budget)||0)+payment;
   a.relations[b.id]=clamp((a.relations[b.id]||0)+1,-100,100);b.relations[a.id]=clamp((b.relations[a.id]||0)+1,-100,100);
+  a.tradeBalance=clamp((Number(a.tradeBalance)||0)+qty*.35,-100,100);
+  b.tradeBalance=clamp((Number(b.tradeBalance)||0)-qty*.22,-100,100);
+  a.economy=clamp(a.economy+.025*qty,10,100);
   state.stats.tradeDeals=(state.stats.tradeDeals||0)+1;
   if(Math.random()<.2)addEvent("economy","Perdagangan sumber daya",a.name+" menjual "+qty+" unit "+res+" kepada "+b.name+" setelah AI memprioritaskan kebutuhan pasokan paling mendesak. Pembayaran: "+payment+" anggaran.","📦");
  }
