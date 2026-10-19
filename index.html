@@ -972,8 +972,17 @@ function negotiatePeace(){
   const peaceDisposition=((strategicPersonality(a).peace||1)+(strategicPersonality(b).peace||1))/2;
   const peaceChance=clamp(basePeaceChance*peaceDisposition,.04,.48);
   if((Math.max(pa,pb)<38&&!exhausted)||Math.random()>peaceChance)return;
-  const winner=pa<pb?a:b,loser=winner===a?b:a;
-  const payment=Math.min(Math.max(0,loser.budget||0),Math.max(0,Math.round((loser.budget||0)*.08)));
+  // Hasil damai menilai tekanan perang sekaligus kemajuan sasaran kedua pihak, bukan kelelahan saja.
+  const progressA=clamp(Number(w.objectiveProgressByCountry?.[a.id]??(w.a===a.id?w.objectiveProgress:0))||0,0,100);
+  const progressB=clamp(Number(w.objectiveProgressByCountry?.[b.id]??(w.b===b.id?w.objectiveProgress:0))||0,0,100);
+  const outcomeA=progressA+(100-clamp(pa,0,100))*.42;
+  const outcomeB=progressB+(100-clamp(pb,0,100))*.42;
+  const winner=outcomeA===outcomeB?(pa<=pb?a:b):(outcomeA>outcomeB?a:b);
+  const loser=winner===a?b:a;
+  const margin=Math.abs(outcomeA-outcomeB);
+  // Kompensasi hanya diberikan jika hasil perang menunjukkan keunggulan yang cukup jelas.
+  const paymentRate=margin>=35?.08:margin>=18?.04:0;
+  const payment=Math.min(Math.max(0,loser.budget||0),Math.max(0,Math.round((loser.budget||0)*paymentRate)));
   loser.budget=Math.max(0,(loser.budget||0)-payment);winner.budget=(winner.budget||0)+payment;
   // Pemulihan pascaperang membantu negara kembali stabil tanpa menghapus dampak konflik.
   [a,b].forEach(c=>{
@@ -987,7 +996,7 @@ function negotiatePeace(){
   const settledRelation=clamp(Number(winner.relations[loser.id]??-15)+3,-25,10);
   winner.relations[loser.id]=settledRelation;loser.relations[winner.id]=settledRelation;
   endWar(w,"ceasefire");
-  addEvent("war","Perundingan damai: "+a.name+" — "+b.name,"Setelah "+w.battles+" pertempuran, kedua pihak menyepakati gencatan senjata. "+loser.name+" membayar "+fmt(payment)+" anggaran sebagai kompensasi; moral dan stabilitas mulai pulih selama beberapa hari, sementara wilayah yang direbut tetap dipertahankan.","🕊️");
+  addEvent("war","Perundingan damai: "+a.name+" — "+b.name,"Setelah "+w.battles+" pertempuran, kedua pihak menyepakati gencatan senjata. Penilaian hasil mempertimbangkan kemajuan sasaran dan tekanan perang; "+(payment>0?loser.name+" membayar "+fmt(payment)+" anggaran sebagai kompensasi.":"tidak ada kompensasi karena keunggulan salah satu pihak belum cukup jelas.")+" Moral dan stabilitas mulai pulih selama beberapa hari, sementara wilayah yang direbut tetap dipertahankan.","🕊️");
  });
 }
 // Kesiapan militer dinamis: latihan, perbekalan, anggaran, kondisi pasukan, dan pengalaman.
