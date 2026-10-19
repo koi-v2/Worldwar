@@ -466,7 +466,11 @@ function reinforceFronts(){
   const capital=owned.find(r=>r.kind==="Pusat");
   const nonCapital=owned.filter(r=>r.kind!=="Pusat");
   const average=owned.reduce((n,r)=>n+regionStrength(r),0)/owned.length;
-  const enemyThreat=nationalStrength(enemy)/Math.max(1,nationalStrength(country));
+  const enemyIntel=country.intelMemory&&country.intelMemory[enemy.id],intelAge=enemyIntel?Math.max(0,state.day-enemyIntel.day):9999;
+  const militarySnapshot=enemyIntel&&enemyIntel.snapshot&&enemyIntel.snapshot.readiness!=null&&intelAge<=45?enemyIntel.snapshot:null;
+  // Penempatan pertahanan memakai laporan intel yang masih segar; tanpa laporan, ancaman hanya perkiraan kasar.
+  const estimatedEnemyStrength=militarySnapshot?Math.max(1,(militarySnapshot.army||0)+(militarySnapshot.tanks||0)*90+(militarySnapshot.aircraft||0)*75+(militarySnapshot.artillery||0)*45+(militarySnapshot.missiles||0)*65):Math.max(1,enemy.army||50)*(.7+Math.random()*.6)+ownedCount(enemy.id)*18;
+  const enemyThreat=estimatedEnemyStrength/Math.max(1,nationalStrength(country));
   const capitalNeedsHelp=capital&&(
    regionStrength(capital)<average*.82 ||
    (enemyThreat>1.12&&regionStrength(capital)<average*1.12)
