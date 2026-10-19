@@ -541,6 +541,22 @@ function resolveWars(){
   const targets=state.regions.filter(r=>r.owner===b.id);if(!targets.length){endWar(w,"invalid");return;}
   adaptWarPlan(w,a,b,access);
   const doctrine=ensureWarDoctrine(a);
+  // Hindari serangan bunuh diri: negara yang kalah beruntun atau kehabisan suplai mengambil jeda operasional singkat.
+  const attackerStrengthNow=(Number(a.army)||0)+(Number(a.tanks)||0)*90+(Number(a.aircraft)||0)*75+(Number(a.artillery)||0)*45+(Number(a.missiles)||0)*65;
+  const defenderStrengthNow=(Number(b.army)||0)+(Number(b.tanks)||0)*90+(Number(b.aircraft)||0)*75+(Number(b.artillery)||0)*45+(Number(b.missiles)||0)*65;
+  const criticalSupply=(Number(a.resources?.oil??40)<3||Number(a.resources?.food??60)<3||Number(a.budget??0)<2);
+  const badlyOutmatched=(Number(w.consecutiveLosses)||0)>=2&&attackerStrengthNow/Math.max(1,defenderStrengthNow)<.58;
+  if((criticalSupply||badlyOutmatched)&&state.day>=Number(w.nextOperationalPauseDay||0)){
+   w.operationalPauseUntil=state.day+2;
+   w.nextOperationalPauseDay=state.day+6;
+   w.stalledDays=(w.stalledDays||0)+1;
+   if(w.stalledDays===1||w.stalledDays%2===0)addEvent("war","Jeda operasional: "+a.name,criticalSupply?"Komando menunda serangan karena cadangan minyak, pangan, atau anggaran terlalu rendah.":"Komando menilai ulang taktik setelah kekalahan beruntun melawan lawan yang jauh lebih kuat.","🧭");
+  }
+  if(state.day<Number(w.operationalPauseUntil||0)){
+   w.stalledDays=(w.stalledDays||0)+1;
+   if(w.stalledDays>=8){endWar(w,"ceasefire");addEvent("war","Gencatan senjata: "+a.name+" — "+b.name,"Operasi dihentikan setelah pasukan berulang kali tidak mampu melanjutkan serangan secara layak.","🕊️");}
+   return;
+  }
   // AI menilai target: wilayah non-ibu kota yang pertahanannya tipis lebih menarik.
   const fronts=targets.filter(r=>r.kind!=="Pusat"),pool=fronts.length?fronts:targets;
   pool.sort((x,y)=>{
@@ -603,7 +619,11 @@ function resolveWars(){
    if(w.battles>=7||Math.random()<.035){endWar(w,"ceasefire");a.relations[b.id]=-15;b.relations[a.id]=-15;addEvent("war","Perjanjian gencatan senjata jarak jauh",a.name+" dan "+b.name+" menghentikan operasi jarak jauh.","🕊️");}return;
   }
   const postureFactor=w.riskPosture==="defensif"?.72:w.riskPosture==="ofensif"?1.12:1;
-  const share=clamp((.22+Math.random()*.28)*(doctrine?.id==="blitzkrieg"?1.18:doctrine?.id==="fortress"?.78:doctrine?.id==="limited"?.82:doctrine?.id==="expansion"?1.08:1)*postureFactor,.12,.48);
+  const nationalStrength=c=>(Number(c.army)||0)+(Number(c.tanks)||0)*90+(Number(c.aircraft)||0)*75+(Number(c.artillery)||0)*45+(Number(c.missiles)||0)*65;
+  const relativeStrength=nationalStrength(a)/Math.max(1,nationalStrength(b));
+  const operationalLogistics=clamp((Number(a.resources?.oil??40)/45)*.32+(Number(a.resources?.food??60)/55)*.25+(Number(a.budget??0)/45)*.22+(Number(a.morale??50)/65)*.21,.30,1.15);
+  const forceAdjustment=relativeStrength<.55?.68:relativeStrength<.8?.82:relativeStrength>1.45?1.10:1;
+  const share=clamp((.22+Math.random()*.28)*(doctrine?.id==="blitzkrieg"?1.18:doctrine?.id==="fortress"?.78:doctrine?.id==="limited"?.82:doctrine?.id==="expansion"?1.08:1)*postureFactor*operationalLogistics*forceAdjustment,.10,.48);
   // AI mengatur komposisi ekspedisi berdasarkan kekuatan pertahanan target.
   const weights={
    troops:share,
@@ -927,7 +947,14 @@ function tradeAgreementTick(){
 function politicsTick(){living().forEach(c=>{if(c.popularity==null)c.popularity=50;if(c.corruption==null)c.corruption=25;c.popularity=clamp(c.popularity+(Math.random()*2-1)+(c.economy>65?.5:-.7)+(c.stability>65?.3:-.4)-(c.corruption>60?.6:0),5,100);c.corruption=clamp(c.corruption+(Math.random()-.48)*1.4,0,100);if(c.popularity<25&&Math.random()<.045){c.stability=clamp(c.stability-5,5,100);c.government=["Koalisi","Teknokratis","Demokratis"][Math.floor(Math.random()*3)];c.popularity=clamp(c.popularity+8,5,100);state.stats.politicalCrises++;addEvent("diplomacy","Krisis politik di "+c.name,"Protes publik memaksa pemerintah melakukan perombakan kabinet dan menjanjikan reformasi.","🏛️");}else if(c.popularity>72&&c.corruption<35&&Math.random()<.025){c.stability=clamp(c.stability+3,5,100);c.corruption=clamp(c.corruption-2,0,100);addEvent("diplomacy","Reformasi antikorupsi","Pemerintah "+c.name+" memperketat pengawasan anggaran dan meningkatkan transparansi.","⚖️");}if(c.popularity<18&&c.stability<28&&Math.random()<.018){const old=c.government||"Pemerintahan";c.government=rand(["Koalisi darurat","Teknokratis","Militer transisi","Pemerintahan reformis"]);c.stability=clamp(c.stability+5,5,100);c.popularity=clamp(c.popularity+10,5,100);c.relations=Object.fromEntries(Object.entries(c.relations||{}).map(([id,v])=>[id,clamp(v+(Math.random()<.5?-8:4),-100,100)]));addEvent("diplomacy","Pergantian pemerintahan di "+c.name,old+" digantikan oleh "+c.government+" setelah krisis domestik. Kebijakan luar negeri dapat berubah.","🏛️");}
  if(!c.goals||!c.goals.length)c.goals=[c.personality==="Ekspansionis"?"Perluas pengaruh regional":c.personality==="Pasifis"?"Jaga perdamaian dan stabilitas":c.personality==="Kapitalis"?"Dominasi perdagangan":c.personality==="Militeris"?"Modernisasi militer":c.personality==="Hegemon"?"Menjadi kekuatan utama":"Bangun aliansi strategis"];});}
 function developmentPriority(c){
- const p=String(c&&c.personality||"");
+ const p=String(c&&c.personality||""),r=c?.resources||{};
+ const budget=Number(c?.budget)||0,atWar=state.wars.some(w=>w.active&&(w.a===c.id||w.b===c.id));
+ // Kebutuhan dasar mengalahkan preferensi ideologi ketika negara sedang krisis.
+ if((Number(r.food)||0)<12)return ["health","infrastructure","health","education"];
+ if((Number(r.coal)||0)<7)return ["energy","infrastructure","energy","research"];
+ if((Number(r.iron)||0)<5)return ["infrastructure","education","health"];
+ if((Number(r.uranium)||0)<1.5&&Number(c.research||0)>55)return ["infrastructure","education","health"];
+ if(budget<22||atWar&&budget<35)return ["health","education","infrastructure","health"];
  if(p==="Kapitalis")return ["infrastructure","energy","research","infrastructure","education"];
  if(p==="Militeris")return ["research","energy","infrastructure","research","education"];
  if(p==="Diplomatis")return ["education","health","infrastructure","education","research"];
@@ -935,7 +962,12 @@ function developmentPriority(c){
  if(p==="Ekspansionis"||p==="Hegemon")return ["infrastructure","energy","research","infrastructure","research"];
  return ["infrastructure","education","research","energy","health"];
 }
-function chooseDevelopmentInvestment(c){return rand(developmentPriority(c))||"infrastructure";}
+function chooseDevelopmentInvestment(c){
+ const priorities=developmentPriority(c);
+ // Hindari menghabiskan investasi pada sektor yang hampir penuh; pilih alternatif yang masih bisa tumbuh.
+ const viable=priorities.filter(k=>Number(c?.[k]??40)<94);
+ return rand(viable.length?viable:priorities)||"infrastructure";
+}
 function developmentTick(){living().forEach(c=>{
  ["infrastructure","education","research","energy","health"].forEach(k=>{if(c[k]==null)c[k]=40;});
  if(!c.resources)c.resources={oil:40,coal:40,iron:40,food:60,uranium:10};
