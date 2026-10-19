@@ -314,6 +314,7 @@ function updateWarObjective(w,a,b){
 }
 function adaptWarPlan(w,a,b,access){
  const d=ensureWarDoctrine(a);if(!d)return;
+ const past=warDoctrinePerformance(a,d.id);
  const oil=Number(a.resources?.oil??40),food=Number(a.resources?.food??60);
  const strength=c=>(c.army||0)+(c.tanks||0)*90+(c.aircraft||0)*75+(c.artillery||0)*45+(c.missiles||0)*65;
  const ratio=strength(a)/Math.max(1,strength(b));
@@ -324,6 +325,8 @@ function adaptWarPlan(w,a,b,access){
   else if(recent.winner===b.id){w.consecutiveLosses=(w.consecutiveLosses||0)+1;w.consecutiveWins=0;}
  }
  let plan=d.id==="fortress"?"memperkuat pertahanan dan mencari serangan balasan":d.id==="longrange"?"melemahkan pertahanan lewat serangan jarak jauh":d.id==="attrition"?"menguras kekuatan lawan secara bertahap":d.id==="coalition"?"mengandalkan dukungan sekutu dan memilih sasaran bersama":d.id==="limited"?"membatasi operasi demi tujuan yang realistis":d.id==="expansion"?"merebut wilayah strategis yang membuka jalur lanjutan":"mencari terobosan cepat dengan pasukan mekanis";
+ if(past&&past.wars>=2&&past.averageProgress<35)plan+="; mengoreksi doktrin karena hasil historisnya kurang efektif";
+ else if(past&&past.wars>=2&&past.averageProgress>=65)plan+="; mempertahankan pendekatan yang terbukti efektif";
  if(oil<8||food<8)plan="menghemat logistik, memperkuat wilayah belakang, dan menunda operasi besar";
  else if((w.consecutiveLosses||0)>=2||ratio<.72)plan="mengurangi risiko, memperkuat garis depan, dan mengganti pendekatan setelah kekalahan";
  else if((w.consecutiveWins||0)>=2&&ratio>1.08)plan=d.id==="limited"?"mengamankan hasil operasi dan membuka perundingan damai":"mengeksploitasi momentum kemenangan dengan sasaran yang lebih bernilai";
@@ -428,8 +431,30 @@ function reinforceFronts(){
   if(moved.troops>=100)addEvent("war","Penguatan garis depan",country.name+" memindahkan "+fmt(moved.troops)+" personel dari "+source.name+" ke "+target.name+" untuk memperkuat pertahanan.","🚚");
  });
 }
+function recordWarLearning(w,reason){
+ if(!w)return;
+ const a=getC(w.a),b=getC(w.b);
+ const outcome={day:state.day,warId:w.id,a:w.a,b:w.b,doctrine:w.doctrine||"unknown",objective:w.objective||"unspecified",battles:w.battles||0,progress:Math.round(w.objectiveProgress||0),reason:reason||"unknown"};
+ if(!Array.isArray(state.warLessons))state.warLessons=[];
+ state.warLessons.unshift(outcome);if(state.warLessons.length>100)state.warLessons.length=100;
+ [a,b].forEach((c,index)=>{
+  if(!c)return;
+  if(!c.aiWarMemory||typeof c.aiWarMemory!=="object")c.aiWarMemory={wars:0,wins:0,losses:0,ceasefires:0,doctrines:{}};
+  const m=c.aiWarMemory;m.wars=(m.wars||0)+1;
+  if(reason==="ceasefire")m.ceasefires=(m.ceasefires||0)+1;
+  const key=outcome.doctrine;if(!m.doctrines[key])m.doctrines[key]={wars:0,progress:0,ceasefires:0};
+  m.doctrines[key].wars++;m.doctrines[key].progress+=index===0?outcome.progress:100-outcome.progress;
+  if(reason==="ceasefire")m.doctrines[key].ceasefires++;
+  m.lastWarLesson={day:state.day,reason,progress:index===0?outcome.progress:100-outcome.progress,objective:outcome.objective,doctrine:key};
+ });
+ if(a&&b)addEvent("war","Evaluasi AI pascaperang",a.name+" dan "+b.name+" menyimpan catatan hasil konflik: kemajuan sasaran "+outcome.progress+"%, "+outcome.battles+" pertempuran, akhir "+reason+".","📚");
+}
+function warDoctrinePerformance(c,doctrineId){
+ const m=c&&c.aiWarMemory;if(!m||!m.doctrines||!m.doctrines[doctrineId])return null;
+ const d=m.doctrines[doctrineId];return {wars:d.wars||0,averageProgress:(d.wars||0)?Math.round((d.progress||0)/d.wars):0,ceasefires:d.ceasefires||0};
+}
 function endWar(w,reason){
- if(!w||!w.active)return;w.active=false;const a=getC(w.a),b=getC(w.b);
+ if(!w||!w.active)return;recordWarLearning(w,reason);w.active=false;const a=getC(w.a),b=getC(w.b);
  if(a&&Array.isArray(a.enemies))a.enemies=a.enemies.filter(id=>id!==w.b);
  if(b&&Array.isArray(b.enemies))b.enemies=b.enemies.filter(id=>id!==w.a);
  if(a&&b&&a.relations&&b.relations&&reason==="ceasefire"){const rel=Math.max(-25,Math.min(-5,Number(a.relations[b.id])||-15));a.relations[b.id]=rel;b.relations[a.id]=rel;}
