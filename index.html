@@ -1263,20 +1263,30 @@ function newsPriority(e){
  const title=String(e?.title||"").toLowerCase(),desc=String(e?.desc||"").toLowerCase();
  let score=e?.type==="war"?4:e?.type==="diplomacy"?2.5:e?.type==="economy"?2:1;
  if(/perang|merebut|serangan|gencatan|invasi|kekalahan|kemenangan|pertempuran|kehilangan seluruh wilayah|krisis pemerintahan/.test(title))score+=5;
- if(/gencatan|merebut|kehilangan seluruh wilayah|serangan balasan|krisis politik|pergantian pemerintahan|sanksi internasional|krisis pangan/.test(title))score+=3;
+ if(/gencatan|merebut|kehilangan seluruh wilayah|serangan balasan|krisis politik|pergantian pemerintahan|sanksi internasional|krisis pangan|kudeta|darurat nasional/.test(title))score+=3;
  if(/perdagangan sumber daya|investasi infrastruktur|reformasi antikorupsi|laporan situasi global/.test(title))score+=1;
+ if(/ancaman|peringatan|darurat|runtuh|menyerah|ibu kota|ibukota|aneksasi/.test(title+" "+desc))score+=2;
  if(desc.length>100)score+=.5;
  return score;
 }
 function makeBroadcast(e){
- const category=e.type==="war"?"LAPORAN KONFLIK":e.type==="diplomacy"?"DIPLOMASI GLOBAL":e.type==="economy"?"EKONOMI DUNIA":"KABAR TERKINI";
- const headline=String(e.title||"Perkembangan dunia");
- let lead="";
- if(e.type==="war")lead="Pemirsa, perkembangan keamanan terbaru menjadi perhatian dunia. "+e.desc+" Tim redaksi akan terus memantau dampaknya terhadap keseimbangan kekuatan dan stabilitas kawasan.";
- else if(e.type==="diplomacy")lead="Beralih ke diplomasi internasional. "+e.desc+" Perkembangan ini berpotensi memengaruhi hubungan antarnegara dan arah kebijakan berikutnya.";
- else if(e.type==="economy")lead="Dalam laporan ekonomi dunia, "+e.desc+" Para pengamat simulasi akan mencermati pengaruhnya terhadap pasokan, anggaran, dan kestabilan nasional.";
- else lead="Berikut perkembangan terbaru dari dunia. "+e.desc;
- return {id:e.id,day:e.day,year:Math.floor((e.day-1)/365)+1,category,headline,lead,sourceType:e.type,icon:e.icon||"🌐",sourceTitle:e.title};
+ const title=String(e?.title||"Perkembangan dunia"),desc=String(e?.desc||"Perkembangan terbaru tercatat dalam simulasi.");
+ const text=(title+" "+desc).toLowerCase();
+ let category,icon=e.icon||"🌐",opening,context;
+ if(e.type==="war"||/perang|serangan|invasi|pertempuran|gencatan|militer|pasukan|merebut|kekalahan|kemenangan/.test(text)){
+  category="LAPORAN KONFLIK";opening="Laporan keamanan internasional";context="Perkembangan ini dapat mengubah situasi medan perang dan perhitungan strategis negara-negara terkait.";
+ }else if(e.type==="diplomacy"||/diplomasi|aliansi|perjanjian|negosiasi|hubungan bilateral|sanksi|gencatan/.test(text)){
+  category="DIPLOMASI GLOBAL";opening="Dari meja diplomasi internasional";context="Perhatian kini tertuju pada respons pemerintah terkait dan kemungkinan perubahan hubungan antarnegara.";
+ }else if(e.type==="economy"||/ekonomi|perdagangan|anggaran|industri|pasokan|krisis pangan|sumber daya|investasi|produksi/.test(text)){
+  category="EKONOMI DUNIA";opening="Dalam laporan ekonomi dunia";context="Dampaknya terhadap produksi, perdagangan, dan kestabilan nasional akan bergantung pada perkembangan berikutnya.";
+ }else if(/pemilu|pemilihan|pemerintahan|kudeta|kabinet|popularitas|oposisi|krisis politik|reformasi|korupsi/.test(text)){
+  category="POLITIK & PEMERINTAHAN";opening="Beralih ke perkembangan politik dalam negeri";context="Perubahan politik ini dapat memengaruhi legitimasi pemerintah dan arah kebijakan nasional.";
+ }else{
+  category="KABAR TERKINI";opening="Berikut perkembangan terbaru dari dunia";context="Redaksi akan memantau perkembangan lanjutan berdasarkan peristiwa yang tercatat dalam simulasi.";
+ }
+ const lead=opening+". "+desc+" "+context;
+ const score=newsPriority(e),urgency=score>=10?"BERITA DARURAT":score>=7?"BERITA UTAMA":"PEMANTAUAN";
+ return {id:e.id,day:e.day,year:Math.floor((e.day-1)/365)+1,category,headline:title,lead,urgency,priority:score,sourceType:e.type,icon,sourceTitle:title};
 }
 function publishWorldNews(force){
  if(!Array.isArray(state.tvNews))state.tvNews=[];
@@ -1289,8 +1299,8 @@ function publishWorldNews(force){
   return;
  }
  const newestId=Math.max(...fresh.map(e=>Number(e.id)||0));
- const candidates=fresh.slice().sort((a,b)=>newsPriority(b)-newsPriority(a)||Number(b.id)-Number(a.id));
- // Terbitkan semua peristiwa baru agar berita penting lain tidak hilang ketika banyak kejadian terjadi pada hari yang sama.
+ const candidates=fresh.slice().sort((a,b)=>newsPriority(a)-newsPriority(b)||Number(a.id)-Number(b.id));
+ // Masukkan dari prioritas terendah ke tertinggi supaya berita utama benar-benar berada di posisi teratas.
  for(const event of candidates){
   const item=makeBroadcast(event);
   if(!state.tvNews.some(n=>Number(n.id)===Number(item.id)))state.tvNews.unshift(item);
@@ -1303,7 +1313,7 @@ function renderTVNews(){
  const top=news[0];
  $("tvNewsCount").textContent="SIARAN "+news.length;
  $("tvNewsTicker").textContent=top?top.headline+" · HARI "+top.day:"Menunggu laporan dari seluruh dunia…";
- $("tvNews").innerHTML=news.length?news.slice(0,8).map((n,i)=>'<article class="tv-bulletin"><div class="tv-bulletin-meta"><span class="tv-bulletin-tag">'+(i===0?"BERITA UTAMA":n.category)+'</span><span>'+n.icon+' '+n.category+'</span><span>HARI '+n.day+' · TAHUN '+n.year+'</span></div><h3>'+n.headline+'</h3><p class="tv-anchor"><strong>PEMBAWA BERITA:</strong> '+n.lead+'</p><div class="tv-bulletin-footer"><span>WORLD NEWS NETWORK · SIARAN SIMULASI</span><span>Sumber: '+n.sourceTitle+'</span></div></article>').join(""):'<div class="detail-empty">Redaksi sedang menunggu peristiwa penting untuk disiarkan.</div>';
+ $("tvNews").innerHTML=news.length?news.slice(0,8).map((n,i)=>'<article class="tv-bulletin"><div class="tv-bulletin-meta"><span class="tv-bulletin-tag">'+(n.urgency|| (i===0?"BERITA UTAMA":n.category))+'</span><span>'+n.icon+' '+n.category+'</span><span>HARI '+n.day+' · TAHUN '+n.year+'</span></div><h3>'+n.headline+'</h3><p class="tv-anchor"><strong>PEMBAWA BERITA:</strong> '+n.lead+'</p><div class="tv-bulletin-footer"><span>WORLD NEWS NETWORK · SIARAN SIMULASI</span><span>Sumber: '+n.sourceTitle+'</span></div></article>').join(""):'<div class="detail-empty">Redaksi sedang menunggu peristiwa penting untuk disiarkan.</div>';
 }
 function renderFeed(){
  const items=state.events.filter(e=>feedFilter==="all"||e.type===feedFilter).slice(0,45);
