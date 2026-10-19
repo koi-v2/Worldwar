@@ -388,13 +388,13 @@ function chooseWar(){
    const rel=Number(aRelations[b.id]||0);
    if(rel>25)return;
    const access=attackAccess(a,b);if(!access)return;
-   const ownForce=Math.max(1,a.army)+Math.max(0,a.tanks)*90+Math.max(0,a.aircraft)*75+Math.max(0,a.artillery)*45+Math.max(0,a.missiles)*65;const actualEnemyForce=Math.max(1,b.army)+Math.max(0,b.tanks)*90+Math.max(0,b.aircraft)*75+Math.max(0,b.artillery)*45+Math.max(0,b.missiles)*65;const intel=a.intelMemory&&a.intelMemory[b.id];const intelAge=intel?Math.max(0,state.day-intel.day):9999;const intelUseful=intel&&intel.snapshot&&intel.snapshot.readiness!=null&&intelAge<=45;const intelConfidence=intelUseful?clamp((intel.confidence||20)/100,0,0.9)*(1-intelAge/60):0;const estimatedEnemyForce=intelUseful?actualEnemyForce*(1-intelConfidence)+Math.max(1,intel.snapshot.army+(intel.snapshot.tanks||0)*90+(intel.snapshot.aircraft||0)*75+(intel.snapshot.artillery||0)*45+(intel.snapshot.missiles||0)*65)*intelConfidence:actualEnemyForce;const ratio=ownForce/Math.max(1,estimatedEnemyForce);
+   const ownForce=Math.max(1,a.army)+Math.max(0,a.tanks)*90+Math.max(0,a.aircraft)*75+Math.max(0,a.artillery)*45+Math.max(0,a.missiles)*65;const intel=a.intelMemory&&a.intelMemory[b.id];const intelAge=intel?Math.max(0,state.day-intel.day):9999;const intelUseful=intel&&intel.snapshot&&intel.snapshot.readiness!=null&&intelAge<=45;const intelConfidence=intelUseful?clamp((intel.confidence||20)/100,0,0.9)*(1-intelAge/60):0;const estimatedEnemyForce=intelUseful?Math.max(1,intel.snapshot.army+(intel.snapshot.tanks||0)*90+(intel.snapshot.aircraft||0)*75+(intel.snapshot.artillery||0)*45+(intel.snapshot.missiles||0)*65):Math.max(1,b.army||50)*(.65+Math.random()*.7)+Math.max(0,ownedCount(b.id))*18;const ratio=ownForce/Math.max(1,estimatedEnemyForce);
    const allyStrength=(b.allies||[]).map(getC).filter(x=>x&&x.alive&&!isAtWar(x.id,a.id)).reduce((n,x)=>n+(x.army||0)*.35+(x.tanks||0)*35+(x.aircraft||0)*25,0);
    const ownStrength=(a.army||0)*.35+(a.tanks||0)*35+(a.aircraft||0)*25;
    const oil=Number(a.resources?.oil??40),food=Number(a.resources?.food??60),budget=Number(a.budget||0);
    const logistics=clamp((oil/35)*.38+(food/40)*.28+(budget/30)*.34,.12,1.25);
    const hostility=clamp((25-rel)/75,0,1.2);
-   const strategicValue=(b.economy||0)*.22+(b.industry||0)*.18+Math.min(6,ownedCount(b.id))*.8;
+   const economicIntel=a.intelMemory&&a.intelMemory[b.id],economicAge=economicIntel?Math.max(0,state.day-economicIntel.day):9999,economicSnapshot=economicIntel&&economicIntel.type==="economic"&&economicIntel.snapshot&&economicAge<=60?economicIntel.snapshot:null;const estimatedEconomy=economicSnapshot?economicSnapshot.economy:clamp(25+ownedCount(b.id)*5+(Math.random()-.5)*28,10,90),estimatedIndustry=economicSnapshot?economicSnapshot.industry:clamp(estimatedEconomy*.7+(Math.random()-.5)*24,5,95);const strategicValue=estimatedEconomy*.22+estimatedIndustry*.18+Math.min(6,ownedCount(b.id))*.8;
    const allyRisk=allyStrength>ownStrength*.7? .52 : allyStrength>ownStrength*.35? .75 : 1;
    let score=hostility*1.4+Math.log(Math.max(.25,ratio))*1.05+strategicValue/100+logistics*.65;
    score+=(Number(a.army||50)-Number(b.army||50))*.012; // Negara yang belum siap lebih enggan memulai perang.
@@ -1061,7 +1061,8 @@ function espionageTick(){
  if(!targets.length)return;
  const targetWeight=b=>{
   const rel=Number(a.relations?.[b.id]??0),enemy=(a.enemies||[]).includes(b.id),war=isAtWar(a.id,b.id);
-  return 1+Math.max(0,35-rel)/18+(enemy?2:0)+(war?1.5:0)+Math.min(2,(b.army||0)/80)+Math.min(1,ownedCount(b.id)/4);
+  // Prioritas memakai sinyal publik, bukan inventaris militer rahasia.
+  return 1+Math.max(0,35-rel)/18+(enemy?2:0)+(war?1.5:0)+Math.min(1.5,ownedCount(b.id)/5);
  };
  const pool=targets.flatMap(b=>Array(Math.max(1,Math.min(8,Math.round(targetWeight(b))))).fill(b));
  const b=rand(pool);if(!b)return;
@@ -1234,7 +1235,15 @@ function renderDetail(){
 }
 function renderRanking(){
  const key=$("rankFilter").value;const sorted=[...state.countries].sort((a,b)=>((key==="power"?power(b):key==="economy"?b.economy:key==="army"?b.army:ownedCount(b.id))- (key==="power"?power(a):key==="economy"?a.economy:key==="army"?a.army:ownedCount(a.id))));
- $("ranking").innerHTML=sorted.map((c,i)=>'<tr><td>'+((i===0&&c.alive)?"👑":i+1)+'</td><td><b>'+c.flag+' '+c.name+'</b><br><span class="muted">'+(c.alive?"Aktif":"Tumbang")+'</span></td><td>'+power(c)+'</td><td>'+Math.round(c.economy)+'</td><td>'+Math.round(c.army)+'</td><td>'+ownedCount(c.id)+'</td></tr>').join("");
+ const observer=getC(selected);
+ $("ranking").innerHTML=sorted.map((c,i)=>{
+  const intel=observer&&observer.intelMemory&&observer.intelMemory[c.id],age=intel?Math.max(0,state.day-intel.day):9999;
+  const valid=c.id===selected||(intel&&age<=45),snap=valid&&intel?intel.snapshot:null;
+  const powerText=c.id===selected?power(c):valid&&snap&&snap.readiness!=null?"Estimasi intel":"Dirahasiakan";
+  const econText=c.id===selected?Math.round(c.economy):valid&&snap&&snap.economy!=null?snap.economy+" (estimasi)":"Belum diketahui";
+  const armyText=c.id===selected?Math.round(c.army):valid&&snap&&snap.readiness!=null?snap.readiness+" (estimasi)":"Belum diketahui";
+  return '<tr><td>'+((i===0&&c.alive)?"👑":i+1)+'</td><td><b>'+c.flag+' '+c.name+'</b><br><span class="muted">'+(c.alive?"Aktif":"Tumbang")+'</span></td><td>'+powerText+'</td><td>'+econText+'</td><td>'+armyText+'</td><td>'+ownedCount(c.id)+'</td></tr>';
+ }).join("");
 }
 function newsPriority(e){
  const title=String(e?.title||"").toLowerCase(),desc=String(e?.desc||"").toLowerCase();
@@ -1292,8 +1301,12 @@ function renderRelations(){
  $("relations").innerHTML=active.length?active.map(w=>{const a=getC(w.a),b=getC(w.b);return '<div class="country-row"><span class="flag">⚔️</span><div><b>'+a.flag+' '+a.name+' vs '+b.flag+' '+b.name+'</b><small>Sejak hari '+w.started+' · '+w.battles+' pertempuran</small></div><span class="badge red">PERANG</span></div>'}).join(""):'<div class="detail-empty">Saat ini tidak ada perang aktif. Diplomasi terus berjalan di belakang layar.</div>';
 }
 function renderEconomy(){
- const cs=[...state.countries].sort((a,b)=>(b.budget||0)-(a.budget||0));
- $("economyTable").innerHTML=cs.map(c=>'<tr><td><b>'+c.flag+' '+c.name+'</b></td><td>'+fmt(c.budget)+'</td><td>'+fmt(c.industry||Math.round(c.economy*.7))+'</td><td>'+fmt(c.tanks)+'</td><td>'+fmt(c.aircraft)+'</td><td>'+fmt(c.ships)+'</td><td>'+fmt(c.missiles)+'</td></tr>').join("");
+ const cs=[...state.countries].sort((a,b)=>(b.budget||0)-(a.budget||0)),observer=getC(selected);
+ $("economyTable").innerHTML=cs.map(c=>{
+  const intel=observer&&observer.intelMemory&&observer.intelMemory[c.id],age=intel?Math.max(0,state.day-intel.day):9999,valid=c.id===selected||(intel&&age<=45),snap=valid&&intel?intel.snapshot:null;
+  const val=(key,own)=>c.id===selected?fmt(own):snap&&snap[key]!=null?"Estimasi "+fmt(snap[key]):"Belum diketahui";
+  return '<tr><td><b>'+c.flag+' '+c.name+'</b></td><td>'+val("economy",c.budget)+'</td><td>'+val("industry",c.industry||Math.round(c.economy*.7))+'</td><td>'+val("tanks",c.tanks)+'</td><td>'+val("aircraft",c.aircraft)+'</td><td>'+(c.id===selected?fmt(c.ships):"Belum diketahui")+'</td><td>'+val("missiles",c.missiles)+'</td></tr>';
+ }).join("");
 }
 function renderHistory(){
  const battles=state.battles||[], wars=state.wars||[], wins={};
