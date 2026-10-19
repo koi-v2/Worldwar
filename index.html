@@ -852,7 +852,9 @@ function negotiatePeace(){
   const pressure=c=>(100-(c.morale||50))*.55+(c.battleLosses||0)/Math.max(1,c.troops||1)*100+(100-(c.stability||50))*.12;
   const pa=pressure(a),pb=pressure(b);
   const exhausted=(w.battles||0)>=4&&(Math.max(pa,pb)>=24||Math.max(0,Number(w.objectiveProgress)||0)>=65);
-  const peaceChance=exhausted?.28:Math.max(pa,pb)>=55?.18:.12;
+  const basePeaceChance=exhausted?.28:Math.max(pa,pb)>=55?.18:.12;
+  const peaceDisposition=((strategicPersonality(a).peace||1)+(strategicPersonality(b).peace||1))/2;
+  const peaceChance=clamp(basePeaceChance*peaceDisposition,.04,.48);
   if((Math.max(pa,pb)<38&&!exhausted)||Math.random()>peaceChance)return;
   const winner=pa<pb?a:b,loser=winner===a?b:a;
   const payment=Math.min(Math.max(0,loser.budget||0),Math.max(2,Math.round((loser.budget||0)*.08)));
