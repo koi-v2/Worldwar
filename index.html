@@ -643,9 +643,15 @@ function resolveWars(){
   w.stalledDays=0;w.battles++;updateWarObjective(w,a,b);const report={day:state.day,a:a.id,b:b.id,winner:winner.id,loser:loser.id,scoreA:Math.round(scoreA),scoreB:Math.round(scoreB),troopsA:lost.troops,troopsB:defLost.troops,tankLossA:lost.tanks,tankLossB:defLost.tanks,aircraftLossA:lost.aircraft,aircraftLossB:defLost.aircraft,shipLossA:lost.ships,shipLossB:defLost.ships,region:target.name,sourceRegion:source.name,attackForce:attack,attackerWon:won};state.battles.unshift(report);if(state.battles.length>80)state.battles.length=80;
   winner.wins++;loser.losses++;winner.morale=clamp(winner.morale+2,5,100);loser.morale=clamp(loser.morale-3,5,100);[a,b].forEach(c=>{c.militaryTraining=clamp((Number(c.militaryTraining)||35)+.12,0,100);c.militaryExperience=clamp((Number(c.militaryExperience)||20)+(c.id===winner.id?1.15:.7),0,100);});winner.army=clamp((Number(winner.army)||50)+.55,5,100);loser.army=clamp((Number(loser.army)||50)-.75,5,100);a.economy=clamp(a.economy-.25,10,100);b.economy=clamp(b.economy-.35,10,100);
   if(w.battles>=4+Math.floor(Math.random()*4)||loser.morale<14||Math.random()<.025){endWar(w,"ceasefire");winner.relations[loser.id]=-15;loser.relations[winner.id]=-15;winner.economy=clamp(winner.economy+2,10,100);loser.stability=clamp(loser.stability-5,5,100);addEvent("war","Gencatan senjata: "+a.name+" — "+b.name,winner.name+" unggul setelah "+w.battles+" pertempuran.","🕊️");a.enemies=a.enemies.filter(x=>x!==b.id);b.enemies=b.enemies.filter(x=>x!==a.id);}else{
-   // Perang darat bergiliran: setelah satu pihak menyerang, pihak lawan mendapat giliran ofensif berikutnya.
-   const previousAttacker=w.a;w.a=w.b;w.b=previousAttacker;w.counterattacks=(w.counterattacks||0)+1;
-   addEvent("war","Giliran serangan balasan: "+getC(w.a).name,"Setelah serangan "+a.name+", "+getC(w.a).name+" mendapat kesempatan membalas pada putaran perang berikutnya.","🛡️");
+   // Giliran ofensif berganti hanya jika pihak lawan benar-benar punya jalur serangan yang layak.
+   const previousAttacker=w.a,previousDefender=getC(w.b),previousSide=getC(w.a);
+   if(previousDefender&&previousSide&&attackAccess(previousDefender,previousSide)){
+    w.a=w.b;w.b=previousAttacker;w.counterattacks=(w.counterattacks||0)+1;w.stalledDays=0;
+    addEvent("war","Giliran serangan balasan: "+getC(w.a).name,"Setelah serangan "+a.name+", "+getC(w.a).name+" mendapat giliran karena memiliki jalur operasi yang layak.","🛡️");
+   }else{
+    w.stalledDays=0;
+    addEvent("war","Serangan balasan tidak tersedia: "+(previousDefender?.name||"pihak bertahan"),(previousDefender?.name||"Pihak bertahan")+" belum memiliki jalur serangan yang layak; "+(previousSide?.name||"penyerang")+" mempertahankan inisiatif operasi.","🧭");
+   }
   }
  });
 }
