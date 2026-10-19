@@ -344,7 +344,7 @@ function adaptWarPlan(w,a,b,access){
  const d=ensureWarDoctrine(a);if(!d)return;
  const past=warDoctrinePerformance(a,d.id);
  const oil=Number(a.resources?.oil??40),food=Number(a.resources?.food??60);
- const strength=c=>(c.army||0)+(c.tanks||0)*90+(c.aircraft||0)*75+(c.artillery||0)*45+(c.missiles||0)*65;
+ const strength=c=>(c.army||0)+(c.tanks||0)*90+(c.aircraft||0)*75+(c.artillery||0)*45+(c.missiles||0)*65+Math.max(0,(c.techLevel||30)-30)*3;
  const ratio=strength(a)/Math.max(1,strength(b));
  const recent=(state.battles||[]).find(x=>(x.a===a.id&&x.b===b.id)||(x.a===b.id&&x.b===a.id));
  if(recent&&recent.day!==w.lastEvaluatedBattleDay){
@@ -785,12 +785,10 @@ function addProducedUnits(c,key,amount){
 }
 function militaryProductionModifier(c){
  const p=String(c&&c.personality||"");
- if(p==="Militeris")return 1.35;
- if(p==="Ekspansionis"||p==="Hegemon")return 1.2;
- if(p==="Pasifis")return .55;
- if(p==="Diplomatis")return .72;
- if(p==="Kapitalis")return .82;
- return 1;
+ const personality=p==="Militeris"?1.35:p==="Ekspansionis"||p==="Hegemon"?1.2:p==="Pasifis"?.55:p==="Diplomatis"?.72:p==="Kapitalis"?.82:1;
+ const tech=clamp(1+(Number(c?.techLevel||30)-30)*.003, .82, 1.22);
+ const industry=clamp(.78+(Number(c?.industrialOutput||c?.industry||40)/100)*.22,.78,1.15);
+ return personality*tech*industry;
 }
 function militaryProductionChance(c,key,base){
  const doctrine=ensureWarDoctrine(c)?.id||"balanced";
@@ -830,7 +828,8 @@ function economyTick(){
   if(!Number.isFinite(c.tradeBalance))c.tradeBalance=0;
   if(!Number.isFinite(c.economicTrend))c.economicTrend=0;
   const infrastructure=Number(c.infrastructure??35),education=Number(c.education??40),research=Number(c.research??30),energy=Number(c.energy??40),health=Number(c.health??40);
-  const productivity=(infrastructure-50)*.009+(education-50)*.008+(research-50)*.006+(energy-50)*.007+(health-50)*.005;
+  const techLevel=Number(c.techLevel??(research*.62+education*.18));
+  const productivity=(infrastructure-50)*.009+(education-50)*.008+(research-50)*.006+(energy-50)*.007+(health-50)*.005+(techLevel-35)*.003;
   const corruptionDrag=Math.max(0,Number(c.corruption??25)-35)*.009;
   const jobDrag=Math.max(0,c.unemployment-25)*.012;
   const tradeLift=clamp(Number(c.tradeBalance)||0,-12,12)*.012;
@@ -863,6 +862,7 @@ function economyTick(){
   c.workforce=Math.round((c.population||50000000)*.48);
   c.employed=Math.round(c.workforce*(1-clamp(Number(c.unemployment)||0,0,100)/100));
   c.gdpEstimate=Math.round((c.economy/100)*(c.population||50000000)/1000000);
+  c.gdpPerCapitaIndex=clamp((c.economy||0)*(.55+(Number(c.techLevel)||30)/200),0,180);
   const educationSpend=Math.min(Math.max(0,c.budget||0),Math.max(.05,income*(Number(c.educationBudget||8)/100)));
   const healthSpend=Math.min(Math.max(0,(c.budget||0)-educationSpend),Math.max(.05,income*(Number(c.healthBudget||8)/100)));
   c.education=clamp((c.education||40)+(educationSpend/(1+populationScale))*.018+(c.education>70?-.008:0),0,100);
@@ -1119,6 +1119,34 @@ function developmentTick(){living().forEach(c=>{
  if(r.food<8&&Math.random()<.025)addEvent("economy","Krisis pangan di "+c.name,"Cadangan pangan menipis. Stabilitas dan pertumbuhan ekonomi mulai tertekan; perdagangan dapat membantu memulihkan pasokan.","🌾");
  if(r.iron<3&&Math.random()<.02)addEvent("economy","Kekurangan bahan industri","Cadangan besi "+c.name+" menipis sehingga produksi kendaraan dan persenjataan berat terhambat.","⛏️");
  });}
+function nationalSystemsTick(){
+ living().forEach(c=>{
+  if(!Number.isFinite(c.techLevel))c.techLevel=clamp((Number(c.research)||30)*.62+(Number(c.education)||40)*.18,5,90);
+  if(!Number.isFinite(c.industrialOutput))c.industrialOutput=0;
+  if(!Number.isFinite(c.consumerGoods))c.consumerGoods=0;
+  if(!Number.isFinite(c.militaryOutput))c.militaryOutput=0;
+  if(!Number.isFinite(c.energySecurity))c.energySecurity=50;
+  const r=c.resources||(c.resources={oil:40,coal:40,iron:40,food:60,uranium:10});
+  const research=Math.max(0,Number(c.research)||0),education=Math.max(0,Number(c.education)||0),energy=Math.max(0,Number(c.energy)||0);
+  const workforce=Math.max(1,Number(c.workingAgePopulation)||Number(c.population||50000000)*.64);
+  const employed=Math.max(0,Number(c.employed)||workforce*(1-(Number(c.unemployment)||0)/100));
+  const labor=clamp(employed/workforce,.25,1);
+  const supply=clamp((Math.min(100,Number(r.oil)||0)*.25+Math.min(100,Number(r.coal)||0)*.2+Math.min(100,Number(r.iron)||0)*.15+Math.min(100,Number(r.food)||0)*.2+energy*.2),0,100);
+  c.energySecurity=clamp(c.energySecurity+(supply>60?.12:supply<25?-.3:.015),0,100);
+  const productivity=clamp((.48+(Number(c.infrastructure)||40)/180+(Number(c.techLevel)||30)/240+(education/500))*(.55+labor*.45)*(energy<15?.62:energy<30?.82:1),.35,1.65);
+  c.industrialOutput=clamp((Number(c.industry)||40)*productivity,0,160);
+  c.consumerGoods=clamp(c.industrialOutput*(.34+Math.max(0,education-40)*.0015),0,180);
+  c.militaryOutput=clamp(c.industrialOutput*(.12+(Number(c.militaryBudgetShare)||20)/250)*(r.iron<8?.55:1)*(r.oil<8?.7:1),0,100);
+  const techGain=(.0015+research*.000055+education*.000018)*(Number(c.budget||0)>15?1:.55)*(r.uranium<1&&research>60?.6:1);
+  c.techLevel=clamp(c.techLevel+techGain-(c.techLevel>90?.001:0),5,100);
+  // Kekurangan input menekan output, pekerjaan, dan kemampuan produksi militer.
+  const shortage=(r.iron<5?.16:0)+(r.oil<5?.12:0)+(r.coal<5?.1:0)+(r.food<8?.12:0);
+  if(shortage>0){c.industry=clamp(c.industry-shortage,5,100);c.unemployment=clamp((Number(c.unemployment)||0)+shortage*.12,3,65);}
+  else if(c.industrialOutput>55&&c.economy>45&&c.unemployment>5){c.unemployment=clamp(c.unemployment-.015,3,65);}
+  c.gdpPerCapitaIndex=clamp((Number(c.economy)||0)*(.55+(Number(c.techLevel)||30)/200)*(.7+labor*.3),0,180);
+  c.dependencyRatio=Number(c.dependencyRatio)||Math.round(56+Math.max(0,(c.population||0)>1000000000?2:0));
+ });
+}
 function internationalOrganizationTick(){if(!state.council)state.council={members:[],resolutions:[],sanctions:[],aid:[]};const cs=living();if(cs.length<2)return;if(!state.council.members.length)state.council.members=cs.slice().sort((a,b)=>power(b)-power(a)).slice(0,7).map(c=>c.id);if(Math.random()<.035){const a=rand(cs),b=rand(cs.filter(c=>c.id!==a.id&&!isAtWar(a.id,c.id)));if(a&&b){const rel=a.relations[b.id]||0;if(rel<0){a.relations[b.id]=clamp(rel+5,-100,100);b.relations[a.id]=a.relations[b.id];a.stability=clamp(a.stability+1,0,100);b.stability=clamp(b.stability+1,0,100);const item={title:"Mediasi damai: "+a.name+" & "+b.name,desc:"Dewan Dunia memfasilitasi dialog dan mendorong penurunan ketegangan.",day:state.day};state.council.resolutions.push(item);addEvent("diplomacy",item.title,item.desc,"🕊️");}else if(a.economy<45&&Math.random()<.5){a.budget+=5;a.economy=clamp(a.economy+2,0,100);state.council.aid.push({to:a.id,day:state.day});addEvent("economy","Bantuan kemanusiaan internasional","Dewan Dunia menyalurkan bantuan pemulihan ekonomi kepada "+a.name+".","🤲");}else if(rel<-55&&Math.random()<.25){a.sanctionedBy.push(b.id);a.economy=clamp(a.economy-2,0,100);state.council.sanctions.push({from:b.id,to:a.id,day:state.day});addEvent("diplomacy","Sanksi internasional",b.name+" mendorong pembatasan ekonomi terhadap "+a.name+" akibat krisis diplomatik.","🚫");}}}if(Math.random()<.012){const item={title:"Resolusi kerja sama global",desc:"Anggota Dewan Dunia menyepakati kerja sama keamanan, perdagangan, dan bantuan lintas kawasan.",day:state.day};state.council.resolutions.push(item);state.council.resolutions=state.council.resolutions.slice(-30);living().forEach(c=>{if(c.personality==="Pasifis")c.stability=clamp(c.stability+1,0,100);});addEvent("diplomacy",item.title,item.desc,"🌐");}}
 function espionageTick(){
  if(!Array.isArray(state.intelReports))state.intelReports=[];
@@ -1289,19 +1317,33 @@ function demographyTick(){
   if(!Number.isFinite(c.population)||c.population<1000)c.population=populationById[c.id]||50000000;
   const atWar=state.wars.some(w=>w.active&&(w.a===c.id||w.b===c.id)),food=Number(c.resources?.food)||0,health=Number(c.health)||40,stability=Number(c.stability)||40;
   const education=Number(c.education)||40,unemployment=Number(c.unemployment)||0,inflation=Number(c.inflation)||0;
-  const rate=.000018+(health-50)*.00000018+(stability-50)*.00000012+(education>65?.000003:0)-(inflation>12?.000008:0)-(food<10?.000025:food<25?.00001:0)-(unemployment>30?.000004:0)-(atWar?.000025:0);
-  const change=Math.round(c.population*clamp(rate,-.00008,.00009));c.population=Math.max(100000,Math.round(c.population+change));c.populationGrowth=change;
-  c.birthsPerDay=Math.max(0,Math.round(c.population*(.000027+Math.max(0,health-50)*.00000012)));
-  c.deathsPerDay=Math.max(0,Math.round(c.population*(.000009+Math.max(0,50-health)*.0000001+(food<10?.00002:0)+(atWar?.000008:0))));
-  c.migrationPressure=clamp((c.economy-50)*.12+(50-unemployment)*.08+(stability-50)*.08,-20,20);
+  // Struktur umur disederhanakan tetapi tetap dinamis dan tersimpan pada data negara.
+  if(!c.demographics||typeof c.demographics!=="object")c.demographics={young:.24,working:.64,elderly:.12};
+  const d=c.demographics;
+  d.young=clamp(Number(d.young)||.24,.12,.38);d.elderly=clamp(Number(d.elderly)||.12,.06,.32);d.working=clamp(1-d.young-d.elderly,.4,.78);
+  const aging=clamp(.000035+(health>65?.000004:0)+(education>65?.000003:0)-(food<10?.00002:0),.00001,.00006);
+  d.young=clamp(d.young-aging+(health<35?.000015:0),.12,.38);
+  d.elderly=clamp(d.elderly+aging*.7-(health<35?.000018:0),.06,.32);
+  d.working=clamp(1-d.young-d.elderly,.4,.78);
+  const birthRate=.000026+Math.max(0,health-50)*.00000009+Math.max(0,stability-50)*.000000035-Math.max(0,education-70)*.000000025;
+  const deathRate=.000009+Math.max(0,50-health)*.00000012+(food<10?.000018:food<25?.000006:0)+(atWar?.000008:0)+(d.elderly-.12)*.000025;
+  const births=Math.max(0,Math.round(c.population*clamp(birthRate,.000012,.00004)));
+  const deaths=Math.max(0,Math.round(c.population*clamp(deathRate,.000005,.000045)));
+  const migrationPressure=clamp((Number(c.economy||50)-50)*.12+(50-unemployment)*.08+(stability-50)*.08-(inflation>12?4:0)-(food<12?7:0)-(atWar?5:0),-20,20);
+  const migration=Math.round(c.population*clamp(migrationPressure*.0000015,-.000025,.000025));
+  const net= births-deaths+migration;
+  c.birthsPerDay=births;c.deathsPerDay=deaths;c.netMigrationPerDay=migration;c.migrationPressure=migrationPressure;
+  c.populationGrowth=net;c.population=Math.max(100000,Math.round(c.population+net));
+  c.workingAgePopulation=Math.round(c.population*d.working);
+  c.dependencyRatio=Math.round((d.young+d.elderly)/Math.max(.01,d.working)*100);
   if(food<7&&Math.random()<.035)addEvent("economy","Krisis kebutuhan dasar di "+c.name,"Pasokan pangan tidak mencukupi kebutuhan penduduk. Pemerintah harus memperbaiki produksi atau mencari pemasok melalui perdagangan.","🌾");
  });
 }
 function tick(){
  state.day++;state.year=Math.floor((state.day-1)/365)+1;
  if(!Array.isArray(state.trends))state.trends=[];
- if(state.day%10===0){const cs=living();state.trends.push({day:state.day,year:state.year,averageEconomy:cs.length?cs.reduce((n,c)=>n+(c.economy||0),0)/cs.length:0,activeWars:state.wars.filter(w=>w.active).length,activeCountries:cs.length,territories:state.regions.filter(r=>r.owner).length});if(state.trends.length>60)state.trends.shift();}
-economyTick();demographyTick();resourceMarketTick();tradeAgreementTick();politicsTick();developmentTick();internationalOrganizationTick();espionageTick();goalsTick();updateMilitaryReadiness();
+ if(state.day%10===0){const cs=living();state.trends.push({day:state.day,year:state.year,averageEconomy:cs.length?cs.reduce((n,c)=>n+(c.economy||0),0)/cs.length:0,averageInflation:cs.length?cs.reduce((n,c)=>n+(c.inflation||0),0)/cs.length:0,averagePopulation:cs.length?cs.reduce((n,c)=>n+(c.population||0),0)/cs.length:0,averageTech:cs.length?cs.reduce((n,c)=>n+(c.techLevel||30),0)/cs.length:0,totalDebt:cs.reduce((n,c)=>n+(c.debt||0),0),activeWars:state.wars.filter(w=>w.active).length,activeCountries:cs.length,territories:state.regions.filter(r=>r.owner).length});if(state.trends.length>60)state.trends.shift();}
+economyTick();demographyTick();resourceMarketTick();tradeAgreementTick();politicsTick();developmentTick();nationalSystemsTick();internationalOrganizationTick();espionageTick();goalsTick();updateMilitaryReadiness();
  reinforceFronts();
  resolveWars();negotiatePeace();diplomacy();maybeEvents();peacefulDevelopment();
  if(Math.random()<.025)chooseWar();
@@ -1464,7 +1506,7 @@ function tidyPanels(){
  }
 );}
 
-function renderSystems(){const cs=living().slice().sort((a,b)=>(b.popularity||0)-(a.popularity||0)),m=state.market||{};$("systemsPanel").innerHTML='<div class="mini-stats"><div class="mini"><span>Kesepakatan dagang</span><b>'+(state.stats.tradeDeals||0)+'</b></div><div class="mini"><span>Krisis politik</span><b>'+(state.stats.politicalCrises||0)+'</b></div><div class="mini"><span>Operasi intelijen</span><b>'+(state.stats.espionageOps||0)+'</b></div><div class="mini"><span>Proyek pembangunan</span><b>'+(state.stats.developmentProjects||0)+'</b></div></div><h3 class="system-subhead">🌐 PASAR SUMBER DAYA</h3><div class="resource-chips">'+Object.keys(m).map(k=>'<span class="resource-chip">'+k.toUpperCase()+' <b>'+Math.round(m[k])+'</b></span>').join('')+'</div><h3 class="system-subhead">🏛️ PEMERINTAHAN & KEPRIBADIAN AI</h3>'+cs.slice(0,8).map(c=>'<div class="system-row"><div><b>'+c.flag+' '+c.name+'</b><small>'+c.personality+' · '+c.government+' · '+c.ideology+'</small></div><div class="system-metric"><span>Popularitas '+Math.round(c.popularity||50)+'%</span><div class="meter"><i style="width:'+Math.round(c.popularity||50)+'%"></i></div><small>Korupsi '+Math.round(c.corruption||0)+'% · Intel '+Math.round(c.espionage||0)+'</small></div></div>').join('')+'<h3 class="system-subhead">🏗️ PEMBANGUNAN NASIONAL</h3>'+cs.slice().sort((a,b)=>((b.infrastructure||0)+(b.education||0)+(b.research||0))-((a.infrastructure||0)+(a.education||0)+(a.research||0))).slice(0,6).map(c=>'<div class="system-row"><div><b>'+c.flag+' '+c.name+'</b><small>Infrastruktur '+Math.round(c.infrastructure||0)+' · Pendidikan '+Math.round(c.education||0)+'</small></div><div class="system-metric"><span>Riset & teknologi '+Math.round(c.research||0)+'%</span><div class="meter"><i style="width:'+Math.round(c.research||0)+'%"></i></div><small>Energi '+Math.round(c.energy||0)+' · Kesehatan '+Math.round(c.health||0)+'</small></div></div>').join('')+'<h3 class="system-subhead">🕊️ ORGANISASI INTERNASIONAL</h3><div class="system-row"><div><b>Dewan Dunia</b><small>Mediasi damai, bantuan kemanusiaan, resolusi, sanksi</small></div><span class="badge">'+((state.council.resolutions||[]).length)+' RESOLUSI</span></div>'+((state.council.resolutions||[]).slice(-3).reverse().map(x=>'<div class="system-note"><b>'+x.title+'</b><small>'+x.desc+'</small></div>').join('')||'<div class="detail-empty">Dewan menunggu agenda internasional pertama.</div>')+'<h3 class="system-subhead">🏛️ POLITIK DALAM NEGERI</h3>'+cs.slice().sort((a,b)=>(Number(a.legitimacy)||0)-(Number(b.legitimacy)||0)).slice(0,6).map(c=>'<div class="system-row"><div><b>'+c.flag+' '+c.name+'</b><small>'+c.government+' · '+c.ideology+'</small></div><div class="system-metric"><span>Legitimasi '+Math.round(c.legitimacy||0)+'% · Popularitas '+Math.round(c.popularity||0)+'%</span><div class="meter"><i style="width:'+Math.round(c.legitimacy||0)+'%"></i></div><small>Oposisi '+Math.round(c.opposition||0)+'% · Loyalitas militer '+Math.round(c.militaryLoyalty||0)+'% · Pemilu hari '+Math.round(c.nextElection||0)+'</small></div></div>').join('')+'<h3 class="system-subhead">🕵️ INTELIJEN & KONTRAINTELIJEN</h3>'+cs.slice().sort((a,b)=>(Number(b.intelNetwork)||0)-(Number(a.intelNetwork)||0)).slice(0,6).map(c=>'<div class="system-row"><div><b>'+c.flag+' '+c.name+'</b><small>Jaringan intelijen '+Math.round(c.intelNetwork||c.espionage||20)+'/100</small></div><div class="system-metric"><span>Kontraintelijen '+Math.round(c.counterIntel||20)+'/100</span><div class="meter"><i style="width:'+Math.round(c.counterIntel||20)+'%"></i></div><small>Informasi intelijen bisa tidak akurat atau kedaluwarsa.</small></div></div>').join('')+'<h3 class="system-subhead">📡 LAPORAN INTELIJEN TERBARU</h3>'+((state.intelReports||[]).slice(0,5).map(x=>{const src=getC(x.source),tgt=getC(x.target);return '<div class="system-note"><b>'+x.headline+'</b><small>Hari '+x.day+' · '+(src?src.name:'Sumber tak dikenal')+' → '+(tgt?tgt.name:'Target tak dikenal')+' · Keyakinan '+Math.round(x.confidence||0)+'%</small><small>'+x.detail+'</small></div>';}).join('')||'<div class="detail-empty">Belum ada laporan. Informasi akan terkumpul seiring simulasi berjalan.</div>')+'<h3 class="system-subhead">🎯 TUJUAN NEGARA</h3>'+cs.slice(0,8).map(c=>'<div class="system-note"><b>'+c.flag+' '+c.name+'</b><small>'+(c.goals&&c.goals.length?c.goals.join(' · '):'Mengejar kemakmuran, pengaruh diplomatik, dan keamanan nasional')+'</small></div>').join('')+'<h3 class="system-subhead">🕵️ PERANG DINGIN & INTELIJEN</h3><div class="system-note"><b>Operasi rahasia tercatat: '+(state.stats.espionageOps||0)+'</b><small>Intelijen dapat mencuri riset, mengganggu ekonomi, atau memicu ketegangan. Operasi tidak selalu berhasil.</small></div>';}
+function renderSystems(){const cs=living().slice().sort((a,b)=>(b.popularity||0)-(a.popularity||0)),m=state.market||{};$("systemsPanel").innerHTML='<div class="mini-stats"><div class="mini"><span>Kesepakatan dagang</span><b>'+(state.stats.tradeDeals||0)+'</b></div><div class="mini"><span>Krisis politik</span><b>'+(state.stats.politicalCrises||0)+'</b></div><div class="mini"><span>Operasi intelijen</span><b>'+(state.stats.espionageOps||0)+'</b></div><div class="mini"><span>Proyek pembangunan</span><b>'+(state.stats.developmentProjects||0)+'</b></div></div><h3 class="system-subhead">🌐 PASAR SUMBER DAYA</h3><div class="resource-chips">'+Object.keys(m).map(k=>'<span class="resource-chip">'+k.toUpperCase()+' <b>'+Math.round(m[k])+'</b></span>').join('')+'</div><h3 class="system-subhead">🏛️ PEMERINTAHAN & KEPRIBADIAN AI</h3>'+cs.slice(0,8).map(c=>'<div class="system-row"><div><b>'+c.flag+' '+c.name+'</b><small>'+c.personality+' · '+c.government+' · '+c.ideology+'</small></div><div class="system-metric"><span>Popularitas '+Math.round(c.popularity||50)+'%</span><div class="meter"><i style="width:'+Math.round(c.popularity||50)+'%"></i></div><small>Korupsi '+Math.round(c.corruption||0)+'% · Intel '+Math.round(c.espionage||0)+'</small></div></div>').join('')+'<h3 class="system-subhead">🏗️ PEMBANGUNAN NASIONAL</h3>'+cs.slice().sort((a,b)=>((b.infrastructure||0)+(b.education||0)+(b.research||0))-((a.infrastructure||0)+(a.education||0)+(a.research||0))).slice(0,6).map(c=>'<div class="system-row"><div><b>'+c.flag+' '+c.name+'</b><small>Infrastruktur '+Math.round(c.infrastructure||0)+' · Pendidikan '+Math.round(c.education||0)+'</small></div><div class="system-metric"><span>Riset & teknologi '+Math.round(c.research||0)+'%</span><div class="meter"><i style="width:'+Math.round(c.research||0)+'%"></i></div><small>Energi '+Math.round(c.energy||0)+' · Kesehatan '+Math.round(c.health||0)+'</small></div></div>').join('')+'<h3 class="system-subhead">🏭 INDUSTRI, RANTAI PASOKAN & TEKNOLOGI</h3>'+cs.slice().sort((a,b)=>(Number(b.industrialOutput)||b.industry||0)-(Number(a.industrialOutput)||a.industry||0)).slice(0,8).map(c=>'<div class="system-row"><div><b>'+c.flag+' '+c.name+'</b><small>Output industri '+Math.round(c.industrialOutput||c.industry||0)+' · Barang konsumen '+Math.round(c.consumerGoods||0)+'</small></div><div class="system-metric"><span>Teknologi '+Math.round(c.techLevel||c.research||30)+' · Produksi militer '+Math.round(c.militaryOutput||0)+'</span><div class="meter"><i style="width:'+Math.round(c.techLevel||c.research||30)+'%"></i></div><small>Tenaga kerja usia kerja '+fmt(c.workingAgePopulation||0)+' · Rasio ketergantungan '+Math.round(c.dependencyRatio||0)+'%</small></div></div>').join('')+'<h3 class="system-subhead">🕊️ ORGANISASI INTERNASIONAL</h3><div class="system-row"><div><b>Dewan Dunia</b><small>Mediasi damai, bantuan kemanusiaan, resolusi, sanksi</small></div><span class="badge">'+((state.council.resolutions||[]).length)+' RESOLUSI</span></div>'+((state.council.resolutions||[]).slice(-3).reverse().map(x=>'<div class="system-note"><b>'+x.title+'</b><small>'+x.desc+'</small></div>').join('')||'<div class="detail-empty">Dewan menunggu agenda internasional pertama.</div>')+'<h3 class="system-subhead">🏛️ POLITIK DALAM NEGERI</h3>'+cs.slice().sort((a,b)=>(Number(a.legitimacy)||0)-(Number(b.legitimacy)||0)).slice(0,6).map(c=>'<div class="system-row"><div><b>'+c.flag+' '+c.name+'</b><small>'+c.government+' · '+c.ideology+'</small></div><div class="system-metric"><span>Legitimasi '+Math.round(c.legitimacy||0)+'% · Popularitas '+Math.round(c.popularity||0)+'%</span><div class="meter"><i style="width:'+Math.round(c.legitimacy||0)+'%"></i></div><small>Oposisi '+Math.round(c.opposition||0)+'% · Loyalitas militer '+Math.round(c.militaryLoyalty||0)+'% · Pemilu hari '+Math.round(c.nextElection||0)+'</small></div></div>').join('')+'<h3 class="system-subhead">🕵️ INTELIJEN & KONTRAINTELIJEN</h3>'+cs.slice().sort((a,b)=>(Number(b.intelNetwork)||0)-(Number(a.intelNetwork)||0)).slice(0,6).map(c=>'<div class="system-row"><div><b>'+c.flag+' '+c.name+'</b><small>Jaringan intelijen '+Math.round(c.intelNetwork||c.espionage||20)+'/100</small></div><div class="system-metric"><span>Kontraintelijen '+Math.round(c.counterIntel||20)+'/100</span><div class="meter"><i style="width:'+Math.round(c.counterIntel||20)+'%"></i></div><small>Informasi intelijen bisa tidak akurat atau kedaluwarsa.</small></div></div>').join('')+'<h3 class="system-subhead">📡 LAPORAN INTELIJEN TERBARU</h3>'+((state.intelReports||[]).slice(0,5).map(x=>{const src=getC(x.source),tgt=getC(x.target);return '<div class="system-note"><b>'+x.headline+'</b><small>Hari '+x.day+' · '+(src?src.name:'Sumber tak dikenal')+' → '+(tgt?tgt.name:'Target tak dikenal')+' · Keyakinan '+Math.round(x.confidence||0)+'%</small><small>'+x.detail+'</small></div>';}).join('')||'<div class="detail-empty">Belum ada laporan. Informasi akan terkumpul seiring simulasi berjalan.</div>')+'<h3 class="system-subhead">🎯 TUJUAN NEGARA</h3>'+cs.slice(0,8).map(c=>'<div class="system-note"><b>'+c.flag+' '+c.name+'</b><small>'+(c.goals&&c.goals.length?c.goals.join(' · '):'Mengejar kemakmuran, pengaruh diplomatik, dan keamanan nasional')+'</small></div>').join('')+'<h3 class="system-subhead">🕵️ PERANG DINGIN & INTELIJEN</h3><div class="system-note"><b>Operasi rahasia tercatat: '+(state.stats.espionageOps||0)+'</b><small>Intelijen dapat mencuri riset, mengganggu ekonomi, atau memicu ketegangan. Operasi tidak selalu berhasil.</small></div>';}
 function renderTrends(){
  const t=Array.isArray(state.trends)?state.trends:[];const box=$("trendGraph"),stats=$("trendStats");if(!box||!stats)return;
  const last=t[t.length-1],cs=living(),avg=cs.reduce((n,c)=>n+(c.economy||0),0)/Math.max(1,cs.length);
