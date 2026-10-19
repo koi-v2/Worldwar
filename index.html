@@ -700,8 +700,10 @@ function economyTick(){
   const economicProfile=strategicPersonality(c);
   const growth=((Math.random()*1.5-.35)+(c.stability>65?.2:-.35)+(ownedCount(c.id)>2?.12:0))*(c.personality==="Kapitalis"?1.12:c.personality==="Pasifis"||c.personality==="Diplomatis"?1.04:1);
   c.economy=clamp(c.economy+growth-(atWar?.45:0),10,100);
-  c.stability=clamp(c.stability+(Math.random()*2-1)+(c.morale>50?.2:-.5),8,100);
-  c.morale=clamp(c.morale+(Math.random()*3-1.5),5,100);
+  const publicSupport=Number(c.popularity??50),corruption=Number(c.corruption??25),foodLevel=Number(c.resources?.food??60);
+  c.stability=clamp(c.stability+(Math.random()*1.6-.8)+(c.morale>50?.22:-.38)+(publicSupport>65?.18:publicSupport<30?-.32:0)-(corruption>70?.18:0)-(atWar?.10:0),5,100);
+  const moraleChange=(Math.random()*2.4-1.2)+(c.economy>65?.12:c.economy<30?-.12:0)+(c.stability>65?.12:c.stability<30?-.14:0)+(publicSupport>65?.14:publicSupport<30?-.22:0)+(atWar?-.08:.04)-(foodLevel<8?.6:0)-(c.budget<5?.22:0);
+  c.morale=clamp(c.morale+moraleChange,5,100);
   c.industry=clamp(Math.round(c.economy*.55+c.stability*.25+ownedCount(c.id)*2),5,100);
   // Anggaran masuk dari ekonomi, tetapi pemerintahan juga membayar administrasi dan biaya konflik setiap hari.
   const ownedRegions=state.regions.filter(r=>r.owner===c.id);
