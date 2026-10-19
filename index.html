@@ -817,6 +817,16 @@ function economyTick(){
   const economicProfile=strategicPersonality(c);
   if(!Number.isFinite(c.unemployment))c.unemployment=clamp(42-(c.industry||40)*.22,4,55);
   if(!Number.isFinite(c.taxRate))c.taxRate=18;
+  // AI fiskal menyesuaikan pajak dan layanan publik berdasarkan kondisi negara.
+  if(!Number.isFinite(c.educationBudget))c.educationBudget=8;
+  if(!Number.isFinite(c.healthBudget))c.healthBudget=8;
+  if(c.inflation>10)c.taxRate=clamp(c.taxRate-.08,10,28);
+  else if(c.debt>Math.max(100,c.economy*2)&&c.stability>45)c.taxRate=clamp(c.taxRate+.06,10,28);
+  else if(c.economy>72&&c.debt<30)c.taxRate=clamp(c.taxRate-.04,10,28);
+  if(c.education<45&&c.budget>25)c.educationBudget=clamp(c.educationBudget+.025,4,14);
+  else if(c.budget<8)c.educationBudget=clamp(c.educationBudget-.05,3,14);
+  if(c.health<45&&c.resources?.food>15&&c.budget>20)c.healthBudget=clamp(c.healthBudget+.025,4,14);
+  else if(c.budget<8)c.healthBudget=clamp(c.healthBudget-.05,3,14);
   if(!Number.isFinite(c.tradeBalance))c.tradeBalance=0;
   if(!Number.isFinite(c.economicTrend))c.economicTrend=0;
   const infrastructure=Number(c.infrastructure??35),education=Number(c.education??40),research=Number(c.research??30),energy=Number(c.energy??40),health=Number(c.health??40);
@@ -826,7 +836,9 @@ function economyTick(){
   const tradeLift=clamp(Number(c.tradeBalance)||0,-12,12)*.012;
   const cycle=Number(c.economicTrend)||0;
   const randomGrowth=Math.random()*.72-.12,recessionDrag=c.recessionDays>0?.22:0;
-  const growth=(randomGrowth+productivity+tradeLift+cycle*.035+((c.stability>65)?.18:c.stability<35?-.32:-.05)+(ownedCount(c.id)>2?.12:0)-corruptionDrag-jobDrag-recessionDrag)*(c.personality==="Kapitalis"?1.14:c.personality==="Pasifis"||c.personality==="Diplomatis"?1.05:1);
+  const taxDemandDrag=Math.max(0,(Number(c.taxRate)||18)-20)*.018;
+  const inflationGrowthDrag=Math.max(0,(Number(c.inflation)||0)-7)*.012;
+  const growth=(randomGrowth+productivity+tradeLift+cycle*.035+((c.stability>65)?.18:c.stability<35?-.32:-.05)+(ownedCount(c.id)>2?.12:0)-corruptionDrag-jobDrag-recessionDrag-taxDemandDrag-inflationGrowthDrag)*(c.personality==="Kapitalis"?1.14:c.personality==="Pasifis"||c.personality==="Diplomatis"?1.05:1);
   c.economy=clamp(c.economy+growth-(atWar?.42:0),5,100);
   if(c.economy<27&&c.unemployment>22)c.recessionDays=Math.min(180,c.recessionDays+1);else c.recessionDays=Math.max(0,c.recessionDays-1);
   if(c.recessionDays===15)addEvent("economy","Resesi mulai terasa di "+c.name,"Aktivitas ekonomi melemah dan pengangguran meningkat. Pemerintah perlu memulihkan produksi, pekerjaan, serta daya beli.","📉");
@@ -845,9 +857,12 @@ function economyTick(){
   const industryBonus=ownedRegions.filter(r=>/industri/i.test(r.name||"")).length*.22;
   const portBonus=ownedRegions.filter(r=>/pesisir|pelabuhan/i.test(r.name||"")).length*.16;
   const taxEfficiency=clamp(1-(Number(c.corruption??25)/180),.35,1);
-  const taxBurden=clamp(1-Math.abs(Number(c.taxRate||18)-18)*.012,.72,1);
+  const taxYield=clamp(Number(c.taxRate||18)/18,.55,1.48);
   const populationScale=Math.sqrt(Math.max(1,c.population||50000000)/100000000);
-  const income=Math.max(1,Math.round((c.economy*.045+(c.stability>60?1.2:.2)+(c.infrastructure||35)*.012+industryBonus+portBonus+populationScale*.9)*taxEfficiency*taxBurden));
+  const income=Math.max(1,Math.round((c.economy*.045+(c.stability>60?1.2:.2)+(c.infrastructure||35)*.012+industryBonus+portBonus+populationScale*.9)*taxEfficiency*taxYield));
+  c.workforce=Math.round((c.population||50000000)*.48);
+  c.employed=Math.round(c.workforce*(1-clamp(Number(c.unemployment)||0,0,100)/100));
+  c.gdpEstimate=Math.round((c.economy/100)*(c.population||50000000)/1000000);
   const educationSpend=Math.min(Math.max(0,c.budget||0),Math.max(.05,income*(Number(c.educationBudget||8)/100)));
   const healthSpend=Math.min(Math.max(0,(c.budget||0)-educationSpend),Math.max(.05,income*(Number(c.healthBudget||8)/100)));
   c.education=clamp((c.education||40)+(educationSpend/(1+populationScale))*.018+(c.education>70?-.008:0),0,100);
@@ -1273,8 +1288,12 @@ function demographyTick(){
  living().forEach(c=>{
   if(!Number.isFinite(c.population)||c.population<1000)c.population=populationById[c.id]||50000000;
   const atWar=state.wars.some(w=>w.active&&(w.a===c.id||w.b===c.id)),food=Number(c.resources?.food)||0,health=Number(c.health)||40,stability=Number(c.stability)||40;
-  const rate=.000018+(health-50)*.00000018+(stability-50)*.00000012+(c.education>65?.000003:0)-(c.inflation>12?.000008:0)-(food<10?.000025:food<25?.00001:0)-(atWar?.000025:0);
+  const education=Number(c.education)||40,unemployment=Number(c.unemployment)||0,inflation=Number(c.inflation)||0;
+  const rate=.000018+(health-50)*.00000018+(stability-50)*.00000012+(education>65?.000003:0)-(inflation>12?.000008:0)-(food<10?.000025:food<25?.00001:0)-(unemployment>30?.000004:0)-(atWar?.000025:0);
   const change=Math.round(c.population*clamp(rate,-.00008,.00009));c.population=Math.max(100000,Math.round(c.population+change));c.populationGrowth=change;
+  c.birthsPerDay=Math.max(0,Math.round(c.population*(.000027+Math.max(0,health-50)*.00000012)));
+  c.deathsPerDay=Math.max(0,Math.round(c.population*(.000009+Math.max(0,50-health)*.0000001+(food<10?.00002:0)+(atWar?.000008:0))));
+  c.migrationPressure=clamp((c.economy-50)*.12+(50-unemployment)*.08+(stability-50)*.08,-20,20);
   if(food<7&&Math.random()<.035)addEvent("economy","Krisis kebutuhan dasar di "+c.name,"Pasokan pangan tidak mencukupi kebutuhan penduduk. Pemerintah harus memperbaiki produksi atau mencari pemasok melalui perdagangan.","🌾");
  });
 }
