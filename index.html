@@ -628,24 +628,51 @@ function resolveWars(){
 }
 function diplomacy(){
  const cs=living();if(cs.length<2)return;
- for(let i=0;i<5;i++){
+ const deals=Array.isArray(state.tradeAgreements)?state.tradeAgreements:[];
+ const activeDeal=(a,b)=>deals.some(t=>t&&t.status!=="ended"&&((t.exporter===a.id&&t.importer===b.id)||(t.exporter===b.id&&t.importer===a.id)));
+ const sharedPartner=(a,b)=>(a.allies||[]).some(id=>(b.allies||[]).includes(id));
+ const sharedRival=(a,b)=>(a.enemies||[]).some(id=>(b.enemies||[]).includes(id));
+ for(let i=0;i<7;i++){
   const a=rand(cs),b=rand(cs.filter(c=>c.id!==a.id));if(!a||!b)continue;
-  const rel=a.relations[b.id]||0;
-  const ap=strategicPersonality(a),bp=strategicPersonality(b);
   if(!a.relations)a.relations={};if(!b.relations)b.relations={};
-  if(isAtWar(a.id,b.id)){
-   // Pakta pertahanan diproses saat perang pecah; lawan perang tidak bisa jadi sekutu.
-   continue;
+  if(!Array.isArray(a.allies))a.allies=[];if(!Array.isArray(b.allies))b.allies=[];
+  if(!Array.isArray(a.enemies))a.enemies=[];if(!Array.isArray(b.enemies))b.enemies=[];
+  if(!Array.isArray(a.nonAggression))a.nonAggression=[];if(!Array.isArray(b.nonAggression))b.nonAggression=[];
+  const rel=Number(a.relations[b.id]||0);
+  const ap=strategicPersonality(a),bp=strategicPersonality(b);
+  if(isAtWar(a.id,b.id))continue;
+  // Hubungan berkembang berdasarkan kerja sama nyata, bukan perubahan acak semata.
+  let affinity=0;
+  if(activeDeal(a,b))affinity+=.8;
+  if(a.allies.includes(b.id))affinity+=.45;
+  if(sharedPartner(a,b))affinity+=.2;
+  if(sharedRival(a,b))affinity+=.35;
+  if(a.ideology&&b.ideology&&a.ideology===b.ideology)affinity+=.12;
+  if(a.personality==="Diplomatis"||b.personality==="Diplomatis")affinity+=.08;
+  if((a.allies||[]).some(id=>isAtWar(id,b.id))||(b.allies||[]).some(id=>isAtWar(id,a.id)))affinity-=.65;
+  if((a.enemies||[]).includes(b.id)||(b.enemies||[]).includes(a.id))affinity-=.25;
+  const drift=(Math.random()-.48)*2.2+affinity;
+  a.relations[b.id]=clamp(rel+drift,-100,100);
+  b.relations[a.id]=a.relations[b.id];
+  const next=a.relations[b.id];
+  if(next>66&&!a.allies.includes(b.id)&&!a.enemies.includes(b.id)&&Math.random()<.055*((ap.ally+bp.ally)/2)){
+   a.allies.push(b.id);b.allies.push(a.id);
+   a.nonAggression=a.nonAggression.filter(id=>id!==b.id);b.nonAggression=b.nonAggression.filter(id=>id!==a.id);
+   a.relations[b.id]=b.relations[a.id]=Math.min(100,next+5);
+   if(!Array.isArray(state.alliances))state.alliances=[];
+   state.alliances.push({a:a.id,b:b.id,day:state.day});
+   addEvent("diplomacy","Aliansi baru dibentuk",a.name+" dan "+b.name+" membentuk pakta kerja sama setelah hubungan membaik.","🤝");
+  }else if(a.allies.includes(b.id)&&next<-8&&Math.random()<.045/Math.max(.5,(ap.ally+bp.ally)/2)){
+   a.allies=a.allies.filter(id=>id!==b.id);b.allies=b.allies.filter(id=>id!==a.id);
+   addEvent("diplomacy","Aliansi bubar",a.name+" dan "+b.name+" mengakhiri aliansi setelah hubungan memburuk.","🕊️");
+  }else if(next<-58&&!a.enemies.includes(b.id)&&Math.random()<.035){
+   a.enemies.push(b.id);b.enemies.push(a.id);
+   addEvent("diplomacy","Krisis diplomatik",a.name+" dan "+b.name+" menetapkan hubungan sebagai rival setelah ketegangan berkepanjangan.","⚠️");
+  }else if(next>38&&!a.allies.includes(b.id)&&!a.nonAggression.includes(b.id)&&Math.random()<.055*((ap.ally+bp.ally)/2)){
+   a.nonAggression.push(b.id);b.nonAggression.push(a.id);
+   a.relations[b.id]=b.relations[a.id]=clamp(next+3,-100,100);
+   addEvent("diplomacy","Pakta non-agresi",a.name+" dan "+b.name+" menyepakati pakta non-agresi setelah hubungan membaik.","🕊️");
   }
-  if(rel>62&&!a.allies.includes(b.id)&&Math.random()<.09*((ap.ally+bp.ally)/2)){a.allies.push(b.id);b.allies.push(a.id);a.relations[b.id]=b.relations[a.id]=Math.min(100,rel+12);state.alliances.push({a:a.id,b:b.id,day:state.day});addEvent("diplomacy","Aliansi baru dibentuk",a.name+" dan "+b.name+" membentuk pakta kerja sama.","🤝");}
-  else if(a.allies.includes(b.id)&&rel<5&&Math.random()<.08/Math.max(.5,(ap.ally+bp.ally)/2)){a.allies=a.allies.filter(x=>x!==b.id);b.allies=b.allies.filter(x=>x!==a.id);addEvent("diplomacy","Aliansi bubar",a.name+" dan "+b.name+" tidak lagi terikat pakta.","🕊️");}
-  else if(rel<-45&&Math.random()<.06){if(!a.enemies.includes(b.id))a.enemies.push(b.id);if(!b.enemies.includes(a.id))b.enemies.push(a.id);addEvent("diplomacy","Krisis diplomatik",a.name+" dan "+b.name+" mengalami ketegangan hubungan.","⚠️");}
-  else if(rel>35&&!a.allies.includes(b.id)&&Math.random()<.12*((ap.ally+bp.ally)/2)){
-   if(!Array.isArray(a.nonAggression))a.nonAggression=[];if(!Array.isArray(b.nonAggression))b.nonAggression=[];
-   if(!a.nonAggression.includes(b.id))a.nonAggression.push(b.id);if(!b.nonAggression.includes(a.id))b.nonAggression.push(a.id);
-   a.relations[b.id]=b.relations[a.id]=clamp(rel+5,-100,100);
-   addEvent("diplomacy","Pakta non-agresi",a.name+" dan "+b.name+" menyepakati pakta non-agresi sementara.","🕊️");
-  }else if(Math.random()<.32){const d=Math.random()<.53?1:-1;a.relations[b.id]=clamp(rel+d*(3+Math.random()*5),-100,100);b.relations[b.id]=a.relations[b.id];}
  }
 }
 function addProducedUnits(c,key,amount){
