@@ -577,7 +577,7 @@ function resolveWars(){
    Object.keys(attack).forEach(k=>sg[k]=(sg[k]||0)+attack[k]);
    w.stalledDays=(w.stalledDays||0)+1;
    addEvent("battle",a.name+" membatalkan pengerahan","Pasukan yang siap diberangkatkan terlalu sedikit untuk operasi ofensif; seluruh unit kembali ke garnisun "+source.name+".","🪖");
-   if(w.battles>=4){endWar(w,"ceasefire");addEvent("war","Gencatan senjata: "+a.name+" — "+b.name,"Konflik dihentikan setelah beberapa kali gagal mengumpulkan pasukan yang layak.","🕊️");}
+   if(w.stalledDays>=8){endWar(w,"ceasefire");addEvent("war","Gencatan senjata: "+a.name+" — "+b.name,"Konflik dihentikan setelah delapan hari tanpa pengerahan yang layak.","🕊️");}
    return;
   }
   const n=Math.max(1,targets.length);
