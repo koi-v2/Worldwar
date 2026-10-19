@@ -414,8 +414,9 @@ function chooseWar(){
  if(a.personality==="Diplomatis")chance*=.55;
  if(access.mode!=="ground")chance*=.65;
  if(Math.random()>=clamp(chance,.004,.085))return;
- const doctrine=ensureWarDoctrine(a),objective=chooseWarObjective(a,b);
- state.wars.push({id:++state.seq,a:a.id,b:b.id,started:state.day,active:true,battles:0,strategicScore:score,doctrine:doctrine.id,objective,currentPlan:"",counterattacks:0,objectiveProgress:0,initialEnemyTerritory:ownedCount(b.id),initialEnemyStrength:(b.army||0)+(b.tanks||0)*90+(b.aircraft||0)*75+(b.artillery||0)*45+(b.missiles||0)*65});
+ const doctrine=ensureWarDoctrine(a),objective=chooseWarObjective(a,b),reverseDoctrine=ensureWarDoctrine(b),reverseObjective=chooseWarObjective(b,a);
+ const strengthForWar=c=>(c.army||0)+(c.tanks||0)*90+(c.aircraft||0)*75+(c.artillery||0)*45+(c.missiles||0)*65;
+ state.wars.push({id:++state.seq,a:a.id,b:b.id,started:state.day,active:true,battles:0,strategicScore:score,doctrine:doctrine.id,objective,currentPlan:"",counterattacks:0,objectiveProgress:0,initialEnemyTerritory:ownedCount(b.id),initialEnemyStrength:strengthForWar(b),objectiveMetrics:{[a.id]:{enemyTerritory:Math.max(1,ownedCount(b.id)),enemyStrength:Math.max(1,strengthForWar(b))},[b.id]:{enemyTerritory:Math.max(1,ownedCount(a.id)),enemyStrength:Math.max(1,strengthForWar(a))}},objectiveByCountry:{[a.id]:objective,[b.id]:reverseObjective},objectiveProgressByCountry:{},objectiveAchievedByCountry:{},doctrineByCountry:{[a.id]:doctrine.id,[b.id]:reverseDoctrine.id}});
  if(!Array.isArray(a.enemies))a.enemies=[];if(!Array.isArray(b.enemies))b.enemies=[];
  if(!a.enemies.includes(b.id))a.enemies.push(b.id);if(!b.enemies.includes(a.id))b.enemies.push(a.id);
  addEvent("war","Perang pecah: "+a.name+" vs "+b.name,doctrine.name+"; tujuan: "+objective+". AI memilih konflik setelah menilai hubungan ("+Math.round((a.relations?.[b.id]||0))+"), rasio kekuatan "+ratio.toFixed(2)+", logistik "+Math.round(logistics*100)+"%, dan risiko sekutu lawan.","⚔️");
