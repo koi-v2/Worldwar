@@ -660,18 +660,18 @@ function resolveWars(){
    garrisonKeys.forEach(k=>{g[k]=Math.max(0,Math.round((b[k]||0)/n));});
    if((b.troops||0)>0&&g.troops<500)g.troops=Math.min(b.troops,500);
   }
-  const logisticsA=clamp(.68+(Number(a.resources?.oil)||0)/100*.22+(Number(a.resources?.food)||0)/150*.14+(Number(a.budget)||0)/150*.12,.52,1.18),logisticsB=clamp(.68+(Number(b.resources?.oil)||0)/100*.22+(Number(b.resources?.food)||0)/150*.14+(Number(b.budget)||0)/150*.12,.52,1.18);
+  const logisticsA=clamp(.68+(Number(a.resources?.oil)||0)/100*.22+(Number(a.resources?.food)||0)/150*.14+(Number(a.budget)||0)/150*.12+(Number(a.techTree?.logistics)||0)*.0015,.45,1.22),logisticsB=clamp(.68+(Number(b.resources?.oil)||0)/100*.22+(Number(b.resources?.food)||0)/150*.14+(Number(b.budget)||0)/150*.12+(Number(b.techTree?.logistics)||0)*.0015,.45,1.22);
   // Pertahanan wilayah punya keuntungan posisi; penyerang tidak otomatis menang.
   const attackBase=attack.troops*.001+attack.tanks*2.2+attack.aircraft*2.5+attack.ships*.8+attack.artillery*1.7+attack.missiles*2.8;
   const defenseBase=(g.troops||0)*.001+(g.tanks||0)*2.2+(g.aircraft||0)*2.5+(g.ships||0)*.8+(g.artillery||0)*1.7+(g.missiles||0)*2.8;
   const doctrineBonus=warDoctrineModifier(a,b,access);
   const allySupportA=alliedOperationalSupport(a,b);
   const allySupportB=alliedOperationalSupport(b,a);
-  const scoreA=attackBase*(.72+Math.random()*.56)*clamp((a.morale||50)/70,.55,1.25)*logisticsA*doctrineBonus*(1+allySupportA)+(a.research||40)*.08+(a.economy||40)*.05;
+  const scoreA=attackBase*(.72+Math.random()*.56)*clamp((a.morale||50)/70,.55,1.25)*logisticsA*doctrineBonus*(1+allySupportA)+(a.research||40)*.08+(a.economy||40)*.05+(Number(a.techTree?.military)||0)*.16;
   const defenseBonus=target.kind==="Pusat"?1.28:1.18;
   const defenseDoctrine=ensureWarDoctrine(b);
   const defenseStyle=defenseDoctrine?.id==="fortress"?1.22:defenseDoctrine?.id==="limited"?1.04:1;
-  const scoreB=defenseBase*defenseBonus*defenseStyle*(.78+Math.random()*.52)*clamp((b.morale||50)/70,.55,1.3)*logisticsB*(1+allySupportB)+(b.research||40)*.1+(b.infrastructure||40)*.2+12;
+  const scoreB=defenseBase*defenseBonus*defenseStyle*(.78+Math.random()*.52)*clamp((b.morale||50)/70,.55,1.3)*logisticsB*(1+allySupportB)+(b.research||40)*.1+(b.infrastructure||40)*.2+(Number(b.techTree?.military)||0)*.12+12;
   // Kemenangan dihitung sebagai peluang, bukan sekadar scoreA > scoreB.
   // Keunggulan besar membantu, tetapi medan, kesiapan, dan variasi pertempuran tetap berpengaruh.
   const readinessA=clamp((Number(a.army)||50)/70,.55,1.25),readinessB=clamp((Number(b.army)||50)/70,.55,1.25);
@@ -787,8 +787,9 @@ function militaryProductionModifier(c){
  const p=String(c&&c.personality||"");
  const personality=p==="Militeris"?1.35:p==="Ekspansionis"||p==="Hegemon"?1.2:p==="Pasifis"?.55:p==="Diplomatis"?.72:p==="Kapitalis"?.82:1;
  const tech=clamp(1+(Number(c?.techLevel||30)-30)*.003, .82, 1.22);
+ const militaryTech=clamp(1+(Number(c?.techTree?.military)||0)*.002,1,1.2);
  const industry=clamp(.78+(Number(c?.industrialOutput||c?.industry||40)/100)*.22,.78,1.15);
- return personality*tech*industry;
+ return personality*tech*militaryTech*industry;
 }
 function militaryProductionChance(c,key,base){
  const doctrine=ensureWarDoctrine(c)?.id||"balanced";
@@ -1126,6 +1127,9 @@ function nationalSystemsTick(){
   if(!Number.isFinite(c.consumerGoods))c.consumerGoods=0;
   if(!Number.isFinite(c.militaryOutput))c.militaryOutput=0;
   if(!Number.isFinite(c.energySecurity))c.energySecurity=50;
+  if(!c.techTree||typeof c.techTree!=="object")c.techTree={industry:0,medicine:0,energy:0,military:0,logistics:0};
+  const tree=c.techTree;
+  ["industry","medicine","energy","military","logistics"].forEach(k=>{if(!Number.isFinite(tree[k]))tree[k]=clamp((Number(c.research)||30)*.25+(Number(c.education)||40)*.08,5,60);});
   const r=c.resources||(c.resources={oil:40,coal:40,iron:40,food:60,uranium:10});
   const research=Math.max(0,Number(c.research)||0),education=Math.max(0,Number(c.education)||0),energy=Math.max(0,Number(c.energy)||0);
   const workforce=Math.max(1,Number(c.workingAgePopulation)||Number(c.population||50000000)*.64);
@@ -1133,12 +1137,18 @@ function nationalSystemsTick(){
   const labor=clamp(employed/workforce,.25,1);
   const supply=clamp((Math.min(100,Number(r.oil)||0)*.25+Math.min(100,Number(r.coal)||0)*.2+Math.min(100,Number(r.iron)||0)*.15+Math.min(100,Number(r.food)||0)*.2+energy*.2),0,100);
   c.energySecurity=clamp(c.energySecurity+(supply>60?.12:supply<25?-.3:.015),0,100);
-  const productivity=clamp((.48+(Number(c.infrastructure)||40)/180+(Number(c.techLevel)||30)/240+(education/500))*(.55+labor*.45)*(energy<15?.62:energy<30?.82:1),.35,1.65);
+  const productivity=clamp((.48+(Number(c.infrastructure)||40)/180+(Number(c.techLevel)||30)/240+(education/500)+(Number(tree.industry)||0)*.0012)*(.55+labor*.45)*(energy<15?.62:energy<30?.82:1),.35,1.75);
   c.industrialOutput=clamp((Number(c.industry)||40)*productivity,0,160);
   c.consumerGoods=clamp(c.industrialOutput*(.34+Math.max(0,education-40)*.0015),0,180);
-  c.militaryOutput=clamp(c.industrialOutput*(.12+(Number(c.militaryBudgetShare)||20)/250)*(r.iron<8?.55:1)*(r.oil<8?.7:1),0,100);
+  c.militaryOutput=clamp(c.industrialOutput*(.12+(Number(c.militaryBudgetShare)||20)/250)*(1+(Number(tree.military)||0)*.002)*(r.iron<8?.55:1)*(r.oil<8?.7:1),0,100);
   const techGain=(.0015+research*.000055+education*.000018)*(Number(c.budget||0)>15?1:.55)*(r.uranium<1&&research>60?.6:1);
   c.techLevel=clamp(c.techLevel+techGain-(c.techLevel>90?.001:0),5,100);
+  const p=String(c.personality||"");
+  const focus=p==="Militeris"||p==="Hegemon"?"military":p==="Kapitalis"?"industry":p==="Pasifis"?"medicine":p==="Diplomatis"?"logistics":"energy";
+  const weights={industry:1,medicine:1,energy:1,military:1,logistics:1};weights[focus]=1.8;
+  if(Number(r.food)<15)weights.medicine+=1.2;if(Number(r.oil)<15||Number(r.coal)<15)weights.energy+=1.2;
+  const total=Object.values(weights).reduce((n,v)=>n+v,0);
+  Object.keys(tree).forEach(k=>{tree[k]=clamp(Number(tree[k]||0)+techGain*weights[k]/total*5-(tree[k]>95?.001:0),0,100);});
   // Kekurangan input menekan output, pekerjaan, dan kemampuan produksi militer.
   const shortage=(r.iron<5?.16:0)+(r.oil<5?.12:0)+(r.coal<5?.1:0)+(r.food<8?.12:0);
   if(shortage>0){c.industry=clamp(c.industry-shortage,5,100);c.unemployment=clamp((Number(c.unemployment)||0)+shortage*.12,3,65);}
@@ -1293,7 +1303,8 @@ function updateMilitaryReadiness(){
   if(!Number.isFinite(c.militaryExperience))c.militaryExperience=20;
   const r=c.resources,atWar=state.wars.some(w=>w.active&&(w.a===c.id||w.b===c.id));
   const supply=clamp((Math.min(100,Number(r.oil)||0)*.28+Math.min(100,Number(r.food)||0)*.28+Math.min(100,Number(r.iron)||0)*.12+Math.min(100,Number(c.budget)||0)*.18+Math.min(100,Number(c.industry)||0)*.14),0,100);
-  const target=clamp((c.militaryTraining*.24)+(c.militaryExperience*.12)+(c.morale*.14)+(c.stability*.10)+(supply*.24)+(c.research||30)*.08+(c.infrastructure||30)*.08,5,100);
+  const logisticsTech=Number(c.techTree?.logistics)||0;
+  const target=clamp((c.militaryTraining*.24)+(c.militaryExperience*.12)+(c.morale*.14)+(c.stability*.10)+(supply*.24)+(c.research||30)*.08+(c.infrastructure||30)*.08+logisticsTech*.035,5,100);
   // Negara menyiapkan pasukan perlahan-lahan; kekurangan sumber dan perang panjang menguras kesiapan.
   let change=clamp((target-(Number(c.army)||0))*.055,-1.2,1.15);
   if((r.oil||0)<8)change-=.55;
@@ -1325,8 +1336,9 @@ function demographyTick(){
   d.young=clamp(d.young-aging+(health<35?.000015:0),.12,.38);
   d.elderly=clamp(d.elderly+aging*.7-(health<35?.000018:0),.06,.32);
   d.working=clamp(1-d.young-d.elderly,.4,.78);
+  const medicineTech=Number(c.techTree?.medicine)||0;
   const birthRate=.000026+Math.max(0,health-50)*.00000009+Math.max(0,stability-50)*.000000035-Math.max(0,education-70)*.000000025;
-  const deathRate=.000009+Math.max(0,50-health)*.00000012+(food<10?.000018:food<25?.000006:0)+(atWar?.000008:0)+(d.elderly-.12)*.000025;
+  const deathRate=.000009+Math.max(0,50-health)*.00000012+(food<10?.000018:food<25?.000006:0)+(atWar?.000008:0)+(d.elderly-.12)*.000025-Math.min(.000003,medicineTech*.00000003);
   const births=Math.max(0,Math.round(c.population*clamp(birthRate,.000012,.00004)));
   const deaths=Math.max(0,Math.round(c.population*clamp(deathRate,.000005,.000045)));
   const migrationPressure=clamp((Number(c.economy||50)-50)*.12+(50-unemployment)*.08+(stability-50)*.08-(inflation>12?4:0)-(food<12?7:0)-(atWar?5:0),-20,20);
