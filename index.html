@@ -657,6 +657,15 @@ function addProducedUnits(c,key,amount){
  const target=capital||regions.reduce((best,x)=>score(x)<score(best)?x:best,regions[0]);
  target.garrison[key]=(target.garrison[key]||0)+amount;
 }
+function militaryProductionModifier(c){
+ const p=String(c&&c.personality||"");
+ if(p==="Militeris")return 1.35;
+ if(p==="Ekspansionis"||p==="Hegemon")return 1.2;
+ if(p==="Pasifis")return .55;
+ if(p==="Diplomatis")return .72;
+ if(p==="Kapitalis")return .82;
+ return 1;
+}
 function economyTick(){
  living().forEach(c=>{
   const atWar=state.wars.some(w=>w.active&&(w.a===c.id||w.b===c.id));
@@ -686,10 +695,10 @@ function economyTick(){
   r.coal=clamp(r.coal+.08+(c.industry||40)*.0008-.035-(c.industry||40)*.0007,0,150);
   if(r.coal<8){c.energy=clamp((c.energy||40)-.15,5,100);c.economy=clamp(c.economy-.08,10,100);}
   if(r.food<8){c.stability=clamp(c.stability-.65,5,100);c.economy=clamp(c.economy-.2,10,100);}
-  if(c.budget>=18&&r.food>=2&&Math.random()<.22){const n=Math.max(1,Math.round(c.industry/35));const cost=12+n*2;const foodCost=n*.35;if(c.budget>=cost&&r.food>=foodCost){addProducedUnits(c,"troops",n*180);c.budget-=cost;r.food-=foodCost;}}
-  if(c.budget>=24&&Math.random()<.14){const n=Math.max(1,Math.round(c.industry/40));const cost=10+n*4,iron=n*.8,oil=n*.55;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil){addProducedUnits(c,"tanks",n);c.budget-=cost;r.iron-=iron;r.oil-=oil;}}
-  if(c.budget>=30&&Math.random()<.10){const n=Math.max(1,Math.round(c.industry/55));const cost=14+n*5,iron=n*.65,oil=n*.8;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil){addProducedUnits(c,"aircraft",n);c.budget-=cost;r.iron-=iron;r.oil-=oil;}}
-  if(c.budget>=38&&Math.random()<.055){const cost=22,iron=1.8,oil=1.2;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil){addProducedUnits(c,"ships",1);c.budget-=cost;r.iron-=iron;r.oil-=oil;}}
+  if(c.budget>=18&&r.food>=2&&Math.random()<clamp(.22*militaryProductionModifier(c),.04,.38)){const n=Math.max(1,Math.round(c.industry/35));const cost=12+n*2;const foodCost=n*.35;if(c.budget>=cost&&r.food>=foodCost){addProducedUnits(c,"troops",n*180);c.budget-=cost;r.food-=foodCost;}}
+  if(c.budget>=24&&Math.random()<clamp(.14*militaryProductionModifier(c),.025,.28)){const n=Math.max(1,Math.round(c.industry/40));const cost=10+n*4,iron=n*.8,oil=n*.55;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil){addProducedUnits(c,"tanks",n);c.budget-=cost;r.iron-=iron;r.oil-=oil;}}
+  if(c.budget>=30&&Math.random()<clamp(.10*militaryProductionModifier(c),.02,.22)){const n=Math.max(1,Math.round(c.industry/55));const cost=14+n*5,iron=n*.65,oil=n*.8;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil){addProducedUnits(c,"aircraft",n);c.budget-=cost;r.iron-=iron;r.oil-=oil;}}
+  if(c.budget>=38&&Math.random()<clamp(.055*militaryProductionModifier(c),.01,.14)){const cost=22,iron=1.8,oil=1.2;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil){addProducedUnits(c,"ships",1);c.budget-=cost;r.iron-=iron;r.oil-=oil;}}
   if(c.budget>=22&&Math.random()<.08){const n=Math.max(1,Math.round(c.industry/45));const cost=9+n*3,iron=n*.5;if(c.budget>=cost&&r.iron>=iron){addProducedUnits(c,"artillery",n);c.budget-=cost;r.iron-=iron;}}
   if(c.budget>=28&&Math.random()<.055){const n=Math.max(1,Math.round(c.industry/50));const cost=12+n*4,iron=n*.35,oil=n*.25,uranium=n*.025;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil&&r.uranium>=uranium){addProducedUnits(c,"missiles",n);c.budget-=cost;r.iron-=iron;r.oil-=oil;r.uranium-=uranium;}}
   c.territory=ownedCount(c.id);
