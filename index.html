@@ -132,7 +132,7 @@ th,td{padding:9px 10px}
   <section class="panel section">
    <div class="panel-head"><div><div class="eyebrow">World analytics</div><h2>TREND DUNIA</h2></div><span class="badge">RIWAYAT 10 HARI</span></div>
    <div class="mini-stats" id="trendStats"></div><div id="trendGraph" style="min-height:100px;overflow:hidden"></div>
-   <p class="board-note">Grafik merangkum ekonomi rata-rata, jumlah perang aktif, dan negara yang masih bertahan. Data disimpan bersama simulasi.</p>
+   <p class="board-note">Grafik merangkum ekonomi rata-rata, perang aktif, dan wilayah yang dikuasai. Garis memakai skala masing-masing agar perubahan tetap terlihat. Data disimpan bersama simulasi.</p>
   </section>
   <section class="panel section">
    <div class="panel-head"><div><div class="eyebrow">National economy</div><h2>EKONOMI & PRODUKSI MILITER</h2></div><span class="badge">DINAMIS</span></div>
@@ -768,10 +768,11 @@ function renderSystems(){const cs=living().slice().sort((a,b)=>(b.popularity||0)
 function renderTrends(){
  const t=Array.isArray(state.trends)?state.trends:[];const box=$("trendGraph"),stats=$("trendStats");if(!box||!stats)return;
  const last=t[t.length-1],cs=living(),avg=cs.reduce((n,c)=>n+(c.economy||0),0)/Math.max(1,cs.length);
- stats.innerHTML='<div class="mini"><span>Ekonomi rata-rata</span><b>'+Math.round(last?last.averageEconomy:avg)+'</b></div><div class="mini"><span>Perang aktif</span><b>'+(last?last.activeWars:state.wars.filter(w=>w.active).length)+'</b></div><div class="mini"><span>Negara aktif</span><b>'+(last?last.activeCountries:cs.length)+'</b></div>';
+ const warsNow=state.wars.filter(w=>w.active).length,territoriesNow=state.regions.filter(r=>r.owner).length;
+ stats.innerHTML='<div class="mini"><span>Ekonomi rata-rata</span><b>'+Math.round(last?last.averageEconomy:avg)+'</b></div><div class="mini"><span>Perang aktif</span><b>'+(last?last.activeWars:warsNow)+'</b></div><div class="mini"><span>Negara aktif</span><b>'+(last?last.activeCountries:cs.length)+'</b></div><div class="mini"><span>Wilayah dikuasai</span><b>'+(last?last.territories:territoriesNow)+'</b></div>';
  if(t.length<2){box.innerHTML='<p class="detail-desc">Grafik terbentuk setelah simulasi berjalan setidaknya 20 hari.</p>';return;}
- const w=640,h=145,p=18,vals=t.map(x=>x.averageEconomy),max=Math.max(100,...vals),points=vals.map((v,i)=>(p+i*(w-2*p)/(vals.length-1))+','+(h-p-v/max*(h-2*p))).join(' '),wars=t.map(x=>x.activeWars),wm=Math.max(1,...wars),wp=wars.map((v,i)=>(p+i*(w-2*p)/(wars.length-1))+','+(h-p-v/wm*(h-2*p))).join(' ');
- box.innerHTML='<svg viewBox="0 0 '+w+' '+h+'" role="img" aria-label="Grafik tren dunia" style="width:100%;height:auto"><polyline points="'+points+'" fill="none" stroke="#68d6b0" stroke-width="3"/><polyline points="'+wp+'" fill="none" stroke="#f0bd68" stroke-width="2" stroke-dasharray="5 4"/><text x="'+p+'" y="14" fill="currentColor" font-size="11">Ekonomi rata-rata</text><text x="'+(w-p)+'" y="14" fill="currentColor" font-size="11" text-anchor="end">Garis putus-putus: perang aktif</text><text x="'+p+'" y="'+(h-2)+'" fill="currentColor" font-size="10">Hari '+t[0].day+'</text><text x="'+(w-p)+'" y="'+(h-2)+'" fill="currentColor" font-size="10" text-anchor="end">Hari '+last.day+'</text></svg>';
+ const w=640,h=165,p=20,vals=t.map(x=>x.averageEconomy||0),max=Math.max(100,...vals),xAt=i=>p+i*(w-2*p)/(vals.length-1),yAt=v=>h-p-v/max*(h-2*p),points=vals.map((v,i)=>xAt(i)+','+yAt(v)).join(' '),wars=t.map(x=>x.activeWars||0),wm=Math.max(1,...wars),wp=wars.map((v,i)=>xAt(i)+','+(h-p-v/wm*(h-2*p))).join(' '),territories=t.map(x=>x.territories||0),tm=Math.max(1,...territories),tp=territories.map((v,i)=>xAt(i)+','+(h-p-v/tm*(h-2*p))).join(' ');
+ box.innerHTML='<svg viewBox="0 0 '+w+' '+h+'" role="img" aria-label="Grafik tren ekonomi, perang, dan wilayah" style="width:100%;height:auto"><polyline points="'+points+'" fill="none" stroke="#68d6b0" stroke-width="3"/><polyline points="'+wp+'" fill="none" stroke="#f0bd68" stroke-width="2" stroke-dasharray="5 4"/><polyline points="'+tp+'" fill="none" stroke="#8ba9ff" stroke-width="2" stroke-dasharray="2 4"/><text x="'+p+'" y="13" fill="currentColor" font-size="10">Ekonomi rata-rata</text><text x="'+(w-p)+'" y="13" fill="currentColor" font-size="10" text-anchor="end">Perang · Wilayah</text><text x="'+p+'" y="'+(h-2)+'" fill="currentColor" font-size="10">Hari '+t[0].day+'</text><text x="'+(w-p)+'" y="'+(h-2)+'" fill="currentColor" font-size="10" text-anchor="end">Hari '+last.day+'</text></svg>';
 }
 function render(){
  $("dayStat").textContent=state.day;$("dateLabel").textContent="Tahun "+state.year+" · Hari "+state.day;
