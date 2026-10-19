@@ -1143,10 +1143,36 @@ function negotiatePeace(){
   if(severeShortage)basePeaceChance+=.10;
   const peaceDisposition=((strategicPersonality(a).peace||1)+(strategicPersonality(b).peace||1))/2;
   const peaceChance=clamp(basePeaceChance*peaceDisposition,.04,.58);
+  // Negara yang baru menolak proposal tidak akan menerima tawaran baru setiap hari.
+  if(Number(w.peaceOfferCooldownUntil||0)>Number(state.day||0))return;
   if(Math.random()>peaceChance)return;
-  // Kemajuan sasaran membantu menentukan pihak yang lebih diuntungkan; tekanan tinggi membuat posisi tawar melemah.
+  // Pihak yang paling tertekan mengajukan gencatan; lawan menilai apakah masih punya alasan untuk melanjutkan perang.
   const leverageA=progressA*.42-pa*.7+(Number(a.morale??50)-50)*.08;
   const leverageB=progressB*.42-pb*.7+(Number(b.morale??50)-50)*.08;
+  const offerer=pa>pb?a:pb>pa?b:(leverageA<=leverageB?a:b);
+  const recipient=offerer===a?b:a;
+  const recipientProgress=recipient===a?progressA:progressB;
+  const recipientPressure=recipient===a?pa:pb;
+  const offererPressure=offerer===a?pa:pb;
+  const recipientStyle=strategicPersonality(recipient);
+  const recipientWins=Number(w.consecutiveWinsByCountry?.[recipient.id]||0);
+  const refusalReasons=[];
+  if(recipientProgress>=58)refusalReasons.push("sasaran perang masih hampir tercapai");
+  if(recipientWins>=2||(recipient===a?(w.consecutiveWins||0):(w.consecutiveWinsByCountry?.[recipient.id]||0))>=2)refusalReasons.push("pasukan sedang berada dalam momentum kemenangan");
+  if(Number(recipient.morale??50)>=72&&recipientPressure<28)refusalReasons.push("moral pasukan masih tinggi dan tekanan perang rendah");
+  if((recipient.personality==="Ekspansionis"||recipient.personality==="Hegemon")&&recipientProgress<75)refusalReasons.push("pemerintah masih mengejar sasaran ekspansi");
+  if((recipient.personality==="Militeris"||recipient.personality==="Nasionalis")&&Number(recipient.morale??50)>=48)refusalReasons.push("pemerintah memilih melanjutkan perlawanan");
+  const hardline=(recipient.personality==="Ekspansionis"||recipient.personality==="Hegemon"||recipient.personality==="Militeris"||recipient.personality==="Nasionalis");
+  const refusalChance=clamp((hardline?.42:.12)+(Number(recipient.morale??50)/100)*.12+(recipientPressure<20?.12:0)-(recipientStyle.peace-1)*.16,0,.72);
+  if(refusalReasons.length&&Math.random()<refusalChance){
+   const reason=refusalReasons[Math.floor(Math.random()*refusalReasons.length)];
+   w.peaceOfferCooldownUntil=Number(state.day||0)+4;
+   w.lastPeaceOfferDay=Number(state.day||0);
+   w.lastPeaceRejection={day:state.day,offerer:offerer.id,recipient:recipient.id,reason};
+   addEvent("diplomacy","Tawaran damai ditolak: "+recipient.name,offerer.name+" mengajukan gencatan senjata, tetapi "+recipient.name+" menolak karena "+reason+". Perang berlanjut; peluang perundingan berikutnya akan dinilai kembali setelah jeda diplomatik.","🕊️");
+   return;
+  }
+  // Kemajuan sasaran membantu menentukan pihak yang lebih diuntungkan; tekanan tinggi membuat posisi tawar melemah.
   const winner=leverageA===leverageB?(pa<=pb?a:b):(leverageA>leverageB?a:b);
   const loser=winner===a?b:a;
   const payment=Math.min(Math.max(0,Number(loser.budget)||0),Math.max(0,Math.round((Number(loser.budget)||0)*.08)));
