@@ -494,7 +494,7 @@ function economyTick(){
   const industryBonus=ownedRegions.filter(r=>/industri/i.test(r.name||"")).length*.22;
   const portBonus=ownedRegions.filter(r=>/pesisir|pelabuhan/i.test(r.name||"")).length*.16;
   const income=Math.max(1,Math.round(c.economy*.075+(c.stability>60?1.2:.2)+(c.infrastructure||35)*.012+industryBonus+portBonus));
-  const supply=(c.resources.oil<8||c.resources.food<8||c.resources.iron<5)?1.18:1;
+  const supply=((c.resources?.oil??40)<8||(c.resources?.food??60)<8||(c.resources?.iron??40)<5)?1.18:1;
   const upkeep=atWar?Math.max(4,Math.round((2+c.army*.055+c.tanks*.018+c.aircraft*.025+c.ships*.12)*supply)):Math.max(1,Math.round((1+c.army*.012)*supply));
   c.budget=Math.max(0,(c.budget||0)+income-upkeep);
   // Produksi militer membutuhkan anggaran sekaligus bahan mentah.
