@@ -327,6 +327,13 @@ function updateWarObjective(w,a,b){
   addEvent("war","Kemajuan strategi: "+a.name,"Operasi melawan "+b.name+" mencapai sekitar "+w.objectiveProgress+"% dari sasaran strategis: "+w.objective+".","🧠");
  }
 }
+function updateWarObjectivesForSides(w,a,b){
+ updateWarObjective(w,a,b);
+ updateWarObjective(w,b,a);
+ w.objectiveProgress=w.objectiveProgressByCountry?.[a.id]??w.objectiveProgress??0;
+ w.objective=w.objectiveByCountry?.[a.id]??w.objective??"unspecified";
+ w.doctrine=w.doctrineByCountry?.[a.id]??w.doctrine??"unknown";
+}
 function adaptWarPlan(w,a,b,access){
  const d=ensureWarDoctrine(a);if(!d)return;
  const past=warDoctrinePerformance(a,d.id);
@@ -462,20 +469,25 @@ function reinforceFronts(){
 function recordWarLearning(w,reason){
  if(!w)return;
  const a=getC(w.a),b=getC(w.b);
- const outcome={day:state.day,warId:w.id,a:w.a,b:w.b,doctrine:w.doctrine||"unknown",objective:w.objective||"unspecified",battles:w.battles||0,progress:Math.round(w.objectiveProgress||0),reason:reason||"unknown"};
+ if(!w.objectiveProgressByCountry||typeof w.objectiveProgressByCountry!=="object")w.objectiveProgressByCountry={};
+ if(!w.doctrineByCountry||typeof w.doctrineByCountry!=="object")w.doctrineByCountry={};
+ if(!w.objectiveByCountry||typeof w.objectiveByCountry!=="object")w.objectiveByCountry={};
+ const sideData=c=>({progress:clamp(Number(w.objectiveProgressByCountry[c.id]??(c.id===w.a?w.objectiveProgress:100-(Number(w.objectiveProgress)||0)))||0,0,100),doctrine:w.doctrineByCountry[c.id]||"unknown",objective:w.objectiveByCountry[c.id]||"unspecified"});
+ const da=a?sideData(a):{progress:0,doctrine:"unknown",objective:"unspecified"},db=b?sideData(b):{progress:0,doctrine:"unknown",objective:"unspecified"};
+ const outcome={day:state.day,warId:w.id,a:w.a,b:w.b,doctrine:da.doctrine,objective:da.objective,battles:w.battles||0,progress:Math.round(da.progress),sideResults:{[w.a]:da,[w.b]:db},reason:reason||"unknown"};
  if(!Array.isArray(state.warLessons))state.warLessons=[];
  state.warLessons.unshift(outcome);if(state.warLessons.length>100)state.warLessons.length=100;
- [a,b].forEach((c,index)=>{
+ [[a,da],[b,db]].forEach(([c,result])=>{
   if(!c)return;
   if(!c.aiWarMemory||typeof c.aiWarMemory!=="object")c.aiWarMemory={wars:0,wins:0,losses:0,ceasefires:0,doctrines:{}};
   const m=c.aiWarMemory;m.wars=(m.wars||0)+1;
   if(reason==="ceasefire")m.ceasefires=(m.ceasefires||0)+1;
-  const key=outcome.doctrine;if(!m.doctrines[key])m.doctrines[key]={wars:0,progress:0,ceasefires:0};
-  m.doctrines[key].wars++;m.doctrines[key].progress+=index===0?outcome.progress:100-outcome.progress;
+  const key=result.doctrine;if(!m.doctrines[key])m.doctrines[key]={wars:0,progress:0,ceasefires:0};
+  m.doctrines[key].wars++;m.doctrines[key].progress+=result.progress;
   if(reason==="ceasefire")m.doctrines[key].ceasefires++;
-  m.lastWarLesson={day:state.day,reason,progress:index===0?outcome.progress:100-outcome.progress,objective:outcome.objective,doctrine:key};
+  m.lastWarLesson={day:state.day,reason,progress:Math.round(result.progress),objective:result.objective,doctrine:key};
  });
- if(a&&b)addEvent("war","Evaluasi AI pascaperang",a.name+" dan "+b.name+" menyimpan catatan hasil konflik: kemajuan sasaran "+outcome.progress+"%, "+outcome.battles+" pertempuran, akhir "+reason+".","📚");
+ if(a&&b)addEvent("war","Evaluasi AI pascaperang",a.name+" mencatat kemajuan sasaran "+Math.round(da.progress)+"%, sedangkan "+b.name+" mencatat "+Math.round(db.progress)+"%; "+w.battles+" pertempuran, akhir "+reason+".","📚");
 }
 function warDoctrinePerformance(c,doctrineId){
  const m=c&&c.aiWarMemory;if(!m||!m.doctrines||!m.doctrines[doctrineId])return null;
@@ -560,7 +572,7 @@ function resolveWars(){
    Object.keys(casualties).forEach(k=>{defg[k]=Math.max(0,(defg[k]||0)-casualties[k]);b[k]=Math.max(0,(b[k]||0)-casualties[k]);});
    const winner=attackerWon?a:b,loser=attackerWon?b:a;
    state.battles.unshift({day:state.day,a:a.id,b:b.id,winner:winner.id,loser:loser.id,scoreA:Math.round(attackerWon?attackScore:attackScore*.35),scoreB:Math.round(attackerWon?defenseScore:Math.max(defenseScore,attackScore*.65)),troopsA:0,troopsB:casualties.troops,shipLossA:0,shipLossB:casualties.ships,artilleryLossA:0,artilleryLossB:casualties.artillery,aircraftLossA:ownLoss.aircraft||0,aircraftLossB:casualties.aircraft||0,missileLossA:ownLoss.missiles||0,missileLossB:0,region:target.name,sourceRegion:source.name,attackForce:{[kind]:deployed},attackerWon,ranged:true,mode:access.mode});if(state.battles.length>80)state.battles.length=80;
-   w.stalledDays=0;w.battles++;updateWarObjective(w,a,b);[a,b].forEach(c=>{c.militaryTraining=clamp((Number(c.militaryTraining)||35)+.08,0,100);c.militaryExperience=clamp((Number(c.militaryExperience)||20)+(c.id===(attackerWon?a.id:b.id)? .85:.45),0,100);});const rangedWinner=attackerWon?a:b,rangedLoser=attackerWon?b:a;rangedWinner.wins=(rangedWinner.wins||0)+1;rangedLoser.losses=(rangedLoser.losses||0)+1;rangedWinner.morale=clamp((rangedWinner.morale||50)+1,5,100);rangedLoser.morale=clamp((rangedLoser.morale||50)-1.5,5,100);rangedWinner.army=clamp((Number(rangedWinner.army)||50)+.25,5,100);rangedLoser.army=clamp((Number(rangedLoser.army)||50)-.35,5,100);addEvent("battle",a.name+" menyerang "+b.name+" dari jarak jauh",attackerWon?a.name+" berhasil menembus pertahanan "+b.name+". Kerugian lawan: "+fmt(casualties.troops)+" personel, "+fmt(casualties.ships)+" kapal, "+fmt(casualties.artillery)+" artileri.":b.name+" berhasil memukul mundur serangan "+a.name+"; pertahanan mencegat sebagian serangan dan penyerang kehilangan aset.","✈️");
+   w.stalledDays=0;w.battles++;updateWarObjectivesForSides(w,a,b);[a,b].forEach(c=>{c.militaryTraining=clamp((Number(c.militaryTraining)||35)+.08,0,100);c.militaryExperience=clamp((Number(c.militaryExperience)||20)+(c.id===(attackerWon?a.id:b.id)? .85:.45),0,100);});const rangedWinner=attackerWon?a:b,rangedLoser=attackerWon?b:a;rangedWinner.wins=(rangedWinner.wins||0)+1;rangedLoser.losses=(rangedLoser.losses||0)+1;rangedWinner.morale=clamp((rangedWinner.morale||50)+1,5,100);rangedLoser.morale=clamp((rangedLoser.morale||50)-1.5,5,100);rangedWinner.army=clamp((Number(rangedWinner.army)||50)+.25,5,100);rangedLoser.army=clamp((Number(rangedLoser.army)||50)-.35,5,100);addEvent("battle",a.name+" menyerang "+b.name+" dari jarak jauh",attackerWon?a.name+" berhasil menembus pertahanan "+b.name+". Kerugian lawan: "+fmt(casualties.troops)+" personel, "+fmt(casualties.ships)+" kapal, "+fmt(casualties.artillery)+" artileri.":b.name+" berhasil memukul mundur serangan "+a.name+"; pertahanan mencegat sebagian serangan dan penyerang kehilangan aset.","✈️");
    if(w.battles>=7||Math.random()<.035){endWar(w,"ceasefire");a.relations[b.id]=-15;b.relations[a.id]=-15;addEvent("war","Perjanjian gencatan senjata jarak jauh",a.name+" dan "+b.name+" menghentikan operasi jarak jauh.","🕊️");}return;
   }
   const postureFactor=w.riskPosture==="defensif"?.72:w.riskPosture==="ofensif"?1.12:1;
@@ -640,7 +652,7 @@ function resolveWars(){
   a.battleLosses=(a.battleLosses||0)+lost.troops;b.battleLosses=(b.battleLosses||0)+defLost.troops;
   if(won){const retreat=state.regions.filter(r=>r.owner===b.id&&r.id!==target.id&&r.garrison).sort((x,y)=>{const v=r=>{const q=r.garrison;return (q.troops||0)+(q.tanks||0)*100+(q.aircraft||0)*90+(q.ships||0)*35+(q.artillery||0)*60+(q.missiles||0)*75;};return v(x)-v(y);})[0];if(retreat){["troops","tanks","aircraft","ships","artillery","missiles"].forEach(k=>{retreat.garrison[k]=(retreat.garrison[k]||0)+(g[k]||0);});}else{["troops","tanks","aircraft","ships","artillery","missiles"].forEach(k=>{b[k]=Math.max(0,(b[k]||0)-(g[k]||0));});}target.owner=a.id;target.capturedDay=state.day;target.garrison={...survivors};a.owned=state.regions.filter(r=>r.owner===a.id).map(r=>r.id);b.owned=state.regions.filter(r=>r.owner===b.id).map(r=>r.id);addEvent("war",a.name+" merebut "+target.name,a.name+" menyerang dari "+source.name+" dengan "+fmt(attack.troops)+" personel, "+fmt(attack.tanks)+" tank dan "+fmt(attack.aircraft)+" pesawat. Garnisun lawan yang tersisa mundur ke wilayah lain bila tersedia. Skor "+Math.round(scoreA)+" vs "+Math.round(scoreB)+".","🗺️");}
   else {Object.keys(survivors).forEach(k=>sg[k]=(sg[k]||0)+survivors[k]);addEvent("battle",b.name+" mempertahankan "+target.name,"Serangan dari "+source.name+" dipukul mundur. Dikerahkan "+fmt(attack.troops)+" personel dan "+fmt(attack.tanks)+" tank; skor "+Math.round(scoreA)+" vs "+Math.round(scoreB)+". Pasukan yang selamat kembali ke wilayah asal.","🛡️");}
-  w.stalledDays=0;w.battles++;updateWarObjective(w,a,b);const report={day:state.day,a:a.id,b:b.id,winner:winner.id,loser:loser.id,scoreA:Math.round(scoreA),scoreB:Math.round(scoreB),troopsA:lost.troops,troopsB:defLost.troops,tankLossA:lost.tanks,tankLossB:defLost.tanks,aircraftLossA:lost.aircraft,aircraftLossB:defLost.aircraft,shipLossA:lost.ships,shipLossB:defLost.ships,region:target.name,sourceRegion:source.name,attackForce:attack,attackerWon:won};state.battles.unshift(report);if(state.battles.length>80)state.battles.length=80;
+  w.stalledDays=0;w.battles++;updateWarObjectivesForSides(w,a,b);const report={day:state.day,a:a.id,b:b.id,winner:winner.id,loser:loser.id,scoreA:Math.round(scoreA),scoreB:Math.round(scoreB),troopsA:lost.troops,troopsB:defLost.troops,tankLossA:lost.tanks,tankLossB:defLost.tanks,aircraftLossA:lost.aircraft,aircraftLossB:defLost.aircraft,shipLossA:lost.ships,shipLossB:defLost.ships,region:target.name,sourceRegion:source.name,attackForce:attack,attackerWon:won};state.battles.unshift(report);if(state.battles.length>80)state.battles.length=80;
   winner.wins++;loser.losses++;winner.morale=clamp(winner.morale+2,5,100);loser.morale=clamp(loser.morale-3,5,100);[a,b].forEach(c=>{c.militaryTraining=clamp((Number(c.militaryTraining)||35)+.12,0,100);c.militaryExperience=clamp((Number(c.militaryExperience)||20)+(c.id===winner.id?1.15:.7),0,100);});winner.army=clamp((Number(winner.army)||50)+.55,5,100);loser.army=clamp((Number(loser.army)||50)-.75,5,100);a.economy=clamp(a.economy-.25,10,100);b.economy=clamp(b.economy-.35,10,100);
   if(w.battles>=4+Math.floor(Math.random()*4)||loser.morale<14||Math.random()<.025){endWar(w,"ceasefire");winner.relations[loser.id]=-15;loser.relations[winner.id]=-15;winner.economy=clamp(winner.economy+2,10,100);loser.stability=clamp(loser.stability-5,5,100);addEvent("war","Gencatan senjata: "+a.name+" — "+b.name,winner.name+" unggul setelah "+w.battles+" pertempuran.","🕊️");a.enemies=a.enemies.filter(x=>x!==b.id);b.enemies=b.enemies.filter(x=>x!==a.id);}else{
    // Giliran ofensif berganti hanya jika pihak lawan benar-benar punya jalur serangan yang layak.
