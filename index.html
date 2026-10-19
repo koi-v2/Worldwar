@@ -551,13 +551,16 @@ function resolveWars(){
    // Hitung pertahanan dari aset yang masih tersedia sebelum kerugian pertempuran diterapkan.
    // Kerugian diterapkan satu kali setelah hasil serangan diketahui.
    // Pertahanan target dapat menggagalkan serangan jarak jauh.
-   const defenseScore=access.mode==="air"
+   const defenseBase=access.mode==="air"
      ?(defg.aircraft||0)*1.7+(defg.artillery||0)*.65+(defg.ships||0)*.45+(defg.tanks||0)*.08+(defg.troops||0)*.00035
      :(defg.missiles||0)*.8+(defg.artillery||0)*.22+(defg.aircraft||0)*.12+(defg.troops||0)*.0003+(defg.tanks||0)*.12;
-   const attackScore=deployed*(access.mode==="air"?2.5:2.8);
+   const attackerQuality=clamp(.78+(Number(a.militaryTraining||35))*.0015+(Number(a.militaryExperience||20))*.0012+(Number(a.army||50))*.0008,.82,1.18);
+   const defenderQuality=clamp(.78+(Number(b.militaryTraining||35))*.0015+(Number(b.militaryExperience||20))*.0012+(Number(b.army||50))*.0008,.82,1.18);
+   const defenseScore=defenseBase*defenderQuality;
+   const attackScore=deployed*(access.mode==="air"?2.5:2.8)*attackerQuality;
    const balance=(attackScore-defenseScore)/Math.max(1,attackScore+defenseScore);
    const rangedLogistics=clamp(.62+(Number(a.resources?.oil)||0)/100*.22+(Number(a.resources?.food)||0)/150*.12+(Number(a.budget)||0)/150*.10,.48,1.04);
-   const attackerChance=clamp(.5+balance*.30*rangedLogistics+(Number(a.morale||50)-Number(b.morale||50))*.0015+(Number(a.army||50)-Number(b.army||50))*.0018+(rangedLogistics-.78)*.12, .12, .82);
+   const attackerChance=clamp(.5+balance*.30*rangedLogistics+(Number(a.morale||50)-Number(b.morale||50))*.0015+(Number(a.army||50)-Number(b.army||50))*.0018+(Number(a.militaryExperience||20)-Number(b.militaryExperience||20))*.0012+(Number(a.militaryTraining||35)-Number(b.militaryTraining||35))*.0006+(rangedLogistics-.78)*.12, .12, .82);
    const attackerWon=Math.random()<attackerChance;
    if(!attackerWon){
      Object.keys(casualties).forEach(k=>{casualties[k]=Math.floor(casualties[k]*.35);});
