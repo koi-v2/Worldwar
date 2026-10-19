@@ -886,29 +886,58 @@ function utmostName(c){return c.name;}
 function resourceMarketTick(){
  if(!state.market)state.market={oil:50,coal:35,iron:30,food:20,uranium:85};
  Object.keys(state.market).forEach(k=>state.market[k]=clamp(state.market[k]+(Math.random()-.5)*2.2,5,150));
- const cs=living();
+ const cs=living(),resources=["oil","coal","iron","food","uranium"];
+ const thresholds={oil:42,coal:38,iron:32,food:42,uranium:12};
+ const reserve={oil:58,coal:55,iron:48,food:62,uranium:22};
+ const urgency=(c,res)=>{
+  const stock=Math.max(0,Number(c.resources?.[res])||0),need=thresholds[res]||30;
+  let score=Math.max(0,(need-stock)/need);
+  if(stock<8)score+=1.1;
+  else if(stock<15)score+=.55;
+  if(res==="food"&&stock<20)score+=.35;
+  if(res==="oil"&&state.wars.some(w=>w.active&&(w.a===c.id||w.b===c.id))&&stock<25)score+=.3;
+  return score;
+ };
  for(let i=0;i<2&&cs.length>1;i++){
-  const buyers=cs.filter(c=>cs.some(a=>a.id!==c.id&&!isAtWar(a.id,c.id)&&!(a.embargoes||[]).includes(c.id)&&!(c.embargoes||[]).includes(a.id)&&["oil","coal","iron","food","uranium"].some(res=>tradeNeed(c,res)&&tradeSurplus(a,res))));
-  const b=rand(buyers);if(!b)continue;
-  const options=cs.filter(a=>a.id!==b.id&&!isAtWar(a.id,b.id)&&!(a.embargoes||[]).includes(b.id)&&!(b.embargoes||[]).includes(a.id)&&a.budget>=0&&b.budget>=1);
-  const sellers=options.filter(a=>["oil","coal","iron","food","uranium"].some(res=>tradeNeed(b,res)&&tradeSurplus(a,res)));
-  const a=rand(sellers);if(!a)continue;
-  const resources=["oil","coal","iron","food","uranium"].filter(res=>tradeNeed(b,res)&&tradeSurplus(a,res));
-  const res=rand(resources);if(!res)continue;
+  const deals=[];
+  cs.forEach(b=>{
+   if((Number(b.budget)||0)<1)return;
+   resources.forEach(res=>{
+    const needScore=urgency(b,res);
+    if(needScore<=0||!tradeNeed(b,res))return;
+    cs.forEach(a=>{
+     if(a.id===b.id||isAtWar(a.id,b.id)||(a.embargoes||[]).includes(b.id)||(b.embargoes||[]).includes(a.id)||!tradeSurplus(a,res))return;
+     const surplus=(Number(a.resources?.[res])||0)-(reserve[res]||50);
+     const sellerScore=Math.min(1.5,Math.max(0,surplus)/35);
+     const buyerProfile=strategicPersonality(b),sellerProfile=strategicPersonality(a);
+     const score=needScore*1.6+sellerScore*.25+(buyerProfile.trade-1)*.12+(sellerProfile.trade-1)*.08;
+     deals.push({a,b,res,score});
+    });
+   });
+  });
+  if(!deals.length)continue;
+  deals.sort((x,y)=>y.score-x.score);
+  // Pilih salah satu dari kandidat teratas agar bantuan pasar mengutamakan krisis, tetapi tetap beragam.
+  const shortlist=deals.filter(x=>x.score>=deals[0].score-.22).slice(0,5);
+  const deal=rand(shortlist);if(!deal)continue;
+  const {a,b,res}=deal;
   const profileA=strategicPersonality(a),profileB=strategicPersonality(b);
   const unitPrice=Math.max(.1,((Number(state.market[res])||30)/20)*(profileA.trade>1.2?1.04:profileA.trade<.9?.96:1)*(profileB.trade>1.2?.96:1));
-  const qty=Math.min(3,Math.floor(((Number(a.resources[res])||0)-({oil:58,coal:55,iron:48,food:62,uranium:22}[res]||50))),Math.floor(150-(Number(b.resources[res])||0)),Math.floor((Number(b.budget)||0)/unitPrice));
+  const surplus=Math.max(0,(Number(a.resources?.[res])||0)-(reserve[res]||50));
+  const desired=urgency(b,res)>=1?5:3;
+  const qty=Math.min(desired,Math.floor(surplus),Math.floor(150-(Number(b.resources?.[res])||0)),Math.floor((Number(b.budget)||0)/unitPrice));
   if(qty<1)continue;
   const payment=Math.max(1,Math.round(qty*unitPrice));
   if((Number(b.budget)||0)<payment)continue;
-  a.resources[res]=Math.max(0,a.resources[res]-qty);b.resources[res]=Math.min(150,b.resources[res]+qty);
-  b.budget=Math.max(0,b.budget-payment);a.budget=(Number(a.budget)||0)+payment;
+  if(!a.relations)a.relations={};if(!b.relations)b.relations={};
+  a.resources[res]=Math.max(0,(Number(a.resources[res])||0)-qty);
+  b.resources[res]=Math.min(150,(Number(b.resources[res])||0)+qty);
+  b.budget=Math.max(0,(Number(b.budget)||0)-payment);a.budget=(Number(a.budget)||0)+payment;
   a.relations[b.id]=clamp((a.relations[b.id]||0)+1,-100,100);b.relations[a.id]=clamp((b.relations[a.id]||0)+1,-100,100);
   state.stats.tradeDeals=(state.stats.tradeDeals||0)+1;
-  if(Math.random()<.14)addEvent("economy","Perdagangan sumber daya",a.name+" menjual "+qty+" unit "+res+" kepada "+b.name+" dengan pembayaran "+payment+" anggaran.","📦");
+  if(Math.random()<.2)addEvent("economy","Perdagangan sumber daya",a.name+" menjual "+qty+" unit "+res+" kepada "+b.name+" setelah AI memprioritaskan kebutuhan pasokan paling mendesak. Pembayaran: "+payment+" anggaran.","📦");
  }
 }
-
 function tradeNeed(c,res){if(!c.resources)c.resources={oil:0,coal:0,iron:0,food:0,uranium:0};const stock=Number(c.resources[res])||0;const thresholds={oil:42,coal:38,iron:32,food:42,uranium:12};let need=thresholds[res]||30;if(res==="oil")need+=Math.min(25,(c.tanks||0)*.0007+(c.aircraft||0)*.001+(c.ships||0)*.01);if(res==="iron")need+=Math.min(15,(c.industry||40)*.08);if(res==="food")need+=Math.min(18,(c.population||0)>50000000?10:0);return stock<need;}
 function tradeSurplus(c,res){if(!c.resources)c.resources={oil:0,coal:0,iron:0,food:0,uranium:0};const stock=Number(c.resources[res])||0;const reserve={oil:58,coal:55,iron:48,food:62,uranium:22};return stock>(reserve[res]||50)+((c.industry||40)>70?8:0);}
 function tradeAgreementTick(){
