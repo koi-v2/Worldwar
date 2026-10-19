@@ -425,7 +425,8 @@ function chooseWar(){
  const defenders=(b.allies||[]).map(getC).filter(x=>x&&x.alive&&x.id!==a.id&&!isAtWar(x.id,a.id)&&!(a.allies||[]).includes(x.id))
   .sort((x,y)=>((y.army||0)+(y.tanks||0)*90+(y.aircraft||0)*75)-((x.army||0)+(x.tanks||0)*90+(x.aircraft||0)*75)).slice(0,room);
  defenders.forEach(x=>{
-  state.wars.push({id:++state.seq,a:x.id,b:a.id,started:state.day,active:true,battles:0,allianceWar:true,forCountry:b.id});
+  const allyDoctrine=ensureWarDoctrine(x),attackerDoctrine=ensureWarDoctrine(a),allyObjective=chooseWarObjective(x,a),attackerObjective=chooseWarObjective(a,x),allyStrength=(x.army||0)+(x.tanks||0)*90+(x.aircraft||0)*75+(x.artillery||0)*45+(x.missiles||0)*65,attackerStrength=(a.army||0)+(a.tanks||0)*90+(a.aircraft||0)*75+(a.artillery||0)*45+(a.missiles||0)*65;
+  state.wars.push({id:++state.seq,a:x.id,b:a.id,started:state.day,active:true,battles:0,allianceWar:true,forCountry:b.id,doctrine:allyDoctrine.id,objective:allyObjective,objectiveMetrics:{[x.id]:{enemyTerritory:Math.max(1,ownedCount(a.id)),enemyStrength:Math.max(1,attackerStrength)},[a.id]:{enemyTerritory:Math.max(1,ownedCount(x.id)),enemyStrength:Math.max(1,allyStrength)}},objectiveByCountry:{[x.id]:allyObjective,[a.id]:attackerObjective},objectiveProgressByCountry:{},objectiveAchievedByCountry:{},doctrineByCountry:{[x.id]:allyDoctrine.id,[a.id]:attackerDoctrine.id}});
   if(!Array.isArray(x.enemies))x.enemies=[];if(!x.enemies.includes(a.id))x.enemies.push(a.id);if(!a.enemies.includes(x.id))a.enemies.push(x.id);
   addEvent("diplomacy","Sekutu turun membela "+b.name,x.name+" mengaktifkan pakta pertahanan dan ikut melawan "+a.name+".","🛡️");
  });
