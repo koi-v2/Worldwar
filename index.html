@@ -336,6 +336,15 @@ function adaptWarPlan(w,a,b,access){
  if(w.currentPlan!==signature){w.currentPlan=signature;w.lastPlanDay=state.day;addEvent("war","AI mengubah rencana: "+a.name,signature+". Lawan: "+b.name+". Rekor beruntun: "+(w.consecutiveWins||0)+" menang / "+(w.consecutiveLosses||0)+" kalah.","🧠");}
 }
 
+function strategicPersonality(c){
+ const p=String(c&&c.personality||"");
+ if(p==="Ekspansionis"||p==="Hegemon")return {war:1.35,ally:0.82,peace:0.78,trade:0.88,stability:0.9};
+ if(p==="Militeris")return {war:1.28,ally:0.92,peace:0.82,trade:0.9,stability:0.95};
+ if(p==="Pasifis")return {war:0.28,ally:1.3,peace:1.45,trade:1.15,stability:1.15};
+ if(p==="Diplomatis")return {war:0.58,ally:1.38,peace:1.35,trade:1.18,stability:1.1};
+ if(p==="Kapitalis")return {war:0.82,ally:1.05,peace:1.12,trade:1.4,stability:1.05};
+ return {war:1,ally:1,peace:1,trade:1,stability:1};
+}
 function chooseWar(){
  // AI menilai ancaman, keuntungan strategis, diplomasi, dan kesiapan logistik sebelum memilih konflik.
  const activeWars=state.wars.filter(w=>w.active).length;
@@ -346,6 +355,7 @@ function chooseWar(){
  eligible.forEach(a=>{
   const aRelations=a.relations||{},aAllies=a.allies||[],aEnemies=a.enemies||[],aPacts=a.nonAggression||[];
   ensureWarDoctrine(a);
+  const profile=strategicPersonality(a);
   living().forEach(b=>{
    if(a.id===b.id||isAtWar(a.id,b.id)||aAllies.includes(b.id)||aEnemies.includes(b.id)||aPacts.includes(b.id))return;
    const rel=Number(aRelations[b.id]||0);
@@ -367,8 +377,8 @@ function chooseWar(){
    if(a.personality==="Pasifis")score-=.75;
    if(a.personality==="Diplomatis")score-=.42;
    if(a.personality==="Kapitalis")score-=.18;
-   score*=allyRisk;
-   if(a.stability<35)score-=.25;
+   score*=allyRisk*profile.war;
+   if(a.stability<35)score-=.25*profile.stability;
    if(oil<8||food<8||budget<5)score-=.85;
    if(ratio<.72)score-=.7;
    candidates.push({a,b,score,ratio,access,logistics});
@@ -620,15 +630,16 @@ function diplomacy(){
  for(let i=0;i<5;i++){
   const a=rand(cs),b=rand(cs.filter(c=>c.id!==a.id));if(!a||!b)continue;
   const rel=a.relations[b.id]||0;
+  const ap=strategicPersonality(a),bp=strategicPersonality(b);
   if(!a.relations)a.relations={};if(!b.relations)b.relations={};
   if(isAtWar(a.id,b.id)){
    // Pakta pertahanan diproses saat perang pecah; lawan perang tidak bisa jadi sekutu.
    continue;
   }
-  if(rel>62&&!a.allies.includes(b.id)&&Math.random()<.09){a.allies.push(b.id);b.allies.push(a.id);a.relations[b.id]=b.relations[a.id]=Math.min(100,rel+12);state.alliances.push({a:a.id,b:b.id,day:state.day});addEvent("diplomacy","Aliansi baru dibentuk",a.name+" dan "+b.name+" membentuk pakta kerja sama.","🤝");}
-  else if(a.allies.includes(b.id)&&rel<5&&Math.random()<.08){a.allies=a.allies.filter(x=>x!==b.id);b.allies=b.allies.filter(x=>x!==a.id);addEvent("diplomacy","Aliansi bubar",a.name+" dan "+b.name+" tidak lagi terikat pakta.","🕊️");}
+  if(rel>62&&!a.allies.includes(b.id)&&Math.random()<.09*((ap.ally+bp.ally)/2)){a.allies.push(b.id);b.allies.push(a.id);a.relations[b.id]=b.relations[a.id]=Math.min(100,rel+12);state.alliances.push({a:a.id,b:b.id,day:state.day});addEvent("diplomacy","Aliansi baru dibentuk",a.name+" dan "+b.name+" membentuk pakta kerja sama.","🤝");}
+  else if(a.allies.includes(b.id)&&rel<5&&Math.random()<.08/Math.max(.5,(ap.ally+bp.ally)/2)){a.allies=a.allies.filter(x=>x!==b.id);b.allies=b.allies.filter(x=>x!==a.id);addEvent("diplomacy","Aliansi bubar",a.name+" dan "+b.name+" tidak lagi terikat pakta.","🕊️");}
   else if(rel<-45&&Math.random()<.06){if(!a.enemies.includes(b.id))a.enemies.push(b.id);if(!b.enemies.includes(a.id))b.enemies.push(a.id);addEvent("diplomacy","Krisis diplomatik",a.name+" dan "+b.name+" mengalami ketegangan hubungan.","⚠️");}
-  else if(rel>35&&!a.allies.includes(b.id)&&Math.random()<.12){
+  else if(rel>35&&!a.allies.includes(b.id)&&Math.random()<.12*((ap.ally+bp.ally)/2)){
    if(!Array.isArray(a.nonAggression))a.nonAggression=[];if(!Array.isArray(b.nonAggression))b.nonAggression=[];
    if(!a.nonAggression.includes(b.id))a.nonAggression.push(b.id);if(!b.nonAggression.includes(a.id))b.nonAggression.push(a.id);
    a.relations[b.id]=b.relations[a.id]=clamp(rel+5,-100,100);
