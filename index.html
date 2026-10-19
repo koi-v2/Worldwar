@@ -404,6 +404,14 @@ function chooseWar(){
    if(a.stability<35)score-=.25*profile.stability;
    if(oil<8||food<8||budget<5)score-=.85;
    if(ratio<.72)score-=.7;
+   // Moral, kesiapan latihan, dan pengalaman menentukan apakah negara benar-benar siap membuka front baru.
+   const morale=Number(a.morale??50),training=Number(a.militaryTraining??35),experience=Number(a.militaryExperience??20);
+   const readiness=Number(a.army??50);
+   score+=(morale-50)*.009+(training-35)*.006+(experience-20)*.004+(readiness-50)*.008;
+   if(morale<25)score-=.42;
+   if(training<18)score-=.28;
+   if(experience<8)score-=.18;
+   if((a.resources?.oil??40)<3||(a.resources?.food??60)<3)score-=.45;
    candidates.push({a,b,score,ratio,access,logistics});
   });
  });
