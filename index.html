@@ -388,7 +388,7 @@ function chooseWar(){
    const rel=Number(aRelations[b.id]||0);
    if(rel>25)return;
    const access=attackAccess(a,b);if(!access)return;
-   const ownForce=Math.max(1,a.army)+Math.max(0,a.tanks)*90+Math.max(0,a.aircraft)*75+Math.max(0,a.artillery)*45+Math.max(0,a.missiles)*65;const actualEnemyForce=Math.max(1,b.army)+Math.max(0,b.tanks)*90+Math.max(0,b.aircraft)*75+Math.max(0,b.artillery)*45+Math.max(0,b.missiles)*65;const intel=a.intelMemory&&a.intelMemory[b.id];const intelAge=intel?Math.max(0,state.day-intel.day):9999;const intelUseful=intel&&intel.snapshot&&intel.snapshot.readiness!=null&&intelAge<=45;const intelConfidence=intelUseful?clamp((intel.confidence||20)/100,0,0.9)*(1-intelAge/60):0;const estimatedEnemyForce=intelUseful?actualEnemyForce*(1-intelConfidence)+Math.max(1,intel.snapshot.readiness+(b.tanks||0)*90+(b.aircraft||0)*75+(b.artillery||0)*45+(b.missiles||0)*65)*intelConfidence:actualEnemyForce;const ratio=ownForce/Math.max(1,estimatedEnemyForce);
+   const ownForce=Math.max(1,a.army)+Math.max(0,a.tanks)*90+Math.max(0,a.aircraft)*75+Math.max(0,a.artillery)*45+Math.max(0,a.missiles)*65;const actualEnemyForce=Math.max(1,b.army)+Math.max(0,b.tanks)*90+Math.max(0,b.aircraft)*75+Math.max(0,b.artillery)*45+Math.max(0,b.missiles)*65;const intel=a.intelMemory&&a.intelMemory[b.id];const intelAge=intel?Math.max(0,state.day-intel.day):9999;const intelUseful=intel&&intel.snapshot&&intel.snapshot.readiness!=null&&intelAge<=45;const intelConfidence=intelUseful?clamp((intel.confidence||20)/100,0,0.9)*(1-intelAge/60):0;const estimatedEnemyForce=intelUseful?actualEnemyForce*(1-intelConfidence)+Math.max(1,intel.snapshot.army+(intel.snapshot.tanks||0)*90+(intel.snapshot.aircraft||0)*75+(intel.snapshot.artillery||0)*45+(intel.snapshot.missiles||0)*65)*intelConfidence:actualEnemyForce;const ratio=ownForce/Math.max(1,estimatedEnemyForce);
    const allyStrength=(b.allies||[]).map(getC).filter(x=>x&&x.alive&&!isAtWar(x.id,a.id)).reduce((n,x)=>n+(x.army||0)*.35+(x.tanks||0)*35+(x.aircraft||0)*25,0);
    const ownStrength=(a.army||0)*.35+(a.tanks||0)*35+(a.aircraft||0)*25;
    const oil=Number(a.resources?.oil??40),food=Number(a.resources?.food??60),budget=Number(a.budget||0);
@@ -1073,7 +1073,7 @@ function espionageTick(){
   let type,headline,detail,snapshot={};
   if(roll<.53){
    type="military";const noise=Math.max(5,32-net*.22+counter*.12);
-   snapshot={army:Math.round(clamp((b.army||0)+(Math.random()-.5)*noise,0,100)),tanks:Math.round(clamp((b.tanks||0)+(Math.random()-.5)*noise/8,0,100)),aircraft:Math.round(clamp((b.aircraft||0)+(Math.random()-.5)*noise/10,0,100)),readiness:Math.round(clamp((b.army||0)+(Math.random()-.5)*noise,0,100))};
+   snapshot={army:Math.round(clamp((b.army||0)+(Math.random()-.5)*noise,0,100)),tanks:Math.round(clamp((b.tanks||0)+(Math.random()-.5)*noise/8,0,100)),aircraft:Math.round(clamp((b.aircraft||0)+(Math.random()-.5)*noise/10,0,100)),artillery:Math.round(clamp((b.artillery||0)+(Math.random()-.5)*noise/9,0,100)),missiles:Math.round(clamp((b.missiles||0)+(Math.random()-.5)*noise/9,0,100)),readiness:Math.round(clamp((b.army||0)+(Math.random()-.5)*noise,0,100))};
    headline="Estimasi kekuatan militer: "+b.name;
    detail="Analisis memperkirakan kesiapan militer "+snapshot.readiness+"/100, tank "+snapshot.tanks+", pesawat "+snapshot.aircraft+". Ini estimasi, bukan angka pasti.";
   }else if(roll<.77){
