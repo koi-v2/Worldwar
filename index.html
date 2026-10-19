@@ -254,6 +254,57 @@ function load(){try{const raw=localStorage.getItem("worldwar_save_v1");if(raw){c
 function toast(msg){const t=$("toast");t.textContent=msg;t.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display="none",2300);}
 function rand(arr){return arr[Math.floor(Math.random()*arr.length)]}
 function living(){return state.countries.filter(c=>c.alive)}
+
+const WAR_DOCTRINES=[
+{id:"blitzkrieg",name:"Blitzkrieg",desc:"serangan cepat dan terobosan lapis baja"},
+{id:"fortress",name:"Benteng",desc:"pertahanan kuat dan serangan balasan"},
+{id:"longrange",name:"Serangan Jarak Jauh",desc:"melemahkan lawan sebelum invasi"},
+{id:"attrition",name:"Perang Atrisi",desc:"menguras pasukan dan logistik lawan"},
+{id:"expansion",name:"Ekspansionis",desc:"merebut wilayah strategis"},
+{id:"coalition",name:"Koalisi",desc:"mengandalkan sekutu dan koordinasi"},
+{id:"limited",name:"Perang Terbatas",desc:"mencapai tujuan dengan biaya terkendali"}];
+function ensureWarDoctrine(c){
+ if(!c)return null;
+ if(!c.warDoctrine){
+  const p=String(c.personality||"");
+  const pref=p==="Ekspansionis"||p==="Hegemon"?"expansion":p==="Militeris"?"blitzkrieg":p==="Pasifis"||p==="Diplomatis"?"limited":p==="Kapitalis"?"attrition":null;
+  const pool=WAR_DOCTRINES.filter(d=>!pref||d.id===pref||Math.random()<.22);
+  c.warDoctrine=(rand(pool.length?pool:WAR_DOCTRINES)||WAR_DOCTRINES[0]).id;
+ }
+ return WAR_DOCTRINES.find(d=>d.id===c.warDoctrine)||WAR_DOCTRINES[0];
+}
+function warDoctrineModifier(c,target,access){
+ const d=ensureWarDoctrine(c);if(!d)return 1;
+ if(d.id==="blitzkrieg")return access.mode==="ground"?1.18:.92;
+ if(d.id==="fortress")return .88;
+ if(d.id==="longrange")return access.mode==="ground"?.88:1.22;
+ if(d.id==="attrition")return 1.02;
+ if(d.id==="expansion")return 1.12;
+ if(d.id==="coalition")return (c.allies||[]).some(id=>{const x=getC(id);return x&&x.alive&&!isAtWar(x.id,c.id);})?1.16:.94;
+ return .9;
+}
+function chooseWarObjective(a,b){
+ const d=ensureWarDoctrine(a);
+ if(d?.id==="fortress")return "mengamankan perbatasan";
+ if(d?.id==="longrange")return "melemahkan kekuatan militer lawan";
+ if(d?.id==="limited")return "mencapai tujuan terbatas dengan biaya terkendali";
+ if(d?.id==="expansion")return "merebut wilayah strategis";
+ if(d?.id==="coalition")return "melemahkan lawan dengan dukungan sekutu";
+ if(d?.id==="attrition")return "menguras kekuatan dan logistik lawan";
+ return "merebut wilayah penting melalui serangan cepat";
+}
+function adaptWarPlan(w,a,b,access){
+ const d=ensureWarDoctrine(a);if(!d)return;
+ const oil=Number(a.resources?.oil??40),food=Number(a.resources?.food??60);
+ const ratio=((a.army||0)+(a.tanks||0)*90+(a.aircraft||0)*75+(a.artillery||0)*45+(a.missiles||0)*65)/Math.max(1,(b.army||0)+(b.tanks||0)*90+(b.aircraft||0)*75+(b.artillery||0)*45+(b.missiles||0)*65);
+ let plan=d.id==="fortress"?"memperkuat pertahanan dan mencari serangan balasan":d.id==="longrange"?"melemahkan pertahanan lewat serangan jarak jauh":d.id==="attrition"?"menguras kekuatan lawan secara bertahap":d.id==="coalition"?"mengandalkan dukungan sekutu dan memilih sasaran bersama":d.id==="limited"?"membatasi operasi demi tujuan yang realistis":d.id==="expansion"?"merebut wilayah strategis yang membuka jalur lanjutan":"mencari terobosan cepat dengan pasukan mekanis";
+ if(oil<8||food<8)plan="menghemat logistik dan menghindari operasi besar";
+ else if(ratio<.72)plan="menahan serangan besar, mengumpulkan kekuatan, dan mencari dukungan";
+ else if((w.battles||0)>=3)plan="mengubah sasaran berdasarkan hasil pertempuran dan menilai peluang gencatan senjata";
+ const signature=d.name+" — "+plan;
+ if(w.currentPlan!==signature){w.currentPlan=signature;w.lastPlanDay=state.day;addEvent("war","AI mengubah rencana: "+a.name,signature+". Lawan: "+b.name+".","🧠");}
+}
+
 function chooseWar(){
  // AI menilai ancaman, keuntungan strategis, diplomasi, dan kesiapan logistik sebelum memilih konflik.
  const activeWars=state.wars.filter(w=>w.active).length;
@@ -263,6 +314,7 @@ function chooseWar(){
  const candidates=[];
  eligible.forEach(a=>{
   const aRelations=a.relations||{},aAllies=a.allies||[],aEnemies=a.enemies||[],aPacts=a.nonAggression||[];
+  ensureWarDoctrine(a);
   living().forEach(b=>{
    if(a.id===b.id||isAtWar(a.id,b.id)||aAllies.includes(b.id)||aEnemies.includes(b.id)||aPacts.includes(b.id))return;
    const rel=Number(aRelations[b.id]||0);
@@ -280,6 +332,7 @@ function chooseWar(){
    if(access.mode==="air")score-=.22;
    if(access.mode==="missile")score-=.32;
    if(a.personality==="Ekspansionis"||a.personality==="Militeris"||a.personality==="Hegemon")score+=.35;
+   score+=Math.log(Math.max(.2,warDoctrineModifier(a,b,access)))*1.4;
    if(a.personality==="Pasifis")score-=.75;
    if(a.personality==="Diplomatis")score-=.42;
    if(a.personality==="Kapitalis")score-=.18;
@@ -304,10 +357,11 @@ function chooseWar(){
  if(a.personality==="Diplomatis")chance*=.55;
  if(access.mode!=="ground")chance*=.65;
  if(Math.random()>=clamp(chance,.004,.085))return;
- state.wars.push({id:++state.seq,a:a.id,b:b.id,started:state.day,active:true,battles:0,strategicScore:score});
+ const doctrine=ensureWarDoctrine(a),objective=chooseWarObjective(a,b);
+ state.wars.push({id:++state.seq,a:a.id,b:b.id,started:state.day,active:true,battles:0,strategicScore:score,doctrine:doctrine.id,objective,currentPlan:"",counterattacks:0});
  if(!Array.isArray(a.enemies))a.enemies=[];if(!Array.isArray(b.enemies))b.enemies=[];
  if(!a.enemies.includes(b.id))a.enemies.push(b.id);if(!b.enemies.includes(a.id))b.enemies.push(a.id);
- addEvent("war","Perang pecah: "+a.name+" vs "+b.name,"AI memilih konflik setelah menilai hubungan ("+Math.round((a.relations?.[b.id]||0))+"), rasio kekuatan "+ratio.toFixed(2)+", logistik "+Math.round(logistics*100)+"%, dan risiko sekutu lawan.","⚔️");
+ addEvent("war","Perang pecah: "+a.name+" vs "+b.name,doctrine.name+"; tujuan: "+objective+". AI memilih konflik setelah menilai hubungan ("+Math.round((a.relations?.[b.id]||0))+"), rasio kekuatan "+ratio.toFixed(2)+", logistik "+Math.round(logistics*100)+"%, dan risiko sekutu lawan.","⚔️");
  // Sekutu pihak yang diserang dapat ikut bertahan, selama batas konflik dunia belum tercapai.
  const room=Math.max(0,2-state.wars.filter(w=>w.active).length);
  const defenders=(b.allies||[]).map(getC).filter(x=>x&&x.alive&&x.id!==a.id&&!isAtWar(x.id,a.id)&&!(a.allies||[]).includes(x.id))
@@ -368,12 +422,15 @@ function resolveWars(){
   const a=getC(w.a),b=getC(w.b);if(!a||!b||!a.alive||!b.alive){endWar(w,"invalid");return;}
   const access=attackAccess(a,b);if(!access){w.battles=(w.battles||0)+1;addEvent("war",a.name+" tidak memiliki jalur serangan ke "+b.name,"Tidak ada jalur darat melalui negara sekutu dan jangkauan pesawat/rudal tidak mencukupi.","🧭");if(w.battles>=4){endWar(w,"ceasefire");}return;}
   const targets=state.regions.filter(r=>r.owner===b.id);if(!targets.length){endWar(w,"invalid");return;}
+  adaptWarPlan(w,a,b,access);
+  const doctrine=ensureWarDoctrine(a);
   // AI menilai target: wilayah non-ibu kota yang pertahanannya tipis lebih menarik.
   const fronts=targets.filter(r=>r.kind!=="Pusat"),pool=fronts.length?fronts:targets;
   pool.sort((x,y)=>{
    const strength=r=>{const g=r.garrison||{};return (g.troops||0)*.001+(g.tanks||0)*2.2+(g.aircraft||0)*2.5+(g.artillery||0)*1.7+(g.missiles||0)*2.8;};
-   const strategic=r=>(r.kind==="Pusat"?100:0)+(r.name&&/pelabuhan|industri|koridor/i.test(r.name)?12:0);
-   return (strength(x)-strategic(x))-(strength(y)-strategic(y));
+   const strategic=r=>(r.kind==="Pusat"?(doctrine?.id==="expansion"?145:35):0)+(r.name&&/pelabuhan|industri|koridor|tambang|minyak/i.test(r.name)?(doctrine?.id==="expansion"?32:18):0);
+   const score=r=>strength(r)-strategic(r)+(doctrine?.id==="longrange"?((r.garrison?.aircraft||0)*.6+(r.garrison?.artillery||0)*.3):0);
+   return score(x)-score(y);
   });
   const target=pool[0];
   const sources=state.regions.filter(r=>r.owner===a.id&&r.garrison&&(access.mode==="ground"?(r.garrison.troops||0)>=1600:access.mode==="air"?(r.garrison.aircraft||0)>0:(r.garrison.missiles||0)>0));
@@ -422,7 +479,7 @@ function resolveWars(){
    w.battles++;addEvent("battle",a.name+" menyerang "+b.name+" dari jarak jauh",attackerWon?a.name+" berhasil menembus pertahanan "+b.name+". Kerugian lawan: "+fmt(casualties.troops)+" personel, "+fmt(casualties.ships)+" kapal, "+fmt(casualties.artillery)+" artileri.":b.name+" berhasil memukul mundur serangan "+a.name+"; pertahanan mencegat sebagian serangan dan penyerang kehilangan aset.","✈️");
    if(w.battles>=7||Math.random()<.035){endWar(w,"ceasefire");a.relations[b.id]=-15;b.relations[a.id]=-15;addEvent("war","Perjanjian gencatan senjata jarak jauh",a.name+" dan "+b.name+" menghentikan operasi jarak jauh.","🕊️");}return;
   }
-  const share=.22+Math.random()*.28;
+  const share=clamp((.22+Math.random()*.28)*(doctrine?.id==="blitzkrieg"?1.18:doctrine?.id==="fortress"?.78:doctrine?.id==="limited"?.82:doctrine?.id==="expansion"?1.08:1),.16,.48);
   // AI mengatur komposisi ekspedisi berdasarkan kekuatan pertahanan target.
   const weights={
    troops:share,
@@ -453,9 +510,12 @@ function resolveWars(){
   // Pertahanan wilayah punya keuntungan posisi; penyerang tidak otomatis menang.
   const attackBase=attack.troops*.001+attack.tanks*2.2+attack.aircraft*2.5+attack.ships*.8+attack.artillery*1.7+attack.missiles*2.8;
   const defenseBase=(g.troops||0)*.001+(g.tanks||0)*2.2+(g.aircraft||0)*2.5+(g.ships||0)*.8+(g.artillery||0)*1.7+(g.missiles||0)*2.8;
-  const scoreA=attackBase*(.72+Math.random()*.56)*clamp((a.morale||50)/70,.55,1.25)*logisticsA+(a.research||40)*.08+(a.economy||40)*.05;
+  const doctrineBonus=warDoctrineModifier(a,b,access);
+  const scoreA=attackBase*(.72+Math.random()*.56)*clamp((a.morale||50)/70,.55,1.25)*logisticsA*doctrineBonus+(a.research||40)*.08+(a.economy||40)*.05;
   const defenseBonus=target.kind==="Pusat"?1.28:1.18;
-  const scoreB=defenseBase*defenseBonus*(.78+Math.random()*.52)*clamp((b.morale||50)/70,.55,1.3)*logisticsB+(b.research||40)*.1+(b.infrastructure||40)*.2+12;
+  const defenseDoctrine=ensureWarDoctrine(b);
+  const defenseStyle=defenseDoctrine?.id==="fortress"?1.22:defenseDoctrine?.id==="limited"?1.04:1;
+  const scoreB=defenseBase*defenseBonus*defenseStyle*(.78+Math.random()*.52)*clamp((b.morale||50)/70,.55,1.3)*logisticsB+(b.research||40)*.1+(b.infrastructure||40)*.2+12;
   const won=scoreA>scoreB,winner=won?a:b,loser=won?b:a;
   const lossRateA=(won?.10:.17)+Math.random()*.10,lossRateB=(won?.09:.13)+Math.random()*.09;
   const lost={troops:0,tanks:0,aircraft:0,ships:0,artillery:0,missiles:0},defLost={troops:0,tanks:0,aircraft:0,ships:0,artillery:0,missiles:0};
@@ -756,6 +816,7 @@ function renderDetail(){
  box.innerHTML='<div class="country-title"><div class="bigflag">'+c.flag+'</div><div><h3>'+c.name+'</h3><p>'+c.region+' · '+c.id+'</p></div></div>'+
  '<div class="mini-stats"><div class="mini"><span>Kekuatan total</span><b>'+power(c)+'</b></div><div class="mini"><span>Kesiapan militer</span><b>'+Math.round(c.army)+'/100</b></div><div class="mini"><span>Ekonomi</span><b>'+Math.round(c.economy)+'/100</b></div><div class="mini"><span>Wilayah dikuasai</span><b>'+owned.length+'</b></div><div class="mini"><span>Moral nasional</span><b>'+Math.round(c.morale)+'/100</b></div><div class="mini"><span>Stabilitas</span><b>'+Math.round(c.stability)+'/100</b></div></div>'+
  '<h3 style="font-size:12px;margin:12px 0 6px">⛏️ SUMBER DAYA NASIONAL</h3><div class="equipment-grid"><div class="equipment"><span>🛢️ Minyak</span><b>'+fmt(resources.oil)+'</b></div><div class="equipment"><span>🪨 Batu bara</span><b>'+fmt(resources.coal)+'</b></div><div class="equipment"><span>⛓️ Besi</span><b>'+fmt(resources.iron)+'</b></div><div class="equipment"><span>🌾 Pangan</span><b>'+fmt(resources.food)+'</b></div><div class="equipment"><span>☢️ Uranium</span><b>'+fmt(resources.uranium)+'</b></div></div>'+
+ '<h3 style="font-size:12px;margin:12px 0 6px">⚔️ DOKTRIN PERANG AI</h3><div class="equipment"><span>'+ensureWarDoctrine(c).name+'</span><b>'+ensureWarDoctrine(c).desc+'</b></div>'+
  '<h3 style="font-size:12px;margin:12px 0 6px">🤝 KONTRAK DAGANG</h3>'+contractHtml+
  '<h3 style="font-size:12px;margin:12px 0 6px">🪖 INVENTARIS MILITER</h3><div class="equipment-grid">'+Object.keys(units).map(k=>'<div class="equipment"><span>'+units[k]+'</span><b>'+fmt(c[k])+'</b></div>').join("")+'<div class="equipment"><span>💰 Anggaran pertahanan (indeks)</span><b>'+fmt(c.budget)+'</b></div><div class="equipment"><span>🩹 Kehilangan personel kumulatif</span><b>'+fmt(c.battleLosses)+'</b></div></div>'+
  '<p class="detail-desc">'+(c.alive?"Pemerintah masih aktif. Keputusan militer, ekonomi, dan diplomasi dijalankan otomatis oleh AI simulasi.":"Pemerintahan ini telah kehilangan seluruh wilayahnya.")+'</p>'+
