@@ -763,7 +763,9 @@ function economyTick(){
   const publicSupport=Number(c.popularity??50),corruption=Number(c.corruption??25),foodLevel=Number(c.resources?.food??60);
   c.stability=clamp(c.stability+(Math.random()*1.6-.8)+(c.morale>50?.22:-.38)+(publicSupport>65?.18:publicSupport<30?-.32:0)-(corruption>70?.18:0)-(atWar?.10:0),5,100);
   const moraleChange=(Math.random()*2.4-1.2)+(c.economy>65?.12:c.economy<30?-.12:0)+(c.stability>65?.12:c.stability<30?-.14:0)+(publicSupport>65?.14:publicSupport<30?-.22:0)+(atWar?-.08:.04)-(foodLevel<8?.6:0)-(c.budget<5?.22:0);
-  c.morale=clamp(c.morale+moraleChange,5,100);
+  const recovering=Number(c.postWarRecoveryUntil||0)>=state.day;
+  c.morale=clamp(c.morale+moraleChange+(recovering?.32:0),5,100);
+  if(recovering){c.stability=clamp(c.stability+.18,5,100);c.economy=clamp(c.economy+.12,10,100);}
   c.industry=clamp(Math.round(c.economy*.55+c.stability*.25+ownedCount(c.id)*2),5,100);
   // Anggaran masuk dari ekonomi, tetapi pemerintahan juga membayar administrasi dan biaya konflik setiap hari.
   const ownedRegions=state.regions.filter(r=>r.owner===c.id);
@@ -947,12 +949,21 @@ function negotiatePeace(){
   const peaceChance=clamp(basePeaceChance*peaceDisposition,.04,.48);
   if((Math.max(pa,pb)<38&&!exhausted)||Math.random()>peaceChance)return;
   const winner=pa<pb?a:b,loser=winner===a?b:a;
-  const payment=Math.min(Math.max(0,loser.budget||0),Math.max(2,Math.round((loser.budget||0)*.08)));
+  const payment=Math.min(Math.max(0,loser.budget||0),Math.max(0,Math.round((loser.budget||0)*.08)));
   loser.budget=Math.max(0,(loser.budget||0)-payment);winner.budget=(winner.budget||0)+payment;
-  loser.stability=clamp((loser.stability||50)-2,5,100);
-  winner.relations[loser.id]=Math.max(-25,winner.relations[loser.id]||-15);loser.relations[winner.id]=winner.relations[loser.id];
+  // Pemulihan pascaperang membantu negara kembali stabil tanpa menghapus dampak konflik.
+  [a,b].forEach(c=>{
+   c.morale=clamp((Number(c.morale)||50)+3,5,100);
+   c.stability=clamp((Number(c.stability)||50)+2,5,100);
+   c.economy=clamp((Number(c.economy)||50)+1,10,100);
+   c.postWarRecoveryUntil=state.day+5;
+   if(!c.relations)c.relations={};
+  });
+  loser.stability=clamp((loser.stability||50)-1,5,100);
+  const settledRelation=clamp(Math.max(Number(winner.relations[loser.id]??-15),-12)+3,-12,10);
+  winner.relations[loser.id]=settledRelation;loser.relations[winner.id]=settledRelation;
   endWar(w,"ceasefire");
-  addEvent("war","Perundingan damai: "+a.name+" — "+b.name,"Setelah "+w.battles+" pertempuran, kedua pihak menyepakati gencatan senjata. "+loser.name+" membayar "+fmt(payment)+" anggaran sebagai kompensasi; wilayah yang telah direbut tidak berubah.","🕊️");
+  addEvent("war","Perundingan damai: "+a.name+" — "+b.name,"Setelah "+w.battles+" pertempuran, kedua pihak menyepakati gencatan senjata. "+loser.name+" membayar "+fmt(payment)+" anggaran sebagai kompensasi; moral dan stabilitas mulai pulih selama beberapa hari, sementara wilayah yang direbut tetap dipertahankan.","🕊️");
  });
 }
 // Kesiapan militer dinamis: latihan, perbekalan, anggaran, kondisi pasukan, dan pengalaman.
