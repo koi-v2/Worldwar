@@ -735,6 +735,22 @@ function militaryProductionModifier(c){
  if(p==="Kapitalis")return .82;
  return 1;
 }
+function militaryProductionChance(c,key,base){
+ const doctrine=ensureWarDoctrine(c)?.id||"balanced";
+ const priorities={
+  blitzkrieg:{troops:.98,tanks:1.34,aircraft:1.16,ships:.78,artillery:.92,missiles:.82},
+  fortress:{troops:1.18,tanks:.92,aircraft:.88,ships:.82,artillery:1.32,missiles:.9},
+  longrange:{troops:.82,tanks:.78,aircraft:1.24,ships:1.04,artillery:1.18,missiles:1.42},
+  attrition:{troops:1.2,tanks:.94,aircraft:.9,ships:.82,artillery:1.22,missiles:1.12},
+  expansion:{troops:1.16,tanks:1.22,aircraft:1.04,ships:1,artillery:1.02,missiles:1},
+  coalition:{troops:1.04,tanks:1.02,aircraft:1.04,ships:1.06,artillery:1.04,missiles:1.02},
+  limited:{troops:.76,tanks:.78,aircraft:.78,ships:.72,artillery:.82,missiles:.76}
+ };
+ const atWar=state.wars.some(w=>w.active&&(w.a===c.id||w.b===c.id));
+ const priority=(priorities[doctrine]||{})[key]||1;
+ const warBoost=atWar&&["troops","tanks","aircraft","artillery"].includes(key)?1.12:1;
+ return clamp(base*militaryProductionModifier(c)*priority*warBoost,.008,.42);
+}
 function economyTick(){
  living().forEach(c=>{
   const atWar=state.wars.some(w=>w.active&&(w.a===c.id||w.b===c.id));
@@ -766,12 +782,12 @@ function economyTick(){
   r.coal=clamp(r.coal+.08+(c.industry||40)*.0008-.035-(c.industry||40)*.0007,0,150);
   if(r.coal<8){c.energy=clamp((c.energy||40)-.15,5,100);c.economy=clamp(c.economy-.08,10,100);}
   if(r.food<8){c.stability=clamp(c.stability-.65,5,100);c.economy=clamp(c.economy-.2,10,100);}
-  if(c.budget>=18&&r.food>=2&&Math.random()<clamp(.22*militaryProductionModifier(c),.04,.38)){const n=Math.max(1,Math.round(c.industry/35));const cost=12+n*2;const foodCost=n*.35;if(c.budget>=cost&&r.food>=foodCost){addProducedUnits(c,"troops",n*180);c.budget-=cost;r.food-=foodCost;}}
-  if(c.budget>=24&&Math.random()<clamp(.14*militaryProductionModifier(c),.025,.28)){const n=Math.max(1,Math.round(c.industry/40));const cost=10+n*4,iron=n*.8,oil=n*.55;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil){addProducedUnits(c,"tanks",n);c.budget-=cost;r.iron-=iron;r.oil-=oil;}}
-  if(c.budget>=30&&Math.random()<clamp(.10*militaryProductionModifier(c),.02,.22)){const n=Math.max(1,Math.round(c.industry/55));const cost=14+n*5,iron=n*.65,oil=n*.8;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil){addProducedUnits(c,"aircraft",n);c.budget-=cost;r.iron-=iron;r.oil-=oil;}}
-  if(c.budget>=38&&Math.random()<clamp(.055*militaryProductionModifier(c),.01,.14)){const cost=22,iron=1.8,oil=1.2;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil){addProducedUnits(c,"ships",1);c.budget-=cost;r.iron-=iron;r.oil-=oil;}}
-  if(c.budget>=22&&Math.random()<.08){const n=Math.max(1,Math.round(c.industry/45));const cost=9+n*3,iron=n*.5;if(c.budget>=cost&&r.iron>=iron){addProducedUnits(c,"artillery",n);c.budget-=cost;r.iron-=iron;}}
-  if(c.budget>=28&&Math.random()<.055){const n=Math.max(1,Math.round(c.industry/50));const cost=12+n*4,iron=n*.35,oil=n*.25,uranium=n*.025;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil&&r.uranium>=uranium){addProducedUnits(c,"missiles",n);c.budget-=cost;r.iron-=iron;r.oil-=oil;r.uranium-=uranium;}}
+  if(c.budget>=18&&r.food>=2&&Math.random()<militaryProductionChance(c,"troops",.22)){const n=Math.max(1,Math.round(c.industry/35));const cost=12+n*2;const foodCost=n*.35;if(c.budget>=cost&&r.food>=foodCost){addProducedUnits(c,"troops",n*180);c.budget-=cost;r.food-=foodCost;}}
+  if(c.budget>=24&&Math.random()<militaryProductionChance(c,"tanks",.14)){const n=Math.max(1,Math.round(c.industry/40));const cost=10+n*4,iron=n*.8,oil=n*.55;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil){addProducedUnits(c,"tanks",n);c.budget-=cost;r.iron-=iron;r.oil-=oil;}}
+  if(c.budget>=30&&Math.random()<militaryProductionChance(c,"aircraft",.10)){const n=Math.max(1,Math.round(c.industry/55));const cost=14+n*5,iron=n*.65,oil=n*.8;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil){addProducedUnits(c,"aircraft",n);c.budget-=cost;r.iron-=iron;r.oil-=oil;}}
+  if(c.budget>=38&&Math.random()<militaryProductionChance(c,"ships",.055)){const cost=22,iron=1.8,oil=1.2;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil){addProducedUnits(c,"ships",1);c.budget-=cost;r.iron-=iron;r.oil-=oil;}}
+  if(c.budget>=22&&Math.random()<militaryProductionChance(c,"artillery",.08)){const n=Math.max(1,Math.round(c.industry/45));const cost=9+n*3,iron=n*.5;if(c.budget>=cost&&r.iron>=iron){addProducedUnits(c,"artillery",n);c.budget-=cost;r.iron-=iron;}}
+  if(c.budget>=28&&Math.random()<militaryProductionChance(c,"missiles",.055)){const n=Math.max(1,Math.round(c.industry/50));const cost=12+n*4,iron=n*.35,oil=n*.25,uranium=n*.025;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil&&r.uranium>=uranium){addProducedUnits(c,"missiles",n);c.budget-=cost;r.iron-=iron;r.oil-=oil;r.uranium-=uranium;}}
   c.territory=ownedCount(c.id);
   if(c.stability<20&&Math.random()<.08){c.stability=clamp(c.stability+8,0,100);addEvent("economy","Krisis pemerintahan di "+c.name,"Ketidakpuasan publik memaksa pemerintah mengumumkan reformasi darurat.","🏛️");}
  });
