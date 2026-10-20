@@ -1414,14 +1414,18 @@ function renderDetail(){
  '<p class="detail-desc"><b>📜 Rekor perang:</b> '+fmt(c.wins)+' kemenangan · '+fmt(c.losses)+' kekalahan</p>';
 }
 function renderRanking(){
- const key=$("rankFilter").value;const sorted=[...state.countries].sort((a,b)=>ownedCount(b.id)-ownedCount(a.id));
- const observer=getC(selected);
+ const key=$("rankFilter").value;
+ const sorted=[...state.countries].sort((a,b)=>{
+  if(key==="economy")return (Number(b.economy)||0)-(Number(a.economy)||0);
+  if(key==="army")return (Number(b.army)||0)-(Number(a.army)||0);
+  if(key==="territory")return ownedCount(b.id)-ownedCount(a.id);
+  return power(b)-power(a);
+ });
  $("ranking").innerHTML=sorted.map((c,i)=>{
-  const intel=observer&&observer.intelMemory&&observer.intelMemory[c.id],reports=intel&&intel.reports||{},milIntel=reports.military||(intel&&intel.type==="military"?intel:null),econIntel=reports.economic||(intel&&intel.type==="economic"?intel:null),milAge=milIntel?Math.max(0,state.day-milIntel.day):9999,econAge=econIntel?Math.max(0,state.day-econIntel.day):9999;
-  const milValid=c.id===selected||(milIntel&&milAge<=45),econValid=c.id===selected||(econIntel&&econAge<=60),milSnap=milValid&&milIntel?milIntel.snapshot:null,econSnap=econValid&&econIntel?econIntel.snapshot:null;
-  const powerText=c.id===selected?power(c):milValid&&milSnap&&milSnap.readiness!=null?"Estimasi intel":"Dirahasiakan";
-  const econText=c.id===selected?Math.round(c.economy):econValid&&econSnap&&econSnap.economy!=null?econSnap.economy+" (estimasi)":"Belum diketahui";
-  const armyText=c.id===selected?Math.round(c.army):milValid&&milSnap&&milSnap.readiness!=null?milSnap.readiness+" (estimasi)":"Belum diketahui";
+  // Peringkat adalah statistik publik simulasi; intel rahasia hanya berlaku pada panel intelijen.
+  const powerText=Math.round(power(c));
+  const econText=Math.round(Number(c.economy)||0);
+  const armyText=Math.round(Number(c.army)||0);
   return '<tr><td>'+((i===0&&c.alive)?"👑":i+1)+'</td><td><b>'+c.flag+' '+c.name+'</b><br><span class="muted">'+(c.alive?"Aktif":"Tumbang")+'</span></td><td>'+powerText+'</td><td>'+econText+'</td><td>'+armyText+'</td><td>'+ownedCount(c.id)+'</td></tr>';
  }).join("");
 }
