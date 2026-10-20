@@ -393,7 +393,7 @@ function chooseWar(){
    const allyStrength=(b.allies||[]).map(getC).filter(x=>x&&x.alive&&!isAtWar(x.id,a.id)).length*(intelUseful?45:Math.max(20,ownedCount(b.id)*9)); // Kapasitas tempur sekutu tidak diketahui tanpa intel.
    const ownStrength=(a.army||0)*.35+(a.tanks||0)*35+(a.aircraft||0)*25;
    const oil=Number(a.resources?.oil??40),food=Number(a.resources?.food??60),budget=Number(a.budget||0);
-   const logistics=clamp((oil/35)*.38+(food/40)*.28+(budget/30)*.34,.12,1.25);
+   const logisticsTech=Number(a.techTree?.logistics)||0;const logistics=clamp((oil/35)*.34+(food/40)*.25+(budget/30)*.29+logisticsTech*.0018,.12,1.32);
    const hostility=clamp((25-rel)/75,0,1.2);
    const economicRecord=a.intelMemory&&a.intelMemory[b.id],economicIntel=economicRecord&&(economicRecord.reports?.economic||((economicRecord.type==="economic")?economicRecord:null)),economicAge=economicIntel?Math.max(0,state.day-economicIntel.day):9999,economicSnapshot=economicIntel&&economicIntel.snapshot&&economicAge<=60?economicIntel.snapshot:null;const estimatedEconomy=economicSnapshot?economicSnapshot.economy:clamp(25+ownedCount(b.id)*5+(Math.random()-.5)*28,10,90),estimatedIndustry=economicSnapshot?economicSnapshot.industry:clamp(estimatedEconomy*.7+(Math.random()-.5)*24,5,95);const strategicValue=estimatedEconomy*.22+estimatedIndustry*.18+Math.min(6,ownedCount(b.id))*.8;
    const allyRisk=allyStrength>ownStrength*.7? .52 : allyStrength>ownStrength*.35? .75 : 1;
@@ -611,7 +611,7 @@ function resolveWars(){
    const defenseScore=defenseBase*defenderQuality;
    const attackScore=deployed*(access.mode==="air"?2.5:2.8)*attackerQuality;
    const balance=(attackScore-defenseScore)/Math.max(1,attackScore+defenseScore);
-   const rangedLogistics=clamp(.62+(Number(a.resources?.oil)||0)/100*.22+(Number(a.resources?.food)||0)/150*.12+(Number(a.budget)||0)/150*.10,.48,1.04);
+   const rangedLogistics=clamp(.62+(Number(a.resources?.oil)||0)/100*.20+(Number(a.resources?.food)||0)/150*.10+(Number(a.budget)||0)/150*.09+(Number(a.techTree?.logistics)||0)*.0015,.48,1.10);
    const attackerChance=clamp(.5+balance*.30*rangedLogistics+(Number(a.morale||50)-Number(b.morale||50))*.0015+(Number(a.army||50)-Number(b.army||50))*.0018+(Number(a.militaryExperience||20)-Number(b.militaryExperience||20))*.0012+(Number(a.militaryTraining||35)-Number(b.militaryTraining||35))*.0006+(rangedLogistics-.78)*.12, .12, .82);
    const attackerWon=Math.random()<attackerChance;
    if(!attackerWon){
