@@ -1396,7 +1396,40 @@ function demographyTick(){
   if(food<7&&Math.random()<.035)addEvent("economy","Krisis kebutuhan dasar di "+c.name,"Pasokan pangan tidak mencukupi kebutuhan penduduk. Pemerintah harus memperbaiki produksi atau mencari pemasok melalui perdagangan.","🌾");
  });
 }
+function validateSimulationState(){
+ if(!state||!Array.isArray(state.countries)||!Array.isArray(state.regions))return 0;
+ let repaired=0;
+ const defaults={economy:40,budget:0,debt:0,population:50000000,inflation:2.5,unemployment:10,morale:50,stability:50,industry:40,infrastructure:40,education:40,research:30,energy:40,health:40,techLevel:30,warWeariness:0,militaryTraining:35,militaryExperience:20,popularity:50,corruption:25,legitimacy:50,militaryLoyalty:55};
+ state.countries.forEach(c=>{
+  if(!c||typeof c!=="object")return;
+  Object.entries(defaults).forEach(([key,fallback])=>{
+   if(!Number.isFinite(Number(c[key]))){c[key]=fallback;repaired++;}
+  });
+  if(c.population<1000){c.population=50000000;repaired++;}
+  ["economy","morale","stability","industry","infrastructure","education","research","energy","health","techLevel","warWeariness","militaryTraining","militaryExperience","popularity","corruption","legitimacy","militaryLoyalty"].forEach(k=>{
+   const next=clamp(Number(c[k]),0,100);if(next!==c[k]){c[k]=next;repaired++;}
+  });
+  ["budget","debt","unemployment"].forEach(k=>{const next=Math.max(0,Number(c[k])||0);if(next!==c[k]){c[k]=next;repaired++;}});
+  if(!c.resources||typeof c.resources!=="object"||Array.isArray(c.resources)){c.resources={oil:40,coal:40,iron:40,food:60,uranium:10};repaired++;}
+  ["oil","coal","iron","food","uranium"].forEach(k=>{const value=Number(c.resources[k]);const next=clamp(Number.isFinite(value)?value:({oil:40,coal:40,iron:40,food:60,uranium:10}[k]),0,150);if(next!==c.resources[k]){c.resources[k]=next;repaired++;}});
+ });
+ state.regions.forEach(r=>{
+  if(!r||typeof r!=="object")return;
+  if(r.garrison&&typeof r.garrison==="object"){
+   ["troops","tanks","aircraft","ships","artillery","missiles"].forEach(k=>{const value=Number(r.garrison[k]);const next=Math.max(0,Math.floor(Number.isFinite(value)?value:0));if(next!==r.garrison[k]){r.garrison[k]=next;repaired++;}});
+  }
+ });
+ if(repaired){
+  state.integrityRepairs=(Number(state.integrityRepairs)||0)+repaired;
+  if(state.lastIntegrityNoticeDay==null||Number(state.day||0)-Number(state.lastIntegrityNoticeDay)>=30){
+   addEvent("world","Pemeriksaan integritas simulasi","Sistem memperbaiki "+repaired+" nilai data yang tidak valid agar simulasi tetap berjalan stabil.","🛡️");
+   state.lastIntegrityNoticeDay=Number(state.day)||0;
+  }
+ }
+ return repaired;
+}
 function tick(){
+ validateSimulationState();
  state.day++;state.year=Math.floor((state.day-1)/365)+1;
  if(!Array.isArray(state.trends))state.trends=[];
  if(state.day%10===0){const cs=living();state.trends.push({day:state.day,year:state.year,averageEconomy:cs.length?cs.reduce((n,c)=>n+(c.economy||0),0)/cs.length:0,averageInflation:cs.length?cs.reduce((n,c)=>n+(c.inflation||0),0)/cs.length:0,averagePopulation:cs.length?cs.reduce((n,c)=>n+(c.population||0),0)/cs.length:0,averageTech:cs.length?cs.reduce((n,c)=>n+(c.techLevel||30),0)/cs.length:0,totalDebt:cs.reduce((n,c)=>n+(c.debt||0),0),activeWars:state.wars.filter(w=>w.active).length,activeCountries:cs.length,territories:state.regions.filter(r=>r.owner).length});if(state.trends.length>60)state.trends.shift();}
