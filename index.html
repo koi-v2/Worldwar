@@ -1233,7 +1233,8 @@ function negotiatePeace(){
    const stability=(100-Number(c.stability??50))*.14;
    const troopLosses=Math.min(30,Math.max(0,Number(c.battleLosses)||0)/Math.max(1,Number(c.troops)||0)*100);
    const shortage=(Number(c.resources?.oil??40)<8?7:0)+(Number(c.resources?.food??60)<8?9:0)+(Number(c.budget??0)<5?8:0);
-   return morale+stability+troopLosses+shortage;
+   const warFatigue=Math.max(0,Number(c.warWeariness)||0)*.16;
+   return morale+stability+troopLosses+shortage+warFatigue;
   };
   const pa=pressure(a),pb=pressure(b);
   const progressA=clamp(Number(w.objectiveProgressByCountry?.[a.id]??(w.a===a.id?w.objectiveProgress:0))||0,0,100);
