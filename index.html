@@ -1326,28 +1326,29 @@ function demographyTick(){
  const populationById={USA:340000000,CHN:1410000000,RUS:144000000,IND:1450000000,IDN:282000000,JPN:123000000,KOR:52000000,PRK:26000000,GBR:69000000,FRA:68000000,DEU:84000000,POL:37000000,UKR:37000000,ESP:49000000,NLD:18000000,ITA:59000000,TUR:87000000,SAU:35000000,ISR:10000000,IRN:92000000,PAK:255000000,BRA:212000000,MEX:130000000,CAN:41000000,AUS:27000000,EGY:116000000,ZAF:64000000,VNM:101000000,THA:72000000,PHL:117000000};
  living().forEach(c=>{
   if(!Number.isFinite(c.population)||c.population<1000)c.population=populationById[c.id]||50000000;
-  const atWar=state.wars.some(w=>w.active&&(w.a===c.id||w.b===c.id)),food=Number(c.resources?.food)||0,health=Number(c.health)||40,stability=Number(c.stability)||40;
-  const education=Number(c.education)||40,unemployment=Number(c.unemployment)||0,inflation=Number(c.inflation)||0;
-  // Struktur umur disederhanakan tetapi tetap dinamis dan tersimpan pada data negara.
-  if(!c.demographics||typeof c.demographics!=="object")c.demographics={young:.24,working:.64,elderly:.12};
-  const d=c.demographics;
-  d.young=clamp(Number(d.young)||.24,.12,.38);d.elderly=clamp(Number(d.elderly)||.12,.06,.32);d.working=clamp(1-d.young-d.elderly,.4,.78);
-  const aging=clamp(.000035+(health>65?.000004:0)+(education>65?.000003:0)-(food<10?.00002:0),.00001,.00006);
-  d.young=clamp(d.young-aging+(health<35?.000015:0),.12,.38);
-  d.elderly=clamp(d.elderly+aging*.7-(health<35?.000018:0),.06,.32);
-  d.working=clamp(1-d.young-d.elderly,.4,.78);
-  const medicineTech=Number(c.techTree?.medicine)||0;
-  const birthRate=.000026+Math.max(0,health-50)*.00000009+Math.max(0,stability-50)*.000000035-Math.max(0,education-70)*.000000025;
-  const deathRate=.000009+Math.max(0,50-health)*.00000012+(food<10?.000018:food<25?.000006:0)+(atWar?.000008:0)+(d.elderly-.12)*.000025-Math.min(.000003,medicineTech*.00000003);
-  const births=Math.max(0,Math.round(c.population*clamp(birthRate,.000012,.00004)));
-  const deaths=Math.max(0,Math.round(c.population*clamp(deathRate,.000005,.000045)));
-  const migrationPressure=clamp((Number(c.economy||50)-50)*.12+(50-unemployment)*.08+(stability-50)*.08-(inflation>12?4:0)-(food<12?7:0)-(atWar?5:0),-20,20);
-  const migration=Math.round(c.population*clamp(migrationPressure*.0000015,-.000025,.000025));
-  const net= births-deaths+migration;
-  c.birthsPerDay=births;c.deathsPerDay=deaths;c.netMigrationPerDay=migration;c.migrationPressure=migrationPressure;
-  c.populationGrowth=net;c.population=Math.max(100000,Math.round(c.population+net));
-  c.workingAgePopulation=Math.round(c.population*d.working);
-  c.dependencyRatio=Math.round((d.young+d.elderly)/Math.max(.01,d.working)*100);
+  const pop=Math.max(100000,Number(c.population)||50000000);
+  const atWar=state.wars.some(w=>w.active&&(w.a===c.id||w.b===c.id));
+  const food=Number(c.resources?.food??50),health=Number(c.health??40),stability=Number(c.stability??40);
+  const education=Number(c.education??40),unemployment=Number(c.unemployment??0),inflation=Number(c.inflation??0);
+  // Komposisi penduduk memengaruhi jumlah tenaga kerja dan beban tanggungan.
+  const childShare=clamp(.25-(education-40)*.00045+(health-40)*.00015,.16,.32);
+  const elderlyShare=clamp(.10+(health-40)*.00045,.06,.22);
+  c.childPopulation=Math.round(pop*childShare);
+  c.elderlyPopulation=Math.round(pop*elderlyShare);
+  c.workingAgePopulation=Math.max(1,pop-c.childPopulation-c.elderlyPopulation);
+  c.dependencyRatio=Math.round((c.childPopulation+c.elderlyPopulation)/c.workingAgePopulation*100);
+  c.workforce=Math.round(c.workingAgePopulation*.72);
+  c.employed=Math.round(c.workforce*(1-clamp(unemployment,0,100)/100));
+  const birthRate=clamp(.000027+(health-50)*.00000006-(education>65?.000002:0),.000014,.000038);
+  const deathRate=clamp(.000009+Math.max(0,50-health)*.00000012+(food<10?.000018:food<20?.000006:0)+(atWar?.000006:0),.000005,.000035);
+  c.birthsPerDay=Math.max(0,Math.round(pop*birthRate));
+  c.deathsPerDay=Math.max(0,Math.round(pop*deathRate));
+  c.migrationPressure=clamp((Number(c.economy??50)-50)*.12+(50-unemployment)*.08+(stability-50)*.08-(inflation>12?3:0)-(food<10?5:0),-20,20);
+  const netMigration=Math.round(pop*c.migrationPressure*.0000005);
+  c.netMigrationPerDay=netMigration;
+  const change=c.birthsPerDay-c.deathsPerDay+netMigration;
+  c.populationGrowth=change;
+  c.population=Math.max(100000,Math.round(pop+change));
   if(food<7&&Math.random()<.035)addEvent("economy","Krisis kebutuhan dasar di "+c.name,"Pasokan pangan tidak mencukupi kebutuhan penduduk. Pemerintah harus memperbaiki produksi atau mencari pemasok melalui perdagangan.","🌾");
  });
 }
@@ -1357,7 +1358,7 @@ function tick(){
  if(state.day%10===0){const cs=living();state.trends.push({day:state.day,year:state.year,averageEconomy:cs.length?cs.reduce((n,c)=>n+(c.economy||0),0)/cs.length:0,averageInflation:cs.length?cs.reduce((n,c)=>n+(c.inflation||0),0)/cs.length:0,averagePopulation:cs.length?cs.reduce((n,c)=>n+(c.population||0),0)/cs.length:0,averageTech:cs.length?cs.reduce((n,c)=>n+(c.techLevel||30),0)/cs.length:0,totalDebt:cs.reduce((n,c)=>n+(c.debt||0),0),activeWars:state.wars.filter(w=>w.active).length,activeCountries:cs.length,territories:state.regions.filter(r=>r.owner).length});if(state.trends.length>60)state.trends.shift();}
 economyTick();demographyTick();resourceMarketTick();tradeAgreementTick();politicsTick();developmentTick();nationalSystemsTick();internationalOrganizationTick();espionageTick();goalsTick();updateMilitaryReadiness();
  reinforceFronts();
- resolveWars();negotiatePeace();diplomacy();maybeEvents();peacefulDevelopment();
+ resolveWars();negotiatePeace();diplomacy();peacefulDevelopment();
  if(Math.random()<.025)chooseWar();
  state.countries.forEach(c=>{c.territory=ownedCount(c.id);if(c.alive&&c.territory===0){c.alive=false;addEvent("war",c.name+" kehilangan seluruh wilayah","Pemerintahan kehilangan kendali atas wilayah terakhirnya dan tidak lagi menjadi kekuatan aktif. Sisa inventaris militernya tidak lagi dihitung sebagai pasukan lapangan.","🏳️");}});
  if(state.day%10===0)addEvent("world","Laporan situasi global","Hari ke-"+state.day+": "+state.wars.filter(w=>w.active).length+" konflik masih aktif di seluruh dunia.","🌐");
