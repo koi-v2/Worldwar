@@ -156,7 +156,7 @@ th,td{padding:9px 10px}
   </section>
   <section class="panel section">
    <div class="panel-head"><div><div class="eyebrow">National economy</div><h2>EKONOMI, POPULASI & PRODUKSI</h2></div><span class="badge">DINAMIS</span></div>
-   <div class="table-wrap"><table><thead><tr><th>NEGARA</th><th>MATA UANG</th><th>KURS REFERENSI (1 USD)</th><th>KAS NEGARA</th><th>PENDAPATAN/HARI</th><th>PENGELUARAN/HARI</th><th>ARUS KAS BERSIH</th><th>UTANG</th><th>PENDUDUK</th><th>PERTUMBUHAN/HARI</th><th>EKONOMI</th><th>PENGANGGURAN</th><th>INFLASI</th><th>PAJAK</th><th>PENDIDIKAN / KESEHATAN</th><th>INDUSTRI</th></tr></thead><tbody id="economyTable"></tbody></table></div>
+   <div class="table-wrap"><table><thead><tr><th>NEGARA</th><th>MATA UANG</th><th>KURS REFERENSI (1 USD)</th><th>KAS NEGARA</th><th>PENDAPATAN/HARI</th><th>PENGELUARAN/HARI</th><th>ARUS KAS BERSIH</th><th>UTANG</th><th>PENDUDUK</th><th>PERTUMBUHAN/HARI</th><th>EKONOMI</th><th>PENGANGGURAN</th><th>INFLASI</th><th>PAJAK</th><th>PENDIDIKAN / KESEHATAN</th><th>INDUSTRI</th><th>NILAI EKSPOR/HARI</th><th>PENERIMAAN EKSPOR/HARI</th></tr></thead><tbody id="economyTable"></tbody></table></div>
    <p class="board-note">Populasi, lapangan kerja, inflasi, utang, layanan publik, dan produksi saling memengaruhi. Data negara asing dirahasiakan jika intelijen belum memiliki laporan valid.</p>
   </section>
   <section class="panel section"><div class="panel-head"><div><div class="eyebrow">National systems</div><h2>SISTEM NASIONAL & DUNIA</h2></div><span class="badge">AI SIMULATION</span></div><div id="systemsPanel"></div></section>
@@ -1081,6 +1081,32 @@ function peacefulDevelopment(){
  }
 }
 function utmostName(c){return c.name;}
+// Pendapatan ekspor dipisahkan dari nilai barang yang diperdagangkan agar kas negara tidak menerima 100% omzet eksportir.
+function settleExportRevenue(exporter,importer,resource,quantity,gross,source){
+ const value=Math.max(0,Number(gross)||0);
+ if(!exporter||!importer||value<=0)return;
+ if(exporter.exportRevenueDay!==state.day){
+  exporter.exportRevenueDay=state.day;
+  exporter.dailyExportGross=0;exporter.dailyExportTaxes=0;exporter.dailyExportRoyalties=0;exporter.dailyExportDividends=0;exporter.dailyExportPublicRevenue=0;exporter.dailyExportPrivateProceeds=0;
+ }
+ const taxRate=clamp(Number(exporter.exportTaxRate??8),0,25)/100;
+ const royaltyRate=(resource==="oil"||resource==="coal"||resource==="iron"||resource==="uranium")?clamp(Number(exporter.resourceRoyaltyRate??3),0,15)/100:clamp(Number(exporter.exportRoyaltyRate??1),0,10)/100;
+ const stateShare=clamp(Number(exporter.stateExportShare??30),0,100)/100;
+ const tax=Math.round(value*taxRate);
+ const royalty=Math.round(value*royaltyRate);
+ // Dividen BUMN hanya berasal dari bagian penjualan negara dan margin laba, bukan seluruh omzet.
+ const dividend=Math.round(Math.max(0,value*stateShare*.22)*.70);
+ const publicRevenue=Math.min(value,tax+royalty+dividend);
+ const privateProceeds=Math.max(0,value-publicRevenue);
+ exporter.budget=Math.max(0,(Number(exporter.budget)||0)+publicRevenue);
+ exporter.dailyExportGross+=value;exporter.dailyExportTaxes+=tax;exporter.dailyExportRoyalties+=royalty;exporter.dailyExportDividends+=dividend;exporter.dailyExportPublicRevenue+=publicRevenue;exporter.dailyExportPrivateProceeds+=privateProceeds;
+ exporter.lastDailyIncome=(Number(exporter.lastDailyIncome)||0)+publicRevenue;
+ exporter.lastDailyNetBalance=(Number(exporter.lastDailyNetBalance)||0)+publicRevenue;
+ // Catatan kumulatif untuk statistik dan audit transaksi.
+ exporter.totalExportValue=(Number(exporter.totalExportValue)||0)+value;
+ exporter.totalExportPublicRevenue=(Number(exporter.totalExportPublicRevenue)||0)+publicRevenue;
+ if(state.day%10===0)addEvent("economy","Pendapatan ekspor "+exporter.name,exporter.name+" menjual "+Math.max(0,Number(quantity)||0)+" unit "+resource+" kepada "+importer.name+" ("+source+"). Nilai ekspor "+moneyFmt(exporter,value)+"; masuk kas negara "+moneyFmt(exporter,publicRevenue)+" berupa pajak, royalti, dan dividen BUMN. Omzet ekspor tidak dihitung seluruhnya sebagai kas pemerintah.","💱");
+}
 function resourceMarketTick(){
  if(!state.market)state.market={oil:50,coal:35,iron:30,food:20,uranium:85};
  updateFxMarketTick();
@@ -1138,7 +1164,8 @@ function resourceMarketTick(){
   if(!a.relations)a.relations={};if(!b.relations)b.relations={};
   a.resources[res]=Math.max(0,(Number(a.resources[res])||0)-qty);
   b.resources[res]=Math.min(150,(Number(b.resources[res])||0)+qty);
-  b.budget=Math.max(0,(Number(b.budget)||0)-payment);a.budget=(Number(a.budget)||0)+payment;
+  b.budget=Math.max(0,(Number(b.budget)||0)-payment);
+  settleExportRevenue(a,b,res,qty,payment,"pasar");
   a.relations[b.id]=clamp((a.relations[b.id]||0)+1,-100,100);b.relations[a.id]=clamp((b.relations[a.id]||0)+1,-100,100);
   a.tradeBalance=clamp((Number(a.tradeBalance)||0)+qty*.35,-100,100);
   b.tradeBalance=clamp((Number(b.tradeBalance)||0)-qty*.22,-100,100);
@@ -1175,7 +1202,8 @@ function tradeAgreementTick(){
   if(delivered<1){t.status="suspended";t.reason="Anggaran importir tidak cukup";return;}
   const actualPaid=Math.max(1,Math.round(unitPrice*delivered));
   a.resources[t.resource]=Math.max(0,stock-delivered);b.resources[t.resource]=Math.min(150,(Number(b.resources&&b.resources[t.resource])||0)+delivered);
-  b.budget=Math.max(0,budget-actualPaid);a.budget=(Number(a.budget)||0)+actualPaid;
+  b.budget=Math.max(0,budget-actualPaid);
+  settleExportRevenue(a,b,t.resource,delivered,actualPaid,"kontrak");
   t.delivered=(Number(t.delivered)||0)+delivered;t.paid=(Number(t.paid)||0)+actualPaid;t.lastDeliveryDay=state.day;t.lastDelivered=delivered;t.lastPayment=actualPaid;t._lastReason="";
   if(state.day%10===0)addEvent("economy","Pengiriman perjanjian dagang",a.name+" mengekspor "+delivered+" unit "+t.resource+" kepada "+b.name+". Pembayaran: "+tradePaymentText(b,a,actualPaid)+". Kurs importir saat transaksi: "+fxDisplay(b)+".","🚢");
  });
@@ -1809,7 +1837,7 @@ function renderEconomy(){
  renderCurrencyRanking();
  const cs=[...state.countries].sort((a,b)=>ownedCount(b.id)-ownedCount(a.id));
  const shortPop=n=>{n=Number(n)||0;if(n>=1e9)return (n/1e9).toFixed(2).replace(/0+$/,"").replace(/\\.$/,"")+" miliar";if(n>=1e6)return (n/1e6).toFixed(1).replace(/\\.0$/,"")+" jt";return fmt(n);};
- $("economyTable").innerHTML=cs.map(c=>{const own=c.id===selected,g=Number(c.populationGrowth)||0,cur=ensureCurrency(c);return '<tr><td><b>'+c.flag+' '+c.name+'</b></td><td>'+cur[1]+' '+cur[0]+' · '+cur[2]+'</td><td>'+fxDisplay(c)+'</td><td>'+moneyFmt(c,c.budget)+(own?'<small style="display:block;color:var(--muted)">Saldo kas pemerintah</small>':"")+'</td><td>'+moneyFmt(c,Math.max(0,Number(c.lastDailyIncome)||0))+'</td><td>'+moneyFmt(c,Math.max(0,Number(c.lastDailyExpenses)||0))+'</td><td>'+((Number(c.lastDailyNetBalance)||0)<0?'−':'+')+moneyFmt(c,Math.abs(Number(c.lastDailyNetBalance)||0))+'</td><td>'+moneyFmt(c,c.debt||0)+'<small style="display:block;color:var(--muted)">Cicilan: '+moneyFmt(c,c.lastDebtPayment||0)+' · Bunga: '+moneyFmt(c,c.lastDebtInterest||0)+' · Pokok: '+moneyFmt(c,c.lastDebtPrincipal||0)+'</small>'+'</td><td>'+(own?shortPop(c.population):"Dirahasiakan")+'</td><td>'+(own?(g>=0?"+":"−")+shortPop(Math.abs(g)):"Belum diketahui")+'</td><td>'+(own?Math.round(c.economy):"Dirahasiakan")+'</td><td>'+(own?Math.round(c.unemployment||0)+"%":"Belum diketahui")+'</td><td>'+(own?Number(c.inflation||0).toFixed(1)+"%":"Belum diketahui")+'</td><td>'+(own?Number(c.taxRate||18).toFixed(1)+"%":"Belum diketahui")+'</td><td>'+(own?Math.round(c.educationBudget||8)+"% / "+Math.round(c.healthBudget||8)+"%":"Belum diketahui")+'</td><td>'+(own?Math.round(c.industry||0):"Belum diketahui")+'</td></tr>';}).join("");
+ $("economyTable").innerHTML=cs.map(c=>{const own=c.id===selected,g=Number(c.populationGrowth)||0,cur=ensureCurrency(c);return '<tr><td><b>'+c.flag+' '+c.name+'</b></td><td>'+cur[1]+' '+cur[0]+' · '+cur[2]+'</td><td>'+fxDisplay(c)+'</td><td>'+moneyFmt(c,c.budget)+(own?'<small style="display:block;color:var(--muted)">Saldo kas pemerintah</small>':"")+'</td><td>'+moneyFmt(c,Math.max(0,Number(c.lastDailyIncome)||0))+'</td><td>'+moneyFmt(c,Math.max(0,Number(c.lastDailyExpenses)||0))+'</td><td>'+((Number(c.lastDailyNetBalance)||0)<0?'−':'+')+moneyFmt(c,Math.abs(Number(c.lastDailyNetBalance)||0))+'</td><td>'+moneyFmt(c,c.debt||0)+'<small style="display:block;color:var(--muted)">Cicilan: '+moneyFmt(c,c.lastDebtPayment||0)+' · Bunga: '+moneyFmt(c,c.lastDebtInterest||0)+' · Pokok: '+moneyFmt(c,c.lastDebtPrincipal||0)+'</small>'+'</td><td>'+(own?shortPop(c.population):"Dirahasiakan")+'</td><td>'+(own?(g>=0?"+":"−")+shortPop(Math.abs(g)):"Belum diketahui")+'</td><td>'+(own?Math.round(c.economy):"Dirahasiakan")+'</td><td>'+(own?Math.round(c.unemployment||0)+"%":"Belum diketahui")+'</td><td>'+(own?Number(c.inflation||0).toFixed(1)+"%":"Belum diketahui")+'</td><td>'+(own?Number(c.taxRate||18).toFixed(1)+"%":"Belum diketahui")+'</td><td>'+(own?Math.round(c.educationBudget||8)+"% / "+Math.round(c.healthBudget||8)+"%":"Belum diketahui")+'</td><td>'+(own?Math.round(c.industry||0):"Belum diketahui")+'</td><td>'+(own?moneyFmt(c,c.exportRevenueDay===state.day?c.dailyExportGross||0:0):"Belum diketahui")+'</td><td>'+(own?moneyFmt(c,c.exportRevenueDay===state.day?c.dailyExportPublicRevenue||0:0):"Belum diketahui")+'</td></tr>';}).join("");
 }
 function renderHistory(){
  const battles=state.battles||[], wars=state.wars||[], wins={};
