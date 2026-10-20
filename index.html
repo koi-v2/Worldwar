@@ -1135,7 +1135,7 @@ function nationalSystemsTick(){
   const r=c.resources||(c.resources={oil:40,coal:40,iron:40,food:60,uranium:10});
   const research=Math.max(0,Number(c.research)||0),education=Math.max(0,Number(c.education)||0),energy=Math.max(0,Number(c.energy)||0);
   const workforce=Math.max(1,Number(c.workingAgePopulation)||Number(c.population||50000000)*.64);
-  const employed=Math.max(0,Number(c.employed)||workforce*(1-(Number(c.unemployment)||0)/100));
+  const employed=Math.max(0,Number.isFinite(Number(c.employed))?Number(c.employed):workforce*(1-clamp(Number(c.unemployment)||0,0,100)/100));
   const labor=clamp(employed/workforce,.25,1);
   const supply=clamp((Math.min(100,Number(r.oil)||0)*.25+Math.min(100,Number(r.coal)||0)*.2+Math.min(100,Number(r.iron)||0)*.15+Math.min(100,Number(r.food)||0)*.2+energy*.2),0,100);
   const energyTech=Number(tree.energy)||0;
