@@ -217,7 +217,8 @@ function initialState(){
 
  const personalities=["Ekspansionis","Pasifis","Kapitalis","Militeris","Strategis","Hegemon"],ideologies=["Demokrasi","Republik","Teknokrasi","Monarki","Sosialisme","Nasionalisme"];
  countries.forEach(c=>{c.personality=personalities[Math.floor(Math.random()*6)];c.resources={oil:20+Math.floor(Math.random()*80),coal:20+Math.floor(Math.random()*80),iron:20+Math.floor(Math.random()*80),food:30+Math.floor(Math.random()*90),uranium:5+Math.floor(Math.random()*35)};c.government=["Demokratis","Koalisi","Otoriter","Teknokratis"][Math.floor(Math.random()*4)];c.popularity=45+Math.floor(Math.random()*45);c.corruption=10+Math.floor(Math.random()*40);c.ideology=ideologies[Math.floor(Math.random()*6)];c.infrastructure=35+Math.floor(Math.random()*45);c.education=30+Math.floor(Math.random()*55);c.research=20+Math.floor(Math.random()*50);c.energy=35+Math.floor(Math.random()*55);c.health=40+Math.floor(Math.random()*50);c.espionage=10+Math.floor(Math.random()*40);c.intelNetwork=c.espionage;c.counterIntel=12+Math.floor(Math.random()*38);c.intelMemory={};c.legitimacy=clamp(c.popularity*.48+c.stability*.32+(100-c.corruption)*.2,0,100);c.opposition=clamp(100-c.popularity+c.corruption*.16,0,100);c.militaryLoyalty=45+Math.floor(Math.random()*40);c.nextElection=180+Math.floor(Math.random()*90);c.goals=[];c.sanctionedBy=[];c.embargoes=[];});
- countries.forEach(c=>{c.industry=Math.round(c.economy*.7);countries.forEach(o=>{if(c.id!==o.id)c.relations[o.id]=Math.floor(Math.random()*41)-10;});});
+ countries.forEach(c=>{c.industry=Math.round(c.economy*.7);c.commander=null;c.warDamage=0;c.supplyEfficiency=1;countries.forEach(o=>{if(c.id!==o.id)c.relations[o.id]=Math.floor(Math.random()*41)-10;});});
+ countries.forEach(c=>ensureCommander(c));
  return {day:1,year:1,countries,regions,wars:[],battles:[],events:[],tvNews:[],newsCursor:0,seq:0,alliances:[],tradeAgreements:[],lastEvent:"",speed:3000,market:{oil:50,coal:35,iron:30,food:20,uranium:85},council:{members:[],resolutions:[],sanctions:[],aid:[]},victory:{leader:null,announced:false},stats:{tradeDeals:0,politicalCrises:0,espionageOps:0,developmentProjects:0},intelReports:[]};
 }
 function regionName(c,i){const names=["Dataran Utara","Pesisir Timur","Kawasan Industri","Lembah Tengah","Perbatasan Barat","Pelabuhan Selatan","Dataran Tinggi","Koridor Dagang","Wilayah Timur","Zona Strategis"];return names[i%names.length];}
@@ -269,6 +270,40 @@ const WAR_DOCTRINES=[
 {id:"expansion",name:"Ekspansionis",desc:"merebut wilayah strategis"},
 {id:"coalition",name:"Koalisi",desc:"mengandalkan sekutu dan koordinasi"},
 {id:"limited",name:"Perang Terbatas",desc:"mencapai tujuan dengan biaya terkendali"}];
+function ensureCommander(c){
+ if(!c)return null;
+ if(!c.commander||typeof c.commander!=="object"||!c.commander.name){
+  const first=["Arman","Dimas","Raka","Bima","Nadia","Maya","Satria","Dewi","Rangga","Alya","Farhan","Intan","Surya","Ratih","Bagas","Tara","Ilham","Kirani"];
+  const last=["Pratama","Wicaksono","Mahendra","Wijaya","Santoso","Kusuma","Putri","Nugraha","Adiputra","Permata","Hidayat","Saputra"];
+  const skills=["offensive","defensive","logistics","combined","airpower","attrition"];
+  c.commander={name:rand(first)+" "+rand(last),rank:rand(["Mayor Jenderal","Letnan Jenderal","Jenderal","Marsekal","Laksamana"]),skill:rand(skills),skillLevel:1+Math.floor(Math.random()*4),experience:0,victories:0,defeats:0};
+ }
+ const m=c.commander;
+ m.skill=["offensive","defensive","logistics","combined","airpower","attrition"].includes(m.skill)?m.skill:"combined";
+ m.skillLevel=clamp(Number(m.skillLevel)||1,1,10);
+ m.experience=Math.max(0,Number(m.experience)||0);m.victories=Math.max(0,Number(m.victories)||0);m.defeats=Math.max(0,Number(m.defeats)||0);
+ return m;
+}
+function commanderModifier(c,role){
+ const m=ensureCommander(c);if(!m)return 1;
+ let bonus=(Number(m.skillLevel)||1)*.018+Math.min(18,Number(m.experience)||0)*.0015;
+ if(m.skill==="offensive"&&role==="attack")bonus+=.055;
+ if(m.skill==="defensive"&&role==="defense")bonus+=.065;
+ if(m.skill==="logistics")bonus+=.025;
+ if(m.skill==="combined")bonus+=.035;
+ if(m.skill==="airpower"&&role==="attack")bonus+=.02;
+ if(m.skill==="attrition")bonus+=.025;
+ return clamp(1+bonus,.96,1.24);
+}
+function recordCommanderBattle(winner,loser){
+ const wm=ensureCommander(winner),lm=ensureCommander(loser);
+ if(wm){wm.experience=(wm.experience||0)+2.2;wm.victories=(wm.victories||0)+1;wm.skillLevel=clamp((wm.skillLevel||1)+(wm.experience>=20&&Math.random()<.12?1:0),1,10);}
+ if(lm){lm.experience=(lm.experience||0)+1.3;lm.defeats=(lm.defeats||0)+1;}
+ if(lm&&lm.defeats>=3&&Math.random()<.18){
+  const old=lm.name;loser.commander=null;const fresh=ensureCommander(loser);
+  addEvent("war","Pergantian komandan di "+loser.name,old+" diganti setelah kekalahan berulang. Komandan baru "+fresh.name+" membawa spesialisasi "+fresh.skill+".","🎖️");
+ }
+}
 function ensureWarDoctrine(c){
  if(!c)return null;
  if(!c.warDoctrine){
@@ -341,8 +376,8 @@ function updateWarObjectivesForSides(w,a,b){
  w.doctrine=w.doctrineByCountry?.[a.id]??w.doctrine??"unknown";
 }
 function adaptWarPlan(w,a,b,access){
- const d=ensureWarDoctrine(a);if(!d)return;
- const past=warDoctrinePerformance(a,d.id);
+ let d=ensureWarDoctrine(a);if(!d)return;
+ let past=warDoctrinePerformance(a,d.id);
  const oil=Number(a.resources?.oil??40),food=Number(a.resources?.food??60);
  const strength=c=>(c.army||0)+(c.tanks||0)*90+(c.aircraft||0)*75+(c.artillery||0)*45+(c.missiles||0)*65+Math.max(0,(c.techLevel||30)-30)*3;
  const ratio=strength(a)/Math.max(1,strength(b));
@@ -353,6 +388,13 @@ function adaptWarPlan(w,a,b,access){
   else if(recent.winner===b.id){w.consecutiveLosses=(w.consecutiveLosses||0)+1;w.consecutiveWins=0;}
  }
  let plan=d.id==="fortress"?"memperkuat pertahanan dan mencari serangan balasan":d.id==="longrange"?"melemahkan pertahanan lewat serangan jarak jauh":d.id==="attrition"?"menguras kekuatan lawan secara bertahap":d.id==="coalition"?"mengandalkan dukungan sekutu dan memilih sasaran bersama":d.id==="limited"?"membatasi operasi demi tujuan yang realistis":d.id==="expansion"?"merebut wilayah strategis yang membuka jalur lanjutan":"mencari terobosan cepat dengan pasukan mekanis";
+ if((Number(w.consecutiveLosses)||0)>=2||(past&&past.wars>=2&&past.averageProgress<24)){
+  const options=WAR_DOCTRINES.filter(x=>x.id!==d.id);
+  const preferred=oil<8||food<8?["fortress","limited","coalition"]:access.mode!=="ground"?["longrange","attrition","coalition"]:["fortress","attrition","blitzkrieg","coalition"];
+  options.sort((x,y)=>preferred.indexOf(y.id)-preferred.indexOf(x.id));
+  const next=options[0];
+  if(next){a.warDoctrine=next.id;d=ensureWarDoctrine(a);past=warDoctrinePerformance(a,d.id);addEvent("war","Doktrin militer diubah: "+a.name,"Doktrin lama dinilai kurang efektif; komando beralih ke "+d.name+" setelah evaluasi kerugian dan suplai.","🧠");}
+ }
  if(past&&past.wars>=2&&past.averageProgress<35)plan+="; mengoreksi doktrin karena hasil historisnya kurang efektif";
  else if(past&&past.wars>=2&&past.averageProgress>=65)plan+="; mempertahankan pendekatan yang terbukti efektif";
  if(oil<8||food<8)plan="menghemat logistik, memperkuat wilayah belakang, dan menunda operasi besar";
@@ -684,18 +726,18 @@ function resolveWars(){
    garrisonKeys.forEach(k=>{g[k]=Math.max(0,Math.round((b[k]||0)/n));});
    if((b.troops||0)>0&&g.troops<500)g.troops=Math.min(b.troops,500);
   }
-  const logisticsA=clamp(.68+(Number(a.resources?.oil)||0)/100*.22+(Number(a.resources?.food)||0)/150*.14+(Number(a.budget)||0)/150*.12+(Number(a.techTree?.logistics)||0)*.0015,.45,1.22),logisticsB=clamp(.68+(Number(b.resources?.oil)||0)/100*.22+(Number(b.resources?.food)||0)/150*.14+(Number(b.budget)||0)/150*.12+(Number(b.techTree?.logistics)||0)*.0015,.45,1.22);
+  const logisticsA=clamp((.68+(Number(a.resources?.oil)||0)/100*.22+(Number(a.resources?.food)||0)/150*.14+(Number(a.budget)||0)/150*.12+(Number(a.techTree?.logistics)||0)*.0015)*(Number(a.supplyEfficiency)||1),.38,1.25),logisticsB=clamp((.68+(Number(b.resources?.oil)||0)/100*.22+(Number(b.resources?.food)||0)/150*.14+(Number(b.budget)||0)/150*.12+(Number(b.techTree?.logistics)||0)*.0015)*(Number(b.supplyEfficiency)||1),.38,1.25);
   // Pertahanan wilayah punya keuntungan posisi; penyerang tidak otomatis menang.
   const attackBase=attack.troops*.001+attack.tanks*2.2+attack.aircraft*2.5+attack.ships*.8+attack.artillery*1.7+attack.missiles*2.8;
   const defenseBase=(g.troops||0)*.001+(g.tanks||0)*2.2+(g.aircraft||0)*2.5+(g.ships||0)*.8+(g.artillery||0)*1.7+(g.missiles||0)*2.8;
-  const doctrineBonus=warDoctrineModifier(a,b,access);
+  const doctrineBonus=warDoctrineModifier(a,b,access)*commanderModifier(a,"attack");
   const allySupportA=alliedOperationalSupport(a,b);
   const allySupportB=alliedOperationalSupport(b,a);
   const scoreA=attackBase*(.72+Math.random()*.56)*clamp((a.morale||50)/70,.55,1.25)*logisticsA*doctrineBonus*(1+allySupportA)+(a.research||40)*.08+(a.economy||40)*.05+(Number(a.techTree?.military)||0)*.16;
   const defenseBonus=target.kind==="Pusat"?1.28:1.18;
   const defenseDoctrine=ensureWarDoctrine(b);
   const defenseStyle=defenseDoctrine?.id==="fortress"?1.22:defenseDoctrine?.id==="limited"?1.04:1;
-  const scoreB=defenseBase*defenseBonus*defenseStyle*(.78+Math.random()*.52)*clamp((b.morale||50)/70,.55,1.3)*logisticsB*(1+allySupportB)+(b.research||40)*.1+(b.infrastructure||40)*.2+(Number(b.techTree?.military)||0)*.12+12;
+  const scoreB=defenseBase*defenseBonus*defenseStyle*commanderModifier(b,"defense")*(.78+Math.random()*.52)*clamp((b.morale||50)/70,.55,1.3)*logisticsB*(1+allySupportB)+(b.research||40)*.1+(b.infrastructure||40)*.2+(Number(b.techTree?.military)||0)*.12+12;
   // Kemenangan dihitung sebagai peluang, bukan sekadar scoreA > scoreB.
   // Keunggulan besar membantu, tetapi medan, kesiapan, dan variasi pertempuran tetap berpengaruh.
   const readinessA=clamp((Number(a.army)||50)/70,.55,1.25),readinessB=clamp((Number(b.army)||50)/70,.55,1.25);
@@ -731,6 +773,8 @@ function resolveWars(){
   const survivors={};Object.keys(attack).forEach(k=>{survivors[k]=Math.max(0,attack[k]-lost[k]);});
   ["troops","tanks","aircraft","ships","artillery","missiles"].forEach(k=>{a[k]=Math.max(0,(a[k]||0)-lost[k]);b[k]=Math.max(0,(b[k]||0)-defLost[k]);});
   a.battleLosses=(a.battleLosses||0)+lost.troops;b.battleLosses=(b.battleLosses||0)+defLost.troops;
+  a.warDamage=clamp((Number(a.warDamage)||0)+(lost.troops/Math.max(1,Number(a.troops)||1))*18+equipmentLossA*.012,0,100);
+  b.warDamage=clamp((Number(b.warDamage)||0)+(defLost.troops/Math.max(1,Number(b.troops)||1))*18+equipmentLossB*.012,0,100);
   // Keletihan perang naik mengikuti korban nyata, bukan hanya jumlah hari perang.
   const totalA=Math.max(1,Number(a.troops)||1),totalB=Math.max(1,Number(b.troops)||1);
   const equipmentLossA=lost.tanks+lost.aircraft+lost.ships+lost.artillery+lost.missiles;
@@ -742,7 +786,7 @@ function resolveWars(){
   if(won){const retreat=state.regions.filter(r=>r.owner===b.id&&r.id!==target.id&&r.garrison).sort((x,y)=>{const v=r=>{const q=r.garrison;return (q.troops||0)+(q.tanks||0)*100+(q.aircraft||0)*90+(q.ships||0)*35+(q.artillery||0)*60+(q.missiles||0)*75;};return v(x)-v(y);})[0];if(retreat){["troops","tanks","aircraft","ships","artillery","missiles"].forEach(k=>{retreat.garrison[k]=(retreat.garrison[k]||0)+(g[k]||0);});}else{["troops","tanks","aircraft","ships","artillery","missiles"].forEach(k=>{b[k]=Math.max(0,(b[k]||0)-(g[k]||0));});}target.owner=a.id;target.capturedDay=state.day;target.garrison={...survivors};a.owned=state.regions.filter(r=>r.owner===a.id).map(r=>r.id);b.owned=state.regions.filter(r=>r.owner===b.id).map(r=>r.id);addEvent("war",a.name+" merebut "+target.name,a.name+" menyerang dari "+source.name+" dengan "+fmt(attack.troops)+" personel, "+fmt(attack.tanks)+" tank dan "+fmt(attack.aircraft)+" pesawat. Garnisun lawan yang tersisa mundur ke wilayah lain bila tersedia. Skor "+Math.round(scoreA)+" vs "+Math.round(scoreB)+".","🗺️");}
   else {Object.keys(survivors).forEach(k=>sg[k]=(sg[k]||0)+survivors[k]);addEvent("battle",b.name+" mempertahankan "+target.name,"Serangan dari "+source.name+" dipukul mundur. Dikerahkan "+fmt(attack.troops)+" personel dan "+fmt(attack.tanks)+" tank; skor "+Math.round(scoreA)+" vs "+Math.round(scoreB)+". Pasukan yang selamat kembali ke wilayah asal.","🛡️");}
   w.stalledDays=0;w.battles++;updateWarObjectivesForSides(w,a,b);const report={day:state.day,a:a.id,b:b.id,winner:winner.id,loser:loser.id,scoreA:Math.round(scoreA),scoreB:Math.round(scoreB),troopsA:lost.troops,troopsB:defLost.troops,tankLossA:lost.tanks,tankLossB:defLost.tanks,aircraftLossA:lost.aircraft,aircraftLossB:defLost.aircraft,shipLossA:lost.ships,shipLossB:defLost.ships,region:target.name,sourceRegion:source.name,attackForce:attack,attackerWon:won};state.battles.unshift(report);if(state.battles.length>80)state.battles.length=80;
-  winner.wins++;loser.losses++;winner.morale=clamp(winner.morale+2,5,100);loser.morale=clamp(loser.morale-3,5,100);[a,b].forEach(c=>{c.militaryTraining=clamp((Number(c.militaryTraining)||35)+.12,0,100);c.militaryExperience=clamp((Number(c.militaryExperience)||20)+(c.id===winner.id?1.15:.7),0,100);});winner.army=clamp((Number(winner.army)||50)+.55,5,100);loser.army=clamp((Number(loser.army)||50)-.75,5,100);a.economy=clamp(a.economy-.25,10,100);b.economy=clamp(b.economy-.35,10,100);
+  winner.wins++;loser.losses++;recordCommanderBattle(winner,loser);report.commanderA=ensureCommander(a)?.name||"Komando nasional";report.commanderB=ensureCommander(b)?.name||"Komando nasional";report.supplyA=Math.round(logisticsA*100);report.supplyB=Math.round(logisticsB*100);report.lossRateA=Number((lost.troops/Math.max(1,Number(a.troops)||1)*100).toFixed(2));report.lossRateB=Number((defLost.troops/Math.max(1,Number(b.troops)||1)*100).toFixed(2));winner.morale=clamp(winner.morale+2,5,100);loser.morale=clamp(loser.morale-3,5,100);[a,b].forEach(c=>{c.militaryTraining=clamp((Number(c.militaryTraining)||35)+.12,0,100);c.militaryExperience=clamp((Number(c.militaryExperience)||20)+(c.id===winner.id?1.15:.7),0,100);});winner.army=clamp((Number(winner.army)||50)+.55,5,100);loser.army=clamp((Number(loser.army)||50)-.75,5,100);a.economy=clamp(a.economy-.25,10,100);b.economy=clamp(b.economy-.35,10,100);
   if(w.battles>=4+Math.floor(Math.random()*4)||loser.morale<14||Math.random()<.025){endWar(w,"ceasefire");winner.relations[loser.id]=-15;loser.relations[winner.id]=-15;winner.economy=clamp(winner.economy+2,10,100);loser.stability=clamp(loser.stability-5,5,100);addEvent("war","Gencatan senjata: "+a.name+" — "+b.name,winner.name+" unggul setelah "+w.battles+" pertempuran.","🕊️");a.enemies=a.enemies.filter(x=>x!==b.id);b.enemies=b.enemies.filter(x=>x!==a.id);}else{
    // Giliran ofensif berganti hanya jika pihak lawan benar-benar punya jalur serangan yang layak.
    const previousAttacker=w.a,previousDefender=getC(w.b),previousSide=getC(w.a);
@@ -1407,7 +1451,7 @@ function demographyTick(){
 function validateSimulationState(){
  if(!state||!Array.isArray(state.countries)||!Array.isArray(state.regions))return 0;
  let repaired=0;
- const defaults={economy:40,budget:0,debt:0,population:50000000,inflation:2.5,unemployment:10,morale:50,stability:50,industry:40,infrastructure:40,education:40,research:30,energy:40,health:40,techLevel:30,warWeariness:0,militaryTraining:35,militaryExperience:20,popularity:50,corruption:25,legitimacy:50,militaryLoyalty:55};
+ const defaults={economy:40,budget:0,debt:0,population:50000000,inflation:2.5,unemployment:10,morale:50,stability:50,industry:40,infrastructure:40,education:40,research:30,energy:40,health:40,techLevel:30,warWeariness:0,militaryTraining:35,militaryExperience:20,popularity:50,corruption:25,legitimacy:50,militaryLoyalty:55,warDamage:0,supplyEfficiency:1};
  state.countries.forEach(c=>{
   if(!c||typeof c!=="object")return;
   Object.entries(defaults).forEach(([key,fallback])=>{
@@ -1418,6 +1462,7 @@ function validateSimulationState(){
    const next=clamp(Number(c[k]),0,100);if(next!==c[k]){c[k]=next;repaired++;}
   });
   ["budget","debt","unemployment"].forEach(k=>{const next=Math.max(0,Number(c[k])||0);if(next!==c[k]){c[k]=next;repaired++;}});
+  ensureCommander(c);
   if(!c.resources||typeof c.resources!=="object"||Array.isArray(c.resources)){c.resources={oil:40,coal:40,iron:40,food:60,uranium:10};repaired++;}
   ["oil","coal","iron","food","uranium"].forEach(k=>{const value=Number(c.resources[k]);const next=clamp(Number.isFinite(value)?value:({oil:40,coal:40,iron:40,food:60,uranium:10}[k]),0,150);if(next!==c.resources[k]){c.resources[k]=next;repaired++;}});
  });
@@ -1436,12 +1481,28 @@ function validateSimulationState(){
  }
  return repaired;
 }
+function strategicRecoveryTick(){
+ const atWar=c=>state.wars.some(w=>w.active&&(w.a===c.id||w.b===c.id));
+ living().forEach(c=>{
+  ensureCommander(c);
+  const r=c.resources||{},oil=Number(r.oil)||0,food=Number(r.food)||0,iron=Number(r.iron)||0;
+  const tech=Number(c.techTree?.logistics)||0,infra=Number(c.infrastructure)||35;
+  c.supplyEfficiency=clamp(.48+oil/100*.24+food/150*.20+iron/150*.08+(Number(c.budget)||0)/150*.10+tech*.0015+infra*.001-(atWar(c)?.08:0)-(Number(c.warDamage)||0)*.0015,.32,1.18);
+  if(!Number.isFinite(c.warDamage))c.warDamage=0;
+  if(c.warDamage>0&&!atWar(c)){
+   const repair=clamp(.06+(Number(c.budget)||0)*.001+(Number(c.techTree?.industry)||0)*.001,.04,.24);
+   c.warDamage=Math.max(0,c.warDamage-repair);
+   if(c.budget>4){c.budget=Math.max(0,c.budget-.15);c.industry=clamp((Number(c.industry)||40)+repair*.035,5,100);c.infrastructure=clamp((Number(c.infrastructure)||40)+repair*.018,5,100);}
+   if(c.warDamage<.05)c.warDamage=0;
+  }
+ });
+}
 function tick(){
  validateSimulationState();
  state.day++;state.year=Math.floor((state.day-1)/365)+1;
  if(!Array.isArray(state.trends))state.trends=[];
  if(state.day%10===0){const cs=living();state.trends.push({day:state.day,year:state.year,averageEconomy:cs.length?cs.reduce((n,c)=>n+(c.economy||0),0)/cs.length:0,averageInflation:cs.length?cs.reduce((n,c)=>n+(c.inflation||0),0)/cs.length:0,averagePopulation:cs.length?cs.reduce((n,c)=>n+(c.population||0),0)/cs.length:0,averageTech:cs.length?cs.reduce((n,c)=>n+(c.techLevel||30),0)/cs.length:0,totalDebt:cs.reduce((n,c)=>n+(c.debt||0),0),activeWars:state.wars.filter(w=>w.active).length,activeCountries:cs.length,territories:state.regions.filter(r=>r.owner).length});if(state.trends.length>60)state.trends.shift();}
-economyTick();demographyTick();resourceMarketTick();tradeAgreementTick();politicsTick();developmentTick();nationalSystemsTick();internationalOrganizationTick();espionageTick();goalsTick();updateMilitaryReadiness();
+economyTick();demographyTick();resourceMarketTick();tradeAgreementTick();politicsTick();developmentTick();nationalSystemsTick();internationalOrganizationTick();espionageTick();goalsTick();updateMilitaryReadiness();strategicRecoveryTick();
  reinforceFronts();
  resolveWars();negotiatePeace();diplomacy();peacefulDevelopment();
  if(Math.random()<.025)chooseWar();
@@ -1469,7 +1530,7 @@ function renderBattleReports(){
   const a=getC(r.a),b=getC(r.b),w=getC(r.winner)||a;if(!a||!b||!w)return "";
   const ranged=!!r.ranged;
   const losses=ranged?'<p>🪖 Personel terdampak: '+b.name+' −'+fmt(r.troopsB)+' · kerugian penyerang: '+fmt(r.mode==="air"?(r.aircraftLossA||0):(r.missileLossA||0))+'</p>':'<p>🪖 Kehilangan personel: '+a.name+' −'+fmt(r.troopsA)+' · '+b.name+' −'+fmt(r.troopsB)+'</p><p>🛡️ Tank: −'+fmt(r.tankLossA)+' / −'+fmt(r.tankLossB)+' · ✈️ Pesawat: −'+fmt(r.aircraftLossA)+' / −'+fmt(r.aircraftLossB)+' · 🚢 Kapal: −'+fmt(r.shipLossA)+' / −'+fmt(r.shipLossB)+'</p><p>💥 Artileri: −'+fmt(r.artilleryLossA||0)+' / −'+fmt(r.artilleryLossB||0)+' · 🚀 Rudal: −'+fmt(r.missileLossA||0)+' / −'+fmt(r.missileLossB||0)+'</p>';
-  return '<div class="battle-report"><h3>💥 HARI '+fmt(r.day)+' · '+a.flag+' '+a.name+' vs '+b.flag+' '+b.name+(ranged?' · SERANGAN JARAK JAUH':'')+'</h3><div class="result report-win">'+(r.ranged?'Penyerang unggul: ':'Pemenang: ')+w.flag+' '+w.name+' · skor '+fmt(r.scoreA)+' — '+fmt(r.scoreB)+'</div>'+losses+(r.region?'<p>🗺 Target: '+r.region+(ranged?' · wilayah tidak direbut':'')+'</p>':'')+'</div>';
+  return '<div class="battle-report"><h3>💥 HARI '+fmt(r.day)+' · '+a.flag+' '+a.name+' vs '+b.flag+' '+b.name+(ranged?' · SERANGAN JARAK JAUH':'')+'</h3><div class="result report-win">'+(r.ranged?'Penyerang unggul: ':'Pemenang: ')+w.flag+' '+w.name+' · skor '+fmt(r.scoreA)+' — '+fmt(r.scoreB)+'</div>'+losses+(r.commanderA?'<p>🎖️ Komandan: '+r.commanderA+' ('+Math.round(r.supplyA||100)+'% suplai) vs '+r.commanderB+' ('+Math.round(r.supplyB||100)+'% suplai)</p>':'')+((Number(r.troopsA)||0)+(Number(r.troopsB)||0)>0?'<p>📊 Total korban personel: '+fmt((Number(r.troopsA)||0)+(Number(r.troopsB)||0))+' · proporsi tercatat: '+Number(r.lossRateA||0).toFixed(2)+'% / '+Number(r.lossRateB||0).toFixed(2)+'%</p>':'')+(r.region?'<p>🗺 Target: '+r.region+(ranged?' · wilayah tidak direbut':'')+'</p>':'')+'</div>';
  }).join(""):'<div class="detail-empty">Belum ada pertempuran. Laporan akan muncul setelah negara bertempur.</div>';
 }
 function renderDetail(){
@@ -1484,6 +1545,8 @@ function renderDetail(){
  '<div class="mini-stats"><div class="mini"><span>Kekuatan total</span><b>'+power(c)+'</b></div><div class="mini"><span>Kesiapan militer</span><b>'+Math.round(c.army)+'/100</b></div><div class="mini"><span>Latihan militer</span><b>'+Math.round(c.militaryTraining||35)+'/100</b></div><div class="mini"><span>Pengalaman tempur</span><b>'+Math.round(c.militaryExperience||20)+'/100</b></div><div class="mini"><span>Ekonomi</span><b>'+Math.round(c.economy)+'/100</b></div><div class="mini"><span>Populasi</span><b>'+fmt(c.population||0)+'</b></div><div class="mini"><span>Pertumbuhan penduduk/hari</span><b>'+fmt(Number(c.populationGrowth)||0)+'</b></div><div class="mini"><span>Kelahiran/hari</span><b>'+fmt(c.birthsPerDay||0)+'</b></div><div class="mini"><span>Kematian/hari</span><b>'+fmt(c.deathsPerDay||0)+'</b></div><div class="mini"><span>Usia kerja</span><b>'+fmt(c.workingAgePopulation||0)+'</b></div><div class="mini"><span>Anak-anak</span><b>'+fmt(c.childPopulation||0)+'</b></div><div class="mini"><span>Lansia</span><b>'+fmt(c.elderlyPopulation||0)+'</b></div><div class="mini"><span>Rasio tanggungan</span><b>'+Math.round(c.dependencyRatio||0)+'%</b></div><div class="mini"><span>Tenaga kerja</span><b>'+fmt(c.workforce||Math.round((c.population||0)*.48))+'</b></div><div class="mini"><span>Anggaran negara</span><b>'+fmt(c.budget||0)+'</b></div><div class="mini"><span>Pengangguran</span><b>'+Math.round(c.unemployment||0)+'%</b></div><div class="mini"><span>Inflasi</span><b>'+Number(c.inflation||0).toFixed(1)+'%</b></div><div class="mini"><span>Utang negara</span><b>'+fmt(Math.round(c.debt||0))+'</b></div><div class="mini"><span>PDB per kapita (indeks)</span><b>'+Number(c.gdpPerCapitaIndex||0).toFixed(1)+'</b></div><div class="mini"><span>Tingkat teknologi</span><b>'+Math.round(c.techLevel||0)+'/100</b></div><div class="mini"><span>Output industri</span><b>'+Math.round(c.industrialOutput||0)+'</b></div><div class="mini"><span>Barang sipil</span><b>'+Math.round(c.consumerGoods||0)+'</b></div><div class="mini"><span>Produksi militer</span><b>'+Math.round(c.militaryOutput||0)+'</b></div><div class="mini"><span>Ketahanan energi</span><b>'+Math.round(c.energySecurity||0)+'/100</b></div><div class="mini"><span>Legitimasi pemerintah</span><b>'+Math.round(c.legitimacy||0)+'/100</b></div><div class="mini"><span>Loyalitas militer</span><b>'+Math.round(c.militaryLoyalty||0)+'/100</b></div><div class="mini"><span>Wilayah dikuasai</span><b>'+owned.length+'</b></div><div class="mini"><span>Moral nasional</span><b>'+Math.round(c.morale)+'/100</b></div><div class="mini"><span>Kelelahan perang</span><b>'+Math.round(c.warWeariness||0)+'/100</b></div><div class="mini"><span>Stabilitas</span><b>'+Math.round(c.stability)+'/100</b></div></div>'+
  '<h3 style="font-size:12px;margin:12px 0 6px">⛏️ SUMBER DAYA NASIONAL</h3><div class="equipment-grid"><div class="equipment"><span>🛢️ Minyak</span><b>'+fmt(resources.oil)+'</b></div><div class="equipment"><span>🪨 Batu bara</span><b>'+fmt(resources.coal)+'</b></div><div class="equipment"><span>⛓️ Besi</span><b>'+fmt(resources.iron)+'</b></div><div class="equipment"><span>🌾 Pangan</span><b>'+fmt(resources.food)+'</b></div><div class="equipment"><span>☢️ Uranium</span><b>'+fmt(resources.uranium)+'</b></div></div>'+
  '<h3 style="font-size:12px;margin:12px 0 6px">🧪 CABANG TEKNOLOGI NASIONAL</h3><div class="equipment-grid">'+Object.entries({industry:"🏭 Industri",medicine:"🏥 Medis",energy:"⚡ Energi",military:"⚔️ Militer",logistics:"🚚 Logistik"}).map(([k,label])=>'<div class="equipment"><span>'+label+'</span><b>'+Math.round(Number(c.techTree?.[k])||0)+'/100</b></div>').join("")+'</div>'+
+ '<h3 style="font-size:12px;margin:12px 0 6px">🎖️ KOMANDO & PENGALAMAN JENDERAL</h3><div class="equipment"><span>'+ensureCommander(c).rank+' · '+ensureCommander(c).name+'</span><b>Spesialisasi '+ensureCommander(c).skill+' · tingkat '+ensureCommander(c).skillLevel+'/10</b><small style="display:block;color:var(--muted)">Pengalaman '+Math.round(ensureCommander(c).experience)+' · kemenangan '+ensureCommander(c).victories+' · kekalahan '+ensureCommander(c).defeats+'</small></div>'+
+ '<h3 style="font-size:12px;margin:12px 0 6px">🚚 LOGISTIK & PEMULIHAN PERANG</h3><div class="equipment-grid"><div class="equipment"><span>Efisiensi suplai</span><b>'+Math.round((c.supplyEfficiency||1)*100)+'%</b></div><div class="equipment"><span>Kerusakan nasional</span><b>'+Math.round(c.warDamage||0)+'/100</b></div></div>'+
  '<h3 style="font-size:12px;margin:12px 0 6px">⚔️ DOKTRIN PERANG AI</h3><div class="equipment"><span>'+ensureWarDoctrine(c).name+'</span><b>'+ensureWarDoctrine(c).desc+'</b></div>'+
  '<h3 style="font-size:12px;margin:12px 0 6px">🤝 KONTRAK DAGANG</h3>'+contractHtml+
  '<h3 style="font-size:12px;margin:12px 0 6px">🪖 INVENTARIS MILITER</h3><div class="equipment-grid">'+Object.keys(units).map(k=>'<div class="equipment"><span>'+units[k]+'</span><b>'+fmt(c[k])+'</b></div>').join("")+'<div class="equipment"><span>💰 Anggaran pertahanan (indeks)</span><b>'+fmt(c.budget)+'</b></div><div class="equipment"><span>🩹 Kehilangan personel kumulatif</span><b>'+fmt(c.battleLosses)+'</b></div></div>'+
