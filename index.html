@@ -1081,7 +1081,8 @@ function peacefulDevelopment(){
  }
 }
 function utmostName(c){return c.name;}
-// Pendapatan ekspor dipisahkan dari nilai barang yang diperdagangkan agar kas negara tidak menerima 100% omzet eksportir.
+// Seluruh country.resources adalah persediaan nasional dalam model saat ini; belum ada stok/rekening perusahaan swasta terpisah.
+// Karena itu, hasil penjualan ekspor dari stok ini masuk seluruhnya ke kas negara, tanpa potongan bagian swasta fiktif.
 function settleExportRevenue(exporter,importer,resource,quantity,gross,source){
  const value=Math.max(0,Number(gross)||0);
  if(!exporter||!importer||value<=0)return;
@@ -1089,23 +1090,17 @@ function settleExportRevenue(exporter,importer,resource,quantity,gross,source){
   exporter.exportRevenueDay=state.day;
   exporter.dailyExportGross=0;exporter.dailyExportTaxes=0;exporter.dailyExportRoyalties=0;exporter.dailyExportDividends=0;exporter.dailyExportPublicRevenue=0;exporter.dailyExportPrivateProceeds=0;
  }
- const taxRate=clamp(Number(exporter.exportTaxRate??8),0,25)/100;
- const royaltyRate=(resource==="oil"||resource==="coal"||resource==="iron"||resource==="uranium")?clamp(Number(exporter.resourceRoyaltyRate??3),0,15)/100:clamp(Number(exporter.exportRoyaltyRate??1),0,10)/100;
- const stateShare=clamp(Number(exporter.stateExportShare??30),0,100)/100;
- const tax=Math.round(value*taxRate);
- const royalty=Math.round(value*royaltyRate);
- // Dividen BUMN hanya berasal dari bagian penjualan negara dan margin laba, bukan seluruh omzet.
- const dividend=Math.round(Math.max(0,value*stateShare*.22)*.70);
- const publicRevenue=Math.min(value,tax+royalty+dividend);
- const privateProceeds=Math.max(0,value-publicRevenue);
+ // Tidak ada pemisahan pajak/royalti/dividen/swasta karena kepemilikan perusahaan belum dimodelkan.
+ // Nilai ini adalah penerimaan kotor penjualan persediaan nasional, bukan laba bersih ekonomi nyata.
+ const publicRevenue=value;
  exporter.budget=Math.max(0,(Number(exporter.budget)||0)+publicRevenue);
- exporter.dailyExportGross+=value;exporter.dailyExportTaxes+=tax;exporter.dailyExportRoyalties+=royalty;exporter.dailyExportDividends+=dividend;exporter.dailyExportPublicRevenue+=publicRevenue;exporter.dailyExportPrivateProceeds+=privateProceeds;
+ exporter.dailyExportGross+=value;
+ exporter.dailyExportPublicRevenue+=publicRevenue;
  exporter.lastDailyIncome=(Number(exporter.lastDailyIncome)||0)+publicRevenue;
  exporter.lastDailyNetBalance=(Number(exporter.lastDailyNetBalance)||0)+publicRevenue;
- // Catatan kumulatif untuk statistik dan audit transaksi.
  exporter.totalExportValue=(Number(exporter.totalExportValue)||0)+value;
  exporter.totalExportPublicRevenue=(Number(exporter.totalExportPublicRevenue)||0)+publicRevenue;
- if(state.day%10===0)addEvent("economy","Pendapatan ekspor "+exporter.name,exporter.name+" menjual "+Math.max(0,Number(quantity)||0)+" unit "+resource+" kepada "+importer.name+" ("+source+"). Nilai ekspor "+moneyFmt(exporter,value)+"; masuk kas negara "+moneyFmt(exporter,publicRevenue)+" berupa pajak, royalti, dan dividen BUMN. Omzet ekspor tidak dihitung seluruhnya sebagai kas pemerintah.","💱");
+ if(state.day%10===0)addEvent("economy","Pendapatan ekspor "+exporter.name,exporter.name+" menjual "+Math.max(0,Number(quantity)||0)+" unit "+resource+" kepada "+importer.name+" ("+source+"). Nilai penjualan "+moneyFmt(exporter,value)+"; seluruh penerimaan masuk kas negara karena barang berasal dari persediaan nasional. Kepemilikan perusahaan swasta belum dimodelkan.","💱");
 }
 function resourceMarketTick(){
  if(!state.market)state.market={oil:50,coal:35,iron:30,food:20,uranium:85};
