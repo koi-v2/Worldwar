@@ -1381,7 +1381,7 @@ function renderBoard(){
  sorted.forEach(c=>{
   const n=ownedCount(c.id),wars=state.wars.some(w=>w.active&&(w.a===c.id||w.b===c.id));
   const btn=document.createElement("button");btn.className="tile"+(wars?" war":"")+(selected===c.id?" selected":"")+(n===0?" occupied":"");btn.style.setProperty("--country",countryColor(c));
-  const observer=getC(selected),intel=observer&&observer.intelMemory&&observer.intelMemory[c.id],fresh=intel&&state.day-intel.day<=45,estimate=fresh&&intel.snapshot&&intel.snapshot.readiness!=null?Math.round(intel.snapshot.readiness)+"/100":"Dirahasiakan";
+  const observer=getC(selected),intelRecord=observer&&observer.intelMemory&&observer.intelMemory[c.id],intel=intelRecord&&(intelRecord.reports?.military||(intelRecord.type==="military"?intelRecord:null)),fresh=intel&&state.day-intel.day<=45,estimate=fresh&&intel.snapshot&&intel.snapshot.readiness!=null?Math.round(intel.snapshot.readiness)+"/100":"Dirahasiakan";
   btn.innerHTML=(wars?'<span class="war-tag">⚔ PERANG</span>':"")+'<div class="flag">'+c.flag+'</div><div class="tile-name">'+c.name+'</div><div class="tile-owner">'+(c.alive?c.region:"Pemerintahan tumbang")+'</div><div class="tile-bottom"><span>🛡 '+(c.id===selected?"Kesiapan "+Math.round(c.army)+"/100":estimate)+'</span><span>🗺 '+n+'</span></div>';
   btn.addEventListener("click",()=>{selected=c.id;render();});board.appendChild(btn);
  });
