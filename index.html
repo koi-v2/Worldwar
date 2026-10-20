@@ -1574,6 +1574,67 @@ function governmentStrategyTick(){
  });
 }
 
+
+function integratedConsequencesTick(){
+ if(!Number.isFinite(state.lastIntegratedConsequencesDay))state.lastIntegratedConsequencesDay=0;
+ if(state.day-state.lastIntegratedConsequencesDay<5)return;
+ state.lastIntegratedConsequencesDay=state.day;
+ const activeWars=state.wars.filter(w=>w.active);
+ living().forEach(c=>{
+  const wars=activeWars.filter(w=>w.a===c.id||w.b===c.id),warDays=wars.reduce((n,w)=>n+Math.min(5,Math.max(1,state.day-(Number(w.started)||state.day))),0);
+  const budget=Number(c.budget)||0,debt=Number(c.debt)||0,economy=Number(c.economy)||50,unemployment=Number(c.unemployment)||10,inflation=Number(c.inflation)||2;
+  const food=Number(c.resources?.food)||0,oil=Number(c.resources?.oil)||0,iron=Number(c.resources?.iron)||0;
+  const losses=Math.max(0,(Number(c.battleLosses)||0)-(Number(c.lastIntegratedBattleLosses)||0));
+  c.lastIntegratedBattleLosses=Number(c.battleLosses)||0;
+  const deficit=Number(c.lastDailyNetBalance)<0;
+  const fiscalStress=clamp((debt/Math.max(15,budget+10)-1.2)*.22,0,.65)+(deficit?.12:0);
+  const warStress=wars.length?clamp(.12+warDays*.008+wars.length*.12,0,.8):0;
+  const supplyStress=(food<10?.24:food<20?.1:0)+(oil<5?.2:oil<12?.08:0)+(iron<4?.08:0);
+  const tradeIsolation=clamp((Array.isArray(c.sanctionedBy)?c.sanctionedBy.length:0)*.07+(Array.isArray(c.embargoes)?c.embargoes.length:0)*.045,0,.4);
+  const priceStress=inflation>12?clamp((inflation-12)*.018,0,.38):0;
+  const jobStress=unemployment>25?clamp((unemployment-25)*.012,0,.45):0;
+  const lossesStress=losses>0?clamp(Math.log1p(losses)*.018,0,.3):0;
+  const combined=clamp(fiscalStress+warStress+supplyStress+tradeIsolation+priceStress+jobStress+lossesStress,0,1.5);
+  if(combined>.16){
+   c.stability=clamp((Number(c.stability)||50)-combined*.13,0,100);
+   c.popularity=clamp((Number(c.popularity)||50)-combined*.17,0,100);
+   c.economicTrend=clamp((Number(c.economicTrend)||0)-combined*.035,-10,10);
+  }else if(!wars.length&&economy>55&&inflation<6&&unemployment<18&&food>25&&budget>12){
+   c.stability=clamp((Number(c.stability)||50)+.025,0,100);
+   c.popularity=clamp((Number(c.popularity)||50)+.035,0,100);
+   c.economicTrend=clamp((Number(c.economicTrend)||0)+.012,-10,10);
+  }
+  if(wars.length){
+   c.warWeariness=clamp((Number(c.warWeariness)||0)+.06+warDays*.004+lossesStress*.12,0,100);
+   c.warDamage=clamp((Number(c.warDamage)||0)+.025+lossesStress*.08+warStress*.025,0,100);
+   if(budget<6||food<8||oil<4){
+    c.supplyEfficiency=clamp((Number(c.supplyEfficiency)||1)-.006,0,1.2);
+    c.morale=clamp((Number(c.morale)||50)-.045,0,100);
+   }else if(budget>18&&food>18&&oil>10){
+    c.supplyEfficiency=clamp((Number(c.supplyEfficiency)||1)+.002,0,1.2);
+   }
+  }else{
+   c.warWeariness=clamp((Number(c.warWeariness)||0)-.09,0,100);
+   c.warDamage=clamp((Number(c.warDamage)||0)-.035,0,100);
+  }
+  if(inflation>10&&unemployment>20){
+   c.unemployment=clamp(unemployment+.018,3,65);
+   c.economicTrend=clamp((Number(c.economicTrend)||0)-.018,-10,10);
+  }else if(!wars.length&&economy>50&&inflation<7&&budget>15){
+   c.unemployment=clamp(unemployment-.025,3,65);
+  }
+  if(tradeIsolation>.08){
+   c.tradeBalance=clamp((Number(c.tradeBalance)||0)-tradeIsolation*.025,-100,100);
+  }else if(!wars.length&&Number(c.tradeBalance||0)<0&&economy>45){
+   c.tradeBalance=clamp((Number(c.tradeBalance)||0)+.012,-100,100);
+  }
+  if(debt>Math.max(80,economy*2)&&budget<12)c.creditRating=clamp((Number(c.creditRating)||55)-.08,0,100);
+  else if(debt<Math.max(25,economy*.6)&&budget>20&&inflation<7)c.creditRating=clamp((Number(c.creditRating)||55)+.025,0,100);
+  if(losses>=Math.max(1200,(Number(c.army)||0)*.025))addEvent("economy","Dampak korban terhadap negara",c.name+" menanggung tekanan tambahan pada tenaga kerja, dukungan publik, dan pemulihan setelah kehilangan "+Math.round(losses).toLocaleString("id-ID")+" personel dalam pertempuran sejak evaluasi terakhir.","📉");
+  if(combined>.75&&state.day%10===0)addEvent("diplomacy","Tekanan nasional meningkat di "+c.name,"Gabungan tekanan fiskal, harga, suplai, dan keamanan menurunkan stabilitas serta dukungan pemerintah. Pemerintah perlu memperbaiki sumber masalah, bukan hanya menaikkan anggaran.","🏛️");
+ });
+}
+
 function tick(){
  validateSimulationState();
  state.day++;state.year=Math.floor((state.day-1)/365)+1;
@@ -1582,6 +1643,7 @@ function tick(){
 economyTick();demographyTick();resourceMarketTick();economicExpansionTick();tradeAgreementTick();politicsTick();developmentTick();nationalSystemsTick();governmentStrategyTick();internationalOrganizationTick();espionageTick();goalsTick();updateMilitaryReadiness();strategicRecoveryTick();
  reinforceFronts();
  resolveWars();negotiatePeace();diplomacy();peacefulDevelopment();
+integratedConsequencesTick();
  if(Math.random()<.025)chooseWar();
  state.countries.forEach(c=>{c.territory=ownedCount(c.id);if(c.alive&&c.territory===0){c.alive=false;addEvent("war",c.name+" kehilangan seluruh wilayah","Pemerintahan kehilangan kendali atas wilayah terakhirnya dan tidak lagi menjadi kekuatan aktif. Sisa inventaris militernya tidak lagi dihitung sebagai pasukan lapangan.","🏳️");}});
  if(state.day%10===0)addEvent("world","Laporan situasi global","Hari ke-"+state.day+": "+state.wars.filter(w=>w.active).length+" konflik masih aktif di seluruh dunia.","🌐");
