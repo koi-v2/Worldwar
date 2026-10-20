@@ -921,6 +921,7 @@ function resourceCapacity(c){
  const infrastructure=Number(c&&c.infrastructure)||35,industry=Number(c&&c.industry)||40,tech=Number(c&&c.techLevel)||Number(c&&c.research)||30;
  return Math.round(clamp(150+infrastructure*2.2+industry*1.4+tech*1.2,200,700));
 }
+function recordDailyExpense(c,amount){amount=Math.max(0,Number(amount)||0);if(!c||amount<=0)return;c.lastDailyExpenses=(Number(c.lastDailyExpenses)||0)+amount;c.lastDailyNetBalance=(Number(c.lastDailyNetBalance)||0)-amount;c.dailyOtherExpenses=(Number(c.dailyOtherExpenses)||0)+amount;}
 function economyTick(){
  living().forEach(c=>{
   const populationById={USA:340000000,CHN:1410000000,RUS:144000000,IND:1450000000,IDN:282000000,JPN:123000000,KOR:52000000,PRK:26000000,GBR:69000000,FRA:68000000,DEU:84000000,POL:37000000,UKR:37000000,ESP:49000000,NLD:18000000,ITA:59000000,TUR:87000000,SAU:35000000,ISR:10000000,IRN:92000000,PAK:255000000,BRA:212000000,MEX:130000000,CAN:41000000,AUS:27000000,EGY:116000000,ZAF:64000000,VNM:101000000,THA:72000000,PHL:117000000};
@@ -986,7 +987,7 @@ function economyTick(){
   // Anggaran kuat mendorong investasi sipil; negara yang boros perang lebih sulit membiayai pertumbuhan.
   if(c.budget>55&&!atWar&&Math.random()<.06){
    const investment=Math.min(5,Math.floor(c.budget*.04));
-   if(investment>=2){c.budget-=investment;c.infrastructure=clamp((c.infrastructure||35)+.12,0,100);c.industry=clamp((c.industry||40)+.08,5,100);c.unemployment=clamp(c.unemployment-.08,3,65);}
+   if(investment>=2){c.budget-=investment;recordDailyExpense(c,investment);c.infrastructure=clamp((c.infrastructure||35)+.12,0,100);c.industry=clamp((c.industry||40)+.08,5,100);c.unemployment=clamp(c.unemployment-.08,3,65);}
   }
   const supply=((c.resources?.oil??40)<8||(c.resources?.food??60)<8||(c.resources?.iron??40)<5)?1.18:1;
   const upkeep=atWar?Math.max(4,Math.round((2+c.army*.055+c.tanks*.018+c.aircraft*.025+c.ships*.12)*supply)):Math.max(1,Math.round((1+c.army*.012)*supply));
@@ -1029,12 +1030,12 @@ function economyTick(){
   r.coal=clamp(r.coal+.08+(c.industry||40)*.0008-.035-(c.industry||40)*.0007,0,resourceCapacity(c));
   if(r.coal<8){c.energy=clamp((c.energy||40)-.15,5,100);c.economy=clamp(c.economy-.08,10,100);}
   if(r.food<8){c.stability=clamp(c.stability-.65,5,100);c.economy=clamp(c.economy-.2,10,100);}
-  if(c.budget>=18&&r.food>=2&&Math.random()<militaryProductionChance(c,"troops",.22)){const n=Math.max(1,Math.round(c.industry/35));const cost=12+n*2;const foodCost=n*.35;if(c.budget>=cost&&r.food>=foodCost){addProducedUnits(c,"troops",n*180);c.budget-=cost;r.food-=foodCost;}}
-  if(c.budget>=24&&Math.random()<militaryProductionChance(c,"tanks",.14)){const n=Math.max(1,Math.round(c.industry/40));const cost=10+n*4,iron=n*.8,oil=n*.55;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil){addProducedUnits(c,"tanks",n);c.budget-=cost;r.iron-=iron;r.oil-=oil;}}
-  if(c.budget>=30&&Math.random()<militaryProductionChance(c,"aircraft",.10)){const n=Math.max(1,Math.round(c.industry/55));const cost=14+n*5,iron=n*.65,oil=n*.8;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil){addProducedUnits(c,"aircraft",n);c.budget-=cost;r.iron-=iron;r.oil-=oil;}}
-  if(c.budget>=38&&Math.random()<militaryProductionChance(c,"ships",.055)){const cost=22,iron=1.8,oil=1.2;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil){addProducedUnits(c,"ships",1);c.budget-=cost;r.iron-=iron;r.oil-=oil;}}
-  if(c.budget>=22&&Math.random()<militaryProductionChance(c,"artillery",.08)){const n=Math.max(1,Math.round(c.industry/45));const cost=9+n*3,iron=n*.5;if(c.budget>=cost&&r.iron>=iron){addProducedUnits(c,"artillery",n);c.budget-=cost;r.iron-=iron;}}
-  if(c.budget>=28&&Math.random()<militaryProductionChance(c,"missiles",.055)){const n=Math.max(1,Math.round(c.industry/50));const cost=12+n*4,iron=n*.35,oil=n*.25,uranium=n*.025;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil&&r.uranium>=uranium){addProducedUnits(c,"missiles",n);c.budget-=cost;r.iron-=iron;r.oil-=oil;r.uranium-=uranium;}}
+  if(c.budget>=18&&r.food>=2&&Math.random()<militaryProductionChance(c,"troops",.22)){const n=Math.max(1,Math.round(c.industry/35));const cost=12+n*2;const foodCost=n*.35;if(c.budget>=cost&&r.food>=foodCost){addProducedUnits(c,"troops",n*180);c.budget-=cost;recordDailyExpense(c,cost);r.food-=foodCost;}}
+  if(c.budget>=24&&Math.random()<militaryProductionChance(c,"tanks",.14)){const n=Math.max(1,Math.round(c.industry/40));const cost=10+n*4,iron=n*.8,oil=n*.55;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil){addProducedUnits(c,"tanks",n);c.budget-=cost;recordDailyExpense(c,cost);r.iron-=iron;r.oil-=oil;}}
+  if(c.budget>=30&&Math.random()<militaryProductionChance(c,"aircraft",.10)){const n=Math.max(1,Math.round(c.industry/55));const cost=14+n*5,iron=n*.65,oil=n*.8;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil){addProducedUnits(c,"aircraft",n);c.budget-=cost;recordDailyExpense(c,cost);r.iron-=iron;r.oil-=oil;}}
+  if(c.budget>=38&&Math.random()<militaryProductionChance(c,"ships",.055)){const cost=22,iron=1.8,oil=1.2;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil){addProducedUnits(c,"ships",1);c.budget-=cost;recordDailyExpense(c,cost);r.iron-=iron;r.oil-=oil;}}
+  if(c.budget>=22&&Math.random()<militaryProductionChance(c,"artillery",.08)){const n=Math.max(1,Math.round(c.industry/45));const cost=9+n*3,iron=n*.5;if(c.budget>=cost&&r.iron>=iron){addProducedUnits(c,"artillery",n);c.budget-=cost;recordDailyExpense(c,cost);r.iron-=iron;}}
+  if(c.budget>=28&&Math.random()<militaryProductionChance(c,"missiles",.055)){const n=Math.max(1,Math.round(c.industry/50));const cost=12+n*4,iron=n*.35,oil=n*.25,uranium=n*.025;if(c.budget>=cost&&r.iron>=iron&&r.oil>=oil&&r.uranium>=uranium){addProducedUnits(c,"missiles",n);c.budget-=cost;recordDailyExpense(c,cost);r.iron-=iron;r.oil-=oil;r.uranium-=uranium;}}
   c.territory=ownedCount(c.id);
   if(c.stability<20&&Math.random()<.08){c.stability=clamp(c.stability+8,0,100);addEvent("economy","Krisis pemerintahan di "+c.name,"Ketidakpuasan publik memaksa pemerintah mengumumkan reformasi darurat.","🏛️");}
  });
@@ -1051,7 +1052,7 @@ function peacefulDevelopment(){
   const kind=Math.floor(Math.random()*5);
   if(kind===0){
    c.economy=clamp(c.economy+2+Math.random()*3,10,100);
-   c.budget=Math.max(0,c.budget-2);
+   c.budget=Math.max(0,c.budget-2);recordDailyExpense(c,2);
    addEvent("economy","Investasi infrastruktur",c.name+" membangun pelabuhan, jalan, dan jaringan energi untuk memperlancar perdagangan.","🏗️");
   }else if(kind===1){
    c.stability=clamp(c.stability+2+Math.random()*3,8,100);
@@ -1159,7 +1160,7 @@ function resourceMarketTick(){
   if(!a.relations)a.relations={};if(!b.relations)b.relations={};
   a.resources[res]=Math.max(0,(Number(a.resources[res])||0)-qty);
   b.resources[res]=Math.min(150,(Number(b.resources[res])||0)+qty);
-  b.budget=Math.max(0,(Number(b.budget)||0)-payment);
+  b.budget=Math.max(0,(Number(b.budget)||0)-payment);recordDailyExpense(b,payment);
   settleExportRevenue(a,b,res,qty,payment,"pasar");
   a.relations[b.id]=clamp((a.relations[b.id]||0)+1,-100,100);b.relations[a.id]=clamp((b.relations[a.id]||0)+1,-100,100);
   a.tradeBalance=clamp((Number(a.tradeBalance)||0)+qty*.35,-100,100);
@@ -1197,7 +1198,7 @@ function tradeAgreementTick(){
   if(delivered<1){t.status="suspended";t.reason="Anggaran importir tidak cukup";return;}
   const actualPaid=Math.max(1,Math.round(unitPrice*delivered));
   a.resources[t.resource]=Math.max(0,stock-delivered);b.resources[t.resource]=Math.min(150,(Number(b.resources&&b.resources[t.resource])||0)+delivered);
-  b.budget=Math.max(0,budget-actualPaid);
+  b.budget=Math.max(0,budget-actualPaid);recordDailyExpense(b,actualPaid);
   settleExportRevenue(a,b,t.resource,delivered,actualPaid,"kontrak");
   t.delivered=(Number(t.delivered)||0)+delivered;t.paid=(Number(t.paid)||0)+actualPaid;t.lastDeliveryDay=state.day;t.lastDelivered=delivered;t.lastPayment=actualPaid;t._lastReason="";
   if(state.day%10===0)addEvent("economy","Pengiriman perjanjian dagang",a.name+" mengekspor "+delivered+" unit "+t.resource+" kepada "+b.name+". Pembayaran: "+tradePaymentText(b,a,actualPaid)+". Kurs importir saat transaksi: "+fxDisplay(b)+".","🚢");
@@ -1266,7 +1267,7 @@ function developmentTick(){living().forEach(c=>{
   const key=chooseDevelopmentInvestment(c),cost=12;
   const needs=key==="infrastructure"?{iron:1,coal:1}:key==="energy"?{coal:2,iron:.5}:key==="research"?{uranium:.25,iron:.25}:{};
   const canPay=Object.keys(needs).every(k=>r[k]>=needs[k]);
-  if(c.budget>=cost&&canPay){c[key]=clamp(c[key]+1+Math.random()*2,0,100);c.budget-=cost;Object.keys(needs).forEach(k=>r[k]-=needs[k]);state.stats.developmentProjects++;if(Math.random()<.12)addEvent("economy","Program pembangunan nasional",c.name+" menginvestasikan "+cost+" poin anggaran dan bahan mentah pada "+({infrastructure:"infrastruktur",education:"pendidikan",research:"riset dan teknologi",energy:"ketahanan energi",health:"layanan kesehatan"}[key])+".","🏗️");}
+  if(c.budget>=cost&&canPay){c[key]=clamp(c[key]+1+Math.random()*2,0,100);c.budget-=cost;recordDailyExpense(c,cost);Object.keys(needs).forEach(k=>r[k]-=needs[k]);state.stats.developmentProjects++;if(Math.random()<.12)addEvent("economy","Program pembangunan nasional",c.name+" menginvestasikan "+cost+" poin anggaran dan bahan mentah pada "+({infrastructure:"infrastruktur",education:"pendidikan",research:"riset dan teknologi",energy:"ketahanan energi",health:"layanan kesehatan"}[key])+".","🏗️");}
  }
  c.industry=clamp((c.industry||30)+((c.research>60&&c.energy>50&&r.coal>5)?0.25:0),5,100);
  // Produksi sumber daya dan ketahanan energi.
@@ -1454,7 +1455,7 @@ function negotiatePeace(){
   const winner=leverageA===leverageB?(pa<=pb?a:b):(leverageA>leverageB?a:b);
   const loser=winner===a?b:a;
   const payment=Math.min(Math.max(0,Number(loser.budget)||0),Math.max(0,Math.round((Number(loser.budget)||0)*.08)));
-  loser.budget=Math.max(0,(Number(loser.budget)||0)-payment);
+  loser.budget=Math.max(0,(Number(loser.budget)||0)-payment);recordDailyExpense(loser,payment);
   winner.budget=(Number(winner.budget)||0)+payment;
   [a,b].forEach(c=>{
    c.morale=clamp((Number(c.morale)||50)+3,5,100);
@@ -1491,7 +1492,7 @@ function updateMilitaryReadiness(){
   if(atWar)change-=.18;
   if(!atWar&&c.budget>=12&&r.food>18&&r.oil>12&&Math.random()<.22){
    const cost=3;
-   c.budget=Math.max(0,c.budget-cost);
+   c.budget=Math.max(0,c.budget-cost);recordDailyExpense(c,cost);
    r.food=Math.max(0,r.food-.8);r.oil=Math.max(0,r.oil-.5);
    c.militaryTraining=clamp(c.militaryTraining+.35,0,100);
    change+=.18;
@@ -1576,7 +1577,7 @@ function strategicRecoveryTick(){
   if(c.warDamage>0&&!atWar(c)){
    const repair=clamp(.06+(Number(c.budget)||0)*.001+(Number(c.techTree?.industry)||0)*.001,.04,.24);
    c.warDamage=Math.max(0,c.warDamage-repair);
-   if(c.budget>4){c.budget=Math.max(0,c.budget-.15);c.industry=clamp((Number(c.industry)||40)+repair*.035,5,100);c.infrastructure=clamp((Number(c.infrastructure)||40)+repair*.018,5,100);}
+   if(c.budget>4){c.budget=Math.max(0,c.budget-.15);recordDailyExpense(c,.15);c.industry=clamp((Number(c.industry)||40)+repair*.035,5,100);c.infrastructure=clamp((Number(c.infrastructure)||40)+repair*.018,5,100);}
    if(c.warDamage<.05)c.warDamage=0;
   }
  });
