@@ -534,6 +534,15 @@ function endWar(w,reason){
  if(a&&Array.isArray(a.enemies))a.enemies=a.enemies.filter(id=>id!==w.b);
  if(b&&Array.isArray(b.enemies))b.enemies=b.enemies.filter(id=>id!==w.a);
  if(a&&b&&a.relations&&b.relations&&reason==="ceasefire"){const rel=Math.max(-25,Math.min(-5,Number(a.relations[b.id])||-15));a.relations[b.id]=rel;b.relations[a.id]=rel;}
+ // Gencatan atau perdamaian memulai pemulihan nasional bertahap; perang invalid tidak memberi bonus.
+ if(a&&b&&(reason==="ceasefire"||reason==="peace"||reason==="surrender")){
+  const duration=Math.max(0,Number(state.day||0)-Number(w.started||state.day||0));
+  const intensity=clamp((Number(w.battles)||0)*.7+duration*.18,2,18);
+  [a,b].forEach(c=>{
+   c.postwarRecoveryDays=Math.max(Number(c.postwarRecoveryDays)||0,Math.round(8+intensity));
+   c.postwarRecoveryLevel=Math.max(Number(c.postwarRecoveryLevel)||0,intensity);
+  });
+ }
 }
 function cleanupDiplomacy(){
  const ids=new Set(state.countries.filter(c=>c.alive&&ownedCount(c.id)>0).map(c=>c.id));
@@ -1133,6 +1142,18 @@ function nationalSystemsTick(){
   const tree=c.techTree;
   ["industry","medicine","energy","military","logistics"].forEach(k=>{if(!Number.isFinite(tree[k]))tree[k]=clamp((Number(c.research)||30)*.25+(Number(c.education)||40)*.08,5,60);});
   const r=c.resources||(c.resources={oil:40,coal:40,iron:40,food:60,uranium:10});
+  // Rekonstruksi pascaperang memakai anggaran dan suplai yang benar-benar tersedia.
+  if(!isAtWar(c.id)&&Number(c.postwarRecoveryDays)>0){
+   const recovery=clamp((Number(c.postwarRecoveryLevel)||2)/18,.12,1);
+   const funded=Number(c.budget||0)>3;
+   c.stability=clamp((Number(c.stability)||0)+(funded?.045:.018)*recovery,0,100);
+   c.economy=clamp((Number(c.economy)||0)+(funded?.035:.012)*recovery,0,100);
+   if(funded)c.infrastructure=clamp((Number(c.infrastructure)||40)+.018*recovery,5,100);
+   c.postwarRecoveryDays=Math.max(0,Number(c.postwarRecoveryDays)-1);
+   c.postwarRecoveryLevel=Math.max(0,(Number(c.postwarRecoveryLevel)||0)-.25);
+  }else if(Number(c.postwarRecoveryDays)>0&&isAtWar(c.id)){
+   // Perang baru menghentikan pemulihan, bukan menghapus sisa masa pemulihan.
+  }
   const research=Math.max(0,Number(c.research)||0),education=Math.max(0,Number(c.education)||0),energy=Math.max(0,Number(c.energy)||0);
   const workforce=Math.max(1,Number(c.workingAgePopulation)||Number(c.population||50000000)*.64);
   const employed=Math.max(0,Number.isFinite(Number(c.employed))?Number(c.employed):workforce*(1-clamp(Number(c.unemployment)||0,0,100)/100));
