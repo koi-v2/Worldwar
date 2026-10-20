@@ -1138,8 +1138,10 @@ function nationalSystemsTick(){
   const employed=Math.max(0,Number(c.employed)||workforce*(1-(Number(c.unemployment)||0)/100));
   const labor=clamp(employed/workforce,.25,1);
   const supply=clamp((Math.min(100,Number(r.oil)||0)*.25+Math.min(100,Number(r.coal)||0)*.2+Math.min(100,Number(r.iron)||0)*.15+Math.min(100,Number(r.food)||0)*.2+energy*.2),0,100);
-  c.energySecurity=clamp(c.energySecurity+(supply>60?.12:supply<25?-.3:.015),0,100);
-  const productivity=clamp((.48+(Number(c.infrastructure)||40)/180+(Number(c.techLevel)||30)/240+(education/500)+(Number(tree.industry)||0)*.0012)*(.55+labor*.45)*(energy<15?.62:energy<30?.82:1),.35,1.75);
+  const energyTech=Number(tree.energy)||0;
+  c.energySecurity=clamp(c.energySecurity+(supply>60?.12:supply<25?-.3:.015)+energyTech*.0008,0,100);
+  const energyPenalty=energy<15?clamp(.62+energyTech*.002, .62,.82):energy<30?clamp(.82+energyTech*.0015,.82,.97):1;
+  const productivity=clamp((.48+(Number(c.infrastructure)||40)/180+(Number(c.techLevel)||30)/240+(education/500)+(Number(tree.industry)||0)*.0012)*(.55+labor*.45)*energyPenalty,.35,1.75);
   c.industrialOutput=clamp((Number(c.industry)||40)*productivity,0,160);
   c.consumerGoods=clamp(c.industrialOutput*(.34+Math.max(0,education-40)*.0015),0,180);
   c.militaryOutput=clamp(c.industrialOutput*(.12+(Number(c.militaryBudgetShare)||20)/250)*(1+(Number(tree.military)||0)*.002)*(r.iron<8?.55:1)*(r.oil<8?.7:1),0,100);
@@ -1345,8 +1347,9 @@ function demographyTick(){
   c.dependencyRatio=Math.round((c.childPopulation+c.elderlyPopulation)/c.workingAgePopulation*100);
   c.workforce=Math.round(c.workingAgePopulation*.72);
   c.employed=Math.round(c.workforce*(1-clamp(unemployment,0,100)/100));
-  const birthRate=clamp(.000027+(health-50)*.00000006-(education>65?.000002:0),.000014,.000038);
-  const deathRate=clamp(.000009+Math.max(0,50-health)*.00000012+(food<10?.000018:food<20?.000006:0)+(atWar?.000006:0),.000005,.000035);
+  const medicineTech=Number(c.techTree?.medicine)||0;
+  const birthRate=clamp(.000027+(health-50)*.00000006-(education>65?.000002:0)+(medicineTech>70?.0000007:0),.000014,.000038);
+  const deathRate=clamp(.000009+Math.max(0,50-health)*.00000012+(food<10?.000018:food<20?.000006:0)+(atWar?.000006:0)-medicineTech*.000000025,.0000035,.000035);
   c.birthsPerDay=Math.max(0,Math.round(pop*birthRate));
   c.deathsPerDay=Math.max(0,Math.round(pop*deathRate));
   c.migrationPressure=clamp((Number(c.economy??50)-50)*.12+(50-unemployment)*.08+(stability-50)*.08-(inflation>12?3:0)-(food<10?5:0),-20,20);
