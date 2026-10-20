@@ -707,22 +707,22 @@ function resolveWars(){
   const present=k=>Math.max(0,Number(g[k])||0),deployed=k=>Math.max(0,Number(attack[k])||0);
   // Unit matchups: troops fight troops; aircraft strike troops/ships/artillery;
   // ships engage ships/aircraft; artillery targets aircraft. Tanks/missiles keep ground roles.
-  // Attrisi personel memakai 1.8% dari kekuatan relevan; batas di bawah menjaga kerugian
+  // Attrisi personel memakai 10% dari kekuatan relevan; batas berbeda untuk pihak menang dan kalah menjaga kerugian
   // tetap proporsional terhadap pasukan yang dikerahkan dan memberi pihak yang kalah dampak lebih besar.
   const damage=(force,rate)=>Math.max(0,Math.round(force*rate*(.75+Math.random()*.5)));
-  const inflicted={troops:damage(deployed("troops"),.018),tanks:damage(deployed("tanks"),.012),aircraft:damage(deployed("artillery"),.001)+damage(deployed("ships"),.0008),ships:damage(deployed("aircraft"),.008)+damage(deployed("ships"),.003),artillery:damage(deployed("aircraft"),.006),missiles:damage(deployed("missiles"),.008)};
+  const inflicted={troops:damage(deployed("troops"),.10),tanks:damage(deployed("tanks"),.012),aircraft:damage(deployed("artillery"),.001)+damage(deployed("ships"),.0008),ships:damage(deployed("aircraft"),.008)+damage(deployed("ships"),.003),artillery:damage(deployed("aircraft"),.006),missiles:damage(deployed("missiles"),.008)};
   inflicted.troops+=damage(deployed("aircraft"),.00025);
   inflicted.ships+=damage(deployed("aircraft"),.0008);
   inflicted.artillery+=damage(deployed("aircraft"),.0015);
-  const returnFire={troops:damage(present("troops"),.018),tanks:damage(present("tanks"),.012),aircraft:damage(present("artillery"),.001)+damage(present("ships"),.0008),ships:damage(present("aircraft"),.008)+damage(present("ships"),.003),artillery:damage(present("aircraft"),.006),missiles:damage(present("missiles"),.008)};
+  const returnFire={troops:damage(present("troops"),.10),tanks:damage(present("tanks"),.012),aircraft:damage(present("artillery"),.001)+damage(present("ships"),.0008),ships:damage(present("aircraft"),.008)+damage(present("ships"),.003),artillery:damage(present("aircraft"),.006),missiles:damage(present("missiles"),.008)};
   returnFire.troops+=damage(present("aircraft"),.00025);
   returnFire.ships+=damage(present("aircraft"),.0008);
   returnFire.artillery+=damage(present("aircraft"),.0015);
   Object.keys(defLost).forEach(k=>{defLost[k]=Math.min(present(k),inflicted[k]);});
   Object.keys(lost).forEach(k=>{lost[k]=Math.min(deployed(k),returnFire[k]);});
   // Pihak yang kalah dapat mengalami kerugian lebih besar, tetapi tetap dibatasi.
-  const attackerCap=Math.max(1,Math.round(deployed("troops")*(won?.012:.025)));
-  const defenderCap=Math.max(1,Math.round(present("troops")*(won?.025:.012)));
+  const attackerCap=Math.max(1,Math.round(deployed("troops")*(won?.05:.12)));
+  const defenderCap=Math.max(1,Math.round(present("troops")*(won?.12:.05)));
   lost.troops=Math.min(lost.troops,attackerCap);
   defLost.troops=Math.min(defLost.troops,defenderCap);
   if(deployed("troops")>0&&present("troops")>0&&lost.troops===0)lost.troops=Math.min(deployed("troops"),1);
