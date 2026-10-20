@@ -951,7 +951,7 @@ function economyTick(){
   const balance=income-upkeep-educationSpend-healthSpend;
   c.lastDailyIncome=income;c.lastDailyExpenses=upkeep+educationSpend+healthSpend;c.lastDailyNetBalance=balance;
   c.budget=Math.max(0,(c.budget||0)+balance);
-  if(balance<0){c.debt=Math.max(0,(c.debt||0)+Math.abs(balance));c.lastDebtPayment=0;c.lastDebtInterest=0;}
+  if(balance<0){c.debt=Math.max(0,(c.debt||0)+Math.abs(balance));c.lastDebtPayment=0;c.lastDebtInterest=0;c.lastDebtPrincipal=0;}
   else if(c.debt>0){
    const surplus=Math.max(0,balance),interestDue=Math.min(c.debt,Math.max(.02,c.debt*.0008));
    const interestPaid=Math.min(surplus,interestDue),afterInterest=Math.max(0,surplus-interestPaid);
