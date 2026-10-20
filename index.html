@@ -1057,7 +1057,7 @@ function politicsTick(){
   if(c.militaryLoyalty==null)c.militaryLoyalty=55;
   const atWar=state.wars.some(w=>w.active&&(w.a===c.id||w.b===c.id));
   const food=Number(c.resources?.food??50),budget=Number(c.budget??30);
-  const mood=(c.economy>65?.22:c.economy<35?-.38:0)+(c.stability>65?.18:c.stability<30?-.4:0)+(food<12?-.65:food<25?-.25:0)+(budget<8?-.25:0)+(atWar?-.22:0)-(c.corruption>65?.24:0);
+  const mood=(c.economy>65?.22:c.economy<35?-.38:0)+(c.stability>65?.18:c.stability<30?-.4:0)+(food<12?-.65:food<25?-.25:0)+(budget<8?-.25:0)+(atWar?-.22:0)-(c.corruption>65?.24:0)-(Number(c.warWeariness||0)*.002);
   c.popularity=clamp(c.popularity+(Math.random()*.8-.35)+mood,3,100);
   c.corruption=clamp(c.corruption+(Math.random()-.51)*.65+(c.government==="Otoriter"?.04:0),0,100);
   c.opposition=clamp(100-c.popularity+c.corruption*.16+(c.stability<35?8:0),0,100);
@@ -1302,6 +1302,9 @@ function updateMilitaryReadiness(){
   if(!Number.isFinite(c.militaryTraining))c.militaryTraining=35;
   if(!Number.isFinite(c.militaryExperience))c.militaryExperience=20;
   const r=c.resources,atWar=state.wars.some(w=>w.active&&(w.a===c.id||w.b===c.id));
+  if(!Number.isFinite(c.warWeariness))c.warWeariness=0;
+  c.warWeariness=clamp(c.warWeariness+(atWar?.18:-.12)+((Number(r.oil)||0)<8&&atWar?.12:0)+((Number(r.food)||0)<8&&atWar?.12:0),0,100);
+  if(c.warWeariness>45){c.morale=clamp((Number(c.morale)||50)-(c.warWeariness-45)*.0007,5,100);c.stability=clamp((Number(c.stability)||50)-(c.warWeariness-45)*.00035,0,100);}
   const supply=clamp((Math.min(100,Number(r.oil)||0)*.28+Math.min(100,Number(r.food)||0)*.28+Math.min(100,Number(r.iron)||0)*.12+Math.min(100,Number(c.budget)||0)*.18+Math.min(100,Number(c.industry)||0)*.14),0,100);
   const logisticsTech=Number(c.techTree?.logistics)||0;
   const target=clamp((c.militaryTraining*.24)+(c.militaryExperience*.12)+(c.morale*.14)+(c.stability*.10)+(supply*.24)+(c.research||30)*.08+(c.infrastructure||30)*.08+logisticsTech*.035,5,100);
