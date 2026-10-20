@@ -398,6 +398,8 @@ function chooseWar(){
    const economicRecord=a.intelMemory&&a.intelMemory[b.id],economicIntel=economicRecord&&(economicRecord.reports?.economic||((economicRecord.type==="economic")?economicRecord:null)),economicAge=economicIntel?Math.max(0,state.day-economicIntel.day):9999,economicSnapshot=economicIntel&&economicIntel.snapshot&&economicAge<=60?economicIntel.snapshot:null;const estimatedEconomy=economicSnapshot?economicSnapshot.economy:clamp(25+ownedCount(b.id)*5+(Math.random()-.5)*28,10,90),estimatedIndustry=economicSnapshot?economicSnapshot.industry:clamp(estimatedEconomy*.7+(Math.random()-.5)*24,5,95);const strategicValue=estimatedEconomy*.22+estimatedIndustry*.18+Math.min(6,ownedCount(b.id))*.8;
    const allyRisk=allyStrength>ownStrength*.7? .52 : allyStrength>ownStrength*.35? .75 : 1;
    let score=hostility*1.4+Math.log(Math.max(.25,ratio))*1.05+strategicValue/100+logistics*.65;
+   const attackerWeariness=Number(a.warWeariness)||0,defenderWeariness=Number(b.warWeariness)||0;
+   score-=Math.max(0,attackerWeariness-25)*.012;score+=Math.max(0,defenderWeariness-40)*.004;
    const estimatedReadiness=intelUseful?Number(intel.snapshot.readiness):clamp(32+ownedCount(b.id)*4+(Math.random()-.5)*22,10,90);score+=(Number(a.army||50)-estimatedReadiness)*.012; // Tanpa intel, AI hanya memakai indikator kasar.
    if(access.mode==="air")score-=.22;
    if(access.mode==="missile")score-=.32;
