@@ -1507,7 +1507,7 @@ function validateSimulationState(){
   ["budget","debt","unemployment"].forEach(k=>{const next=Math.max(0,Number(c[k])||0);if(next!==c[k]){c[k]=next;repaired++;}});
   ensureCommander(c);
   if(!c.resources||typeof c.resources!=="object"||Array.isArray(c.resources)){c.resources={oil:40,coal:40,iron:40,food:60,uranium:10};repaired++;}
-  ["oil","coal","iron","food","uranium"].forEach(k=>{const value=Number(c.resources[k]);const next=clamp(Number.isFinite(value)?value:({oil:40,coal:40,iron:40,food:60,uranium:10}[k]),0,150);if(next!==c.resources[k]){c.resources[k]=next;repaired++;}});
+  ["oil","coal","iron","food","uranium"].forEach(k=>{const value=Number(c.resources[k]);const next=clamp(Number.isFinite(value)?value:({oil:40,coal:40,iron:40,food:60,uranium:10}[k]),0,resourceCapacity(c));if(next!==c.resources[k]){c.resources[k]=next;repaired++;}});
  });
  state.regions.forEach(r=>{
   if(!r||typeof r!=="object")return;
