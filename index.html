@@ -140,6 +140,11 @@ th,td{padding:9px 10px}
    <p class="board-note">Grafik merangkum ekonomi rata-rata, perang aktif, dan wilayah yang dikuasai. Garis memakai skala masing-masing agar perubahan tetap terlihat. Data disimpan bersama simulasi.</p>
   </section>
   <section class="panel section">
+   <div class="panel-head"><div><div class="eyebrow">Currency market</div><h2>PERINGKAT KEKUATAN MATA UANG</h2></div><span class="badge">KURS DINAMIS</span></div>
+   <p class="board-note">Cara baca: <b>1 USD = berapa mata uang lokal</b>. Untuk peringkat, mata uang dengan nilai per unit paling tinggi terhadap USD ada di posisi atas. Angka berubah mengikuti simulasi, jadi ini kurs dalam game, bukan kurs dunia nyata.</p>
+   <div class="table-wrap"><table><thead><tr><th>PERINGKAT</th><th>MATA UANG</th><th>NILAI 1 UNIT DALAM USD</th><th>KURS YANG MUDAH DIBACA</th><th>NEGARA PENGGUNA</th></tr></thead><tbody id="currencyRankingTable"></tbody></table></div>
+  </section>
+  <section class="panel section">
    <div class="panel-head"><div><div class="eyebrow">National economy</div><h2>EKONOMI, POPULASI & PRODUKSI</h2></div><span class="badge">DINAMIS</span></div>
    <div class="table-wrap"><table><thead><tr><th>NEGARA</th><th>MATA UANG</th><th>KURS REFERENSI (1 USD)</th><th>KAS NEGARA</th><th>PENDAPATAN/HARI</th><th>PENGELUARAN/HARI</th><th>ARUS KAS BERSIH</th><th>UTANG</th><th>PENDUDUK</th><th>PERTUMBUHAN/HARI</th><th>EKONOMI</th><th>PENGANGGURAN</th><th>INFLASI</th><th>PAJAK</th><th>PENDIDIKAN / KESEHATAN</th><th>INDUSTRI</th></tr></thead><tbody id="economyTable"></tbody></table></div>
    <p class="board-note">Populasi, lapangan kerja, inflasi, utang, layanan publik, dan produksi saling memengaruhi. Data negara asing dirahasiakan jika intelijen belum memiliki laporan valid.</p>
@@ -1668,7 +1673,14 @@ function renderRelations(){
  const active=state.wars.filter(w=>w.active).slice().reverse();
  $("relations").innerHTML=active.length?active.map(w=>{const a=getC(w.a),b=getC(w.b);return '<div class="country-row"><span class="flag">⚔️</span><div><b>'+a.flag+' '+a.name+' vs '+b.flag+' '+b.name+'</b><small>Sejak hari '+w.started+' · '+w.battles+' pertempuran</small></div><span class="badge red">PERANG</span></div>'}).join(""):'<div class="detail-empty">Saat ini tidak ada perang aktif. Diplomasi terus berjalan di belakang layar.</div>';
 }
+function renderCurrencyRanking(){
+ const names={USD:"Dolar Amerika Serikat",CNY:"Yuan Tiongkok",RUB:"Rubel Rusia",INR:"Rupee India",IDR:"Rupiah Indonesia",JPY:"Yen Jepang",KRW:"Won Korea Selatan",KPW:"Won Korea Utara",GBP:"Pound sterling",EUR:"Euro",PLN:"Złoty Polandia",UAH:"Hryvnia Ukraina",TRY:"Lira Turki",SAR:"Riyal Saudi",ILS:"Shekel Israel",IRR:"Rial Iran",PKR:"Rupee Pakistan",BRL:"Real Brasil",MXN:"Peso Meksiko",CAD:"Dolar Kanada",AUD:"Dolar Australia",EGP:"Pound Mesir",ZAR:"Rand Afrika Selatan",VND:"Dong Vietnam",THB:"Baht Thailand",PHP:"Peso Filipina"};
+ const users={};state.countries.forEach(c=>{const cur=ensureCurrency(c);(users[cur[0]]||(users[cur[0]]=[])).push(c.name);});
+ const rows=Object.keys(FX_TO_USD).map(code=>({code,usd:fxRate(code),units:1/fxRate(code)})).sort((a,b)=>b.usd-a.usd);
+ $("currencyRankingTable").innerHTML=rows.map((r,i)=>'<tr><td><b>#'+(i+1)+'</b></td><td><b>'+r.code+'</b><small style="display:block;color:var(--muted)">'+(names[r.code]||r.code)+'</small></td><td>'+r.usd.toLocaleString("id-ID",{maximumFractionDigits:8})+' USD</td><td><b>1 USD = '+r.units.toLocaleString("id-ID",{maximumFractionDigits:2})+' '+r.code+'</b></td><td>'+((users[r.code]||[]).join(", ")||"—")+'</td></tr>').join("");
+}
 function renderEconomy(){
+ renderCurrencyRanking();
  const cs=[...state.countries].sort((a,b)=>ownedCount(b.id)-ownedCount(a.id));
  const shortPop=n=>{n=Number(n)||0;if(n>=1e9)return (n/1e9).toFixed(2).replace(/0+$/,"").replace(/\\.$/,"")+" miliar";if(n>=1e6)return (n/1e6).toFixed(1).replace(/\\.0$/,"")+" jt";return fmt(n);};
  $("economyTable").innerHTML=cs.map(c=>{const own=c.id===selected,g=Number(c.populationGrowth)||0,cur=ensureCurrency(c);return '<tr><td><b>'+c.flag+' '+c.name+'</b></td><td>'+cur[1]+' '+cur[0]+' · '+cur[2]+'</td><td>'+fxDisplay(c)+'</td><td>'+moneyFmt(c,c.budget)+(own?'<small style="display:block;color:var(--muted)">Saldo kas pemerintah</small>':"")+'</td><td>'+moneyFmt(c,Math.max(0,Number(c.lastDailyIncome)||0))+'</td><td>'+moneyFmt(c,Math.max(0,Number(c.lastDailyExpenses)||0))+'</td><td>'+((Number(c.lastDailyNetBalance)||0)<0?'−':'+')+moneyFmt(c,Math.abs(Number(c.lastDailyNetBalance)||0))+'</td><td>'+moneyFmt(c,c.debt||0)+'<small style="display:block;color:var(--muted)">Cicilan: '+moneyFmt(c,c.lastDebtPayment||0)+' · Bunga: '+moneyFmt(c,c.lastDebtInterest||0)+' · Pokok: '+moneyFmt(c,c.lastDebtPrincipal||0)+'</small>'+'</td><td>'+(own?shortPop(c.population):"Dirahasiakan")+'</td><td>'+(own?(g>=0?"+":"−")+shortPop(Math.abs(g)):"Belum diketahui")+'</td><td>'+(own?Math.round(c.economy):"Dirahasiakan")+'</td><td>'+(own?Math.round(c.unemployment||0)+"%":"Belum diketahui")+'</td><td>'+(own?Number(c.inflation||0).toFixed(1)+"%":"Belum diketahui")+'</td><td>'+(own?Number(c.taxRate||18).toFixed(1)+"%":"Belum diketahui")+'</td><td>'+(own?Math.round(c.educationBudget||8)+"% / "+Math.round(c.healthBudget||8)+"%":"Belum diketahui")+'</td><td>'+(own?Math.round(c.industry||0):"Belum diketahui")+'</td></tr>';}).join("");
