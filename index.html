@@ -887,7 +887,7 @@ function economyTick(){
   r.uranium=clamp((Number(r.uranium)||0)+.003+(c.industry||40)*.00003,0,150);
   // Logistik harian: armada dan perang memakai bahan bakar, penduduk membutuhkan pangan.
   r.oil=clamp(r.oil-Math.min(r.oil,.012+c.tanks*.000006+c.aircraft*.000009+c.ships*.000035+(atWar?.035:0)),0,150);
-  const popScale=Math.max(.1,(c.population||50000000)/100000000),foodProduction=.18+(c.industry||40)*.001+(c.health>65?.025:0)+(c.infrastructure>65?.025:0),foodDemand=.06+Math.min(.42,popScale*.055);
+  const popScale=Math.max(.1,(c.population||50000000)/100000000),foodProduction=.13+(c.industry||40)*.0015+(c.infrastructure||40)*.00035+(c.health||40)*.00025+(c.agriculture||0)*.001,foodDemand=.10+Math.min(.16,Math.sqrt(popScale)*.025);
   r.food=clamp(r.food+foodProduction-foodDemand,0,150);
   const foodStress=r.food<12?.85:r.food<25?.32:r.food>85?-.12:0,energyStress=(r.oil<8||r.coal<8)?.28:0,demandPressure=(c.economy>78&&c.unemployment<10)?.08:0;
   c.inflation=clamp(c.inflation+foodStress+energyStress+demandPressure+(atWar?.08:0)-(r.food>45?.035:0)-(c.recessionDays>0?.06:0)+(Math.random()-.52)*.12,.2,35);
