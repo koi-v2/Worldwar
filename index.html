@@ -400,6 +400,19 @@ function chooseWar(){
    let score=hostility*1.4+Math.log(Math.max(.25,ratio))*1.05+strategicValue/100+logistics*.65;
    const attackerWeariness=Number(a.warWeariness)||0,defenderWeariness=Number(b.warWeariness)||0;
    score-=Math.max(0,attackerWeariness-25)*.012;score+=Math.max(0,defenderWeariness-40)*.004;
+   // AI menghindari membuka front tambahan saat pasukan dan ekonomi sudah terbebani.
+   const activeFronts=state.wars.filter(w=>w.active&&(w.a===a.id||w.b===a.id)).length;
+   score-=activeFronts*.48;
+   const debt=Number(a.debt)||0,inflation=Number(a.inflation)||0,recessionDays=Number(a.recessionDays)||0;
+   if(debt>Math.max(100,(Number(a.economy)||40)*2))score-=.22;
+   if(inflation>12)score-=Math.min(.42,(inflation-12)*.018);
+   if(recessionDays>10)score-=Math.min(.3,(recessionDays-10)*.008);
+   // Riwayat doktrin memengaruhi pilihan: strategi yang pernah memberi kemajuan lebih dipertimbangkan.
+   const doctrineMemory=warDoctrinePerformance(a,ensureWarDoctrine(a).id);
+   if(doctrineMemory&&doctrineMemory.wars>=2){
+    score+=(doctrineMemory.averageProgress-50)*.006;
+    score-=Math.min(.24,(doctrineMemory.ceasefires/doctrineMemory.wars)*.3);
+   }
    const estimatedReadiness=intelUseful?Number(intel.snapshot.readiness):clamp(32+ownedCount(b.id)*4+(Math.random()-.5)*22,10,90);score+=(Number(a.army||50)-estimatedReadiness)*.012; // Tanpa intel, AI hanya memakai indikator kasar.
    if(access.mode==="air")score-=.22;
    if(access.mode==="missile")score-=.32;
