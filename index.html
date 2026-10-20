@@ -1200,7 +1200,7 @@ function espionageTick(){
   }
   const confidence=Math.round(clamp(38+net*.48-counter*.2+(Math.random()*14-7),18,92));
   const report={day:state.day,year:state.year,source:a.id,target:b.id,type,headline,detail,confidence,verified:false,snapshot};
-  a.intelMemory[b.id]={day:state.day,confidence,type,snapshot};
+  const priorIntel=a.intelMemory[b.id]&&typeof a.intelMemory[b.id]==="object"?a.intelMemory[b.id]:{};const reports=priorIntel.reports&&typeof priorIntel.reports==="object"?priorIntel.reports:{};reports[type]={day:state.day,confidence,type,snapshot};a.intelMemory[b.id]={...priorIntel,day:state.day,confidence,type,snapshot,reports};
   // Laporan militer tentang rival yang bermusuhan dapat memicu peringatan dini dan kesiapan defensif.
   const hostile=Number(a.relations?.[b.id]??0)<-12||(a.enemies||[]).includes(b.id),threateningMilitary=type==="military"&&hostile&&snapshot.readiness>=Number(a.army||50)+12;
   if(threateningMilitary){
@@ -1336,6 +1336,7 @@ function demographyTick(){
   c.childPopulation=Math.round(pop*childShare);
   c.elderlyPopulation=Math.round(pop*elderlyShare);
   c.workingAgePopulation=Math.max(1,pop-c.childPopulation-c.elderlyPopulation);
+  c.demographics={young:c.childPopulation/pop,working:c.workingAgePopulation/pop,elderly:c.elderlyPopulation/pop};
   c.dependencyRatio=Math.round((c.childPopulation+c.elderlyPopulation)/c.workingAgePopulation*100);
   c.workforce=Math.round(c.workingAgePopulation*.72);
   c.employed=Math.round(c.workforce*(1-clamp(unemployment,0,100)/100));
