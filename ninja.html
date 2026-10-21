@@ -164,7 +164,7 @@ renderAll();prepareBattle();$('speed').addEventListener('change',changeSpeed);
 /* Ninja Clash expansion pack: status combat, gear, dojo, challenges, quests, achievements, save tools. */
 (function(){
  const baseRenderAll=renderAll, baseStats=stats, baseAttack=attack, baseFinish=finishBattle, baseEnemyFor=enemyFor, baseGo=go;
- const defaults={medals:0,tower:1,survivalBest:0,materials:{scroll:5,ore:8,cloth:6,herb:5},potions:2,gearOwned:['kunai','vest','charm'],gearEquipped:{},skillLevels:{},challenge:null,challengeWins:0,battleWins:0,battleLosses:0,totalDamage:0,totalHealed:0,totalSummons:0,achievements:[],quests:{},settings:{verbose:true,reduceMotion:false},lastQuestDay:'',lastQuestWeek:'',arenaRank:1};
+ const defaults={medals:0,tower:1,survivalBest:0,materials:{scroll:5,ore:8,cloth:6,herb:5},potions:2,potionBoost:false,gearOwned:['kunai','vest','charm'],gearEquipped:{},skillLevels:{},challenge:null,challengeWins:0,battleWins:0,battleLosses:0,totalDamage:0,totalHealed:0,totalSummons:0,achievements:[],quests:{},settings:{verbose:true,reduceMotion:false},lastQuestDay:'',lastQuestWeek:'',arenaRank:1};
  Object.keys(defaults).forEach(k=>{if(state[k]===undefined)state[k]=JSON.parse(JSON.stringify(defaults[k]))});
  const GEAR=[
   {id:'kunai',name:'Kunai Baja',icon:'🗡️',desc:'+8 serangan',atk:8,def:0,hp:0,cost:350,slot:'Senjata'},
@@ -225,10 +225,23 @@ renderAll();prepareBattle();$('speed').addEventListener('change',changeSpeed);
   if(!alive(0).length){finishBattle(false);return}if(!alive(1).length){finishBattle(true);return}baseTick();
  };
  finishBattle=function(win){
-  if(battle&&battle.challengeMode){state.challengeWins=state.challengeWins+(win?1:0);if(win){state.medals+=battle.challengeMode==='arena'?3:battle.challengeMode==='boss'?5:2;if(battle.challengeMode==='tower')state.tower=Math.min(100,state.tower+1);if(battle.challengeMode==='survival'){state.survivalBest=Math.max(state.survivalBest,battle.wave||1);state.materials.ore+=2}}state.challenge=null;battle.challengeMode=null}
-  if(win){state.battleWins=(state.battleWins||0)+1;state.quests.wins=(state.quests.wins||0)+1}
-  else state.battleLosses=(state.battleLosses||0)+1;
-  baseFinish(win);renderExpansion();
+  const mode=battle&&battle.challengeMode?battle.challengeMode:null;
+  const before={gold:state.gold,cleared:state.cleared,unlocked:state.unlocked,team:state.owned.map(o=>({id:o.id,level:o.level,xp:o.xp}))};
+  if(mode){
+   state.challengeWins=(state.challengeWins||0)+(win?1:0);
+   if(win){state.medals+=(mode==='arena'?3:mode==='boss'?5:2);if(mode==='tower')state.tower=Math.min(100,state.tower+1);if(mode==='survival'){state.survivalBest=Math.max(state.survivalBest,battle.wave||1);state.materials.ore+=2}}
+  }
+  if(win){state.battleWins=(state.battleWins||0)+1;state.quests.wins=(state.quests.wins||0)+1}else state.battleLosses=(state.battleLosses||0)+1;
+  baseFinish(win);
+  if(mode){
+   state.gold=before.gold;state.cleared=before.cleared;state.unlocked=before.unlocked;
+   before.team.forEach(p=>{const o=own(p.id);if(o){o.level=p.level;o.xp=p.xp}});
+   $('arenaTitle').textContent=mode==='tower'?'MENARA · LANTAI '+(win?state.tower-1:state.tower):mode==='boss'?'BOSS SHINOBI':mode==='survival'?'BERTAHAN · GELOMBANG '+(battle.wave||1):'UJIAN ARENA';
+   $('battleStatus').textContent=win?'Tantangan berhasil!':'Tantangan gagal';
+   $('battleState').textContent=win?'MENANG':'KALAH';
+   if(win)toast('Tantangan selesai! Hadiah medali diterima.');
+  }
+  save();renderExpansion();
  };
  function startChallenge(mode){
   if(battle&&battle.running){toast('Selesaikan atau reset pertarungan aktif dulu.');return}
@@ -257,7 +270,7 @@ renderAll();prepareBattle();$('speed').addEventListener('change',changeSpeed);
  window.buyGear=function(id){const g=GEAR.find(x=>x.id===id);if(!g||state.gearOwned.includes(id)||state.gold<g.cost){toast('Koin tidak cukup atau item sudah dimiliki.');return}state.gold-=g.cost;state.gearOwned.push(id);if(!state.materials)state.materials={};state.materials.ore+=1;save();renderExpansion();toast(g.name+' dibeli!')};
  window.equipGear=function(id,slot,gid){state.gearEquipped[id]=state.gearEquipped[id]||{};if(gid)state.gearEquipped[id][slot]=gid;else delete state.gearEquipped[id][slot];save();renderExpansion();toast('Perlengkapan diperbarui.')};
  window.upgradeSkill=function(id){const lv=state.skillLevels[id]||1,cost=lv*2,gold=lv*120;if(lv>=10)return;if(state.materials.scroll<cost||state.gold<gold){toast('Material atau koin belum cukup.');return}state.materials.scroll-=cost;state.gold-=gold;state.skillLevels[id]=lv+1;save();renderExpansion();toast('Skill '+def(id).name+' naik ke level '+(lv+1)+'!')};
- window.usePotion=function(){if(state.potions<1){toast('Ramuan habis.');return}state.potions--;state.gold+=80;state.materials.herb+=1;save();renderExpansion();toast('Ramuan digunakan: bonus persiapan +80 koin dan +1 herbal.')};
+ window.usePotion=function(){if(state.potions<1){toast('Ramuan habis.');return}if(state.potionBoost){toast('Bonus ramuan sudah siap untuk pertarungan berikutnya.');return}state.potions--;state.potionBoost=true;save();renderExpansion();toast('Ramuan disiapkan! Tim mendapat +15% HP dan serangan pada pertarungan berikutnya.')};
  window.claimQuest=function(id){const q=QUESTS.find(x=>x.id===id);if(!q)return;state.quests.claimed=state.quests.claimed||{};if(state.quests.claimed[id]||(state.quests[q.key]||0)<q.goal){toast('Tugas belum selesai.');return}state.quests.claimed[id]=true;state.gold+=q.gold;state.materials.scroll+=q.mat;save();renderExpansion();toast('Hadiah tugas diterima!')};
  window.claimQuestRewards=function(){let n=0;QUESTS.forEach(q=>{if((state.quests[q.key]||0)>=q.goal&&!(state.quests.claimed||{})[q.id]){state.quests.claimed=state.quests.claimed||{};state.quests.claimed[q.id]=true;state.gold+=q.gold;state.materials.scroll+=q.mat;n++}});save();renderExpansion();toast(n?'Berhasil klaim '+n+' hadiah tugas.':'Belum ada tugas yang bisa diklaim.')};
  window.claimAchievement=function(id){const a=ACH.find(x=>x.id===id);if(!a||state.achievements.includes(id)||!a.test())return;state.achievements.push(id);state.gold+=a.reward;save();renderExpansion();toast('Pencapaian '+a.name+' diperoleh!')};
@@ -267,11 +280,18 @@ renderAll();prepareBattle();$('speed').addEventListener('change',changeSpeed);
  window.resetSave=function(){if(!confirm('Yakin menghapus seluruh progres Ninja Clash di perangkat ini?'))return;localStorage.removeItem('ninjaClashSave');location.reload()};
  window.saveSettings=function(){state.settings.verbose=$('logVerbose').checked;state.settings.reduceMotion=$('reduceMotion').checked;save();document.body.classList.toggle('reduceMotion',state.settings.reduceMotion);toast('Preferensi disimpan.')};
  const oldTrain=train;train=function(id){oldTrain(id);state.quests.trains=(state.quests.trains||0)+1;save();renderExpansion()};
- const oldSummon=summon;summon=function(type){const before=state.owned.length;oldSummon(type);if(state.gold>=0){state.totalSummons++;state.quests.summons=(state.quests.summons||0)+1;save();renderExpansion()}};
+ const oldSummon=summon;summon=function(type){const gold=state.gold,tickets=state.tickets,owned=state.owned.length,shards=state.shards;oldSummon(type);if(state.gold!==gold||state.tickets!==tickets||state.owned.length!==owned||state.shards!==shards){state.totalSummons++;state.quests.summons=(state.quests.summons||0)+1;save();renderExpansion()}};
  renderAll=function(){baseRenderAll();renderExpansion()};
  go=function(view){baseGo(view);if(['challenges','inventory','jutsu','progress'].includes(view))renderExpansion()};
+ function applyPotionBoost(){if(!state.potionBoost||!battle)return; battle.allies.forEach(u=>{u.max=Math.round(u.max*1.15);u.hp=Math.min(u.max,Math.round(u.hp*1.15));u.atk=Math.round(u.atk*1.15)});state.potionBoost=false;save();addLog('🧪 Ramuan aktif: tim memperoleh +15% HP dan serangan.','skill');renderArena()}
  const originalStart=startBattle;
- startBattle=function(){if(battle&&battle.challengeMode){const mode=battle.challengeMode;const wave=battle.wave;const allies=teamOwned().map(makeAlly);const enemies=battle.enemies;/* preserve scaled challenge opponents */battle.allies=allies;battle.running=true;battle.done=false;paused=false;$('battleState').textContent='BERTARUNG';$('battleStatus').textContent='Pertarungan berlangsung';$('battleStart').textContent='⚔️ SEDANG BERLANGSUNG';$('pauseBtn').textContent='Ⅱ JEDA';$('battleLog').innerHTML='';actions=0;addLog('⚔️ Tantangan '+mode+' dimulai!');go('battle');scheduleBattle();return}originalStart()};
+ startBattle=function(){
+  if(battle&&battle.running){go('battle');return}
+  if(battle&&battle.done)prepareBattle();else if(!battle)prepareBattle();
+  if(!battle||!battle.allies.length){originalStart();return}
+  if(battle.challengeMode){const mode=battle.challengeMode;battle.allies=teamOwned().map(makeAlly);battle.running=true;battle.done=false;paused=false;applyPotionBoost();$('battleState').textContent='BERTARUNG';$('battleStatus').textContent='Pertarungan berlangsung';$('battleStart').textContent='⚔️ SEDANG BERLANGSUNG';$('pauseBtn').textContent='Ⅱ JEDA';$('battleLog').innerHTML='';actions=0;addLog('⚔️ Tantangan '+mode+' dimulai!');go('battle');scheduleBattle();return}
+  applyPotionBoost();originalStart();
+ };
  const oldSelectStage=selectStage;selectStage=function(n){state.challenge=null;oldSelectStage(n)};
  const oldDaily=daily;daily=function(){oldDaily();renderExpansion()};
  const oldFinish=finishBattle;
