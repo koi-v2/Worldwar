@@ -18,13 +18,16 @@ header{position:sticky;top:0;z-index:20;background:#0b1224ed;backdrop-filter:blu
 .stageList{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.stageCard{padding:12px;text-align:left}.stageCard.selected{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold)}.stageCard b{display:block;font-size:12px}.stageCard span{display:block;color:var(--muted);font-size:10px;margin:4px 0}.toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:#f7d16b;color:#211b29;padding:11px 16px;border-radius:11px;font-weight:900;font-size:12px;box-shadow:0 8px 28px #0008;z-index:50;max-width:90vw;text-align:center;animation:toastin .2s}@keyframes toastin{from{opacity:0;bottom:65px}to{opacity:1;bottom:80px}}
 .bottomNav{position:fixed;bottom:0;left:0;right:0;z-index:19;display:flex;justify-content:center;background:#0b1224ed;border-top:1px solid var(--line);backdrop-filter:blur(12px);padding:8px 4px calc(8px + env(safe-area-inset-bottom))}.bottomNav button{flex:1;max-width:170px;border:0;background:transparent;color:var(--muted);padding:7px 2px;font-size:10px}.bottomNav button.active{color:var(--gold)}.bottomNav .ico{font-size:18px;display:block;margin-bottom:3px}
 @media(min-width:700px){.bottomNav{display:none}.wrap{padding-bottom:30px}.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}@media(max-width:520px){header{align-items:flex-start}.brand{font-size:14px}.res{padding:6px;font-size:10px}.hero{padding:14px}.heroIcon{font-size:47px}.featureGrid{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.stageList{grid-template-columns:repeat(2,minmax(0,1fr))}.fighter .emoji{font-size:32px;height:51px}.teams{gap:5px}.stage{padding-left:5px;padding-right:5px}.formrow select{max-width:115px}}
+
+.challengeGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.statusPill{display:inline-block;border:1px solid #3c5274;border-radius:6px;padding:2px 5px;font-size:9px;margin:2px;color:#c9d8f4}.itemRow{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 0;border-bottom:1px solid var(--line)}.itemRow:last-child{border-bottom:0}.itemRow b{font-size:11px}.itemRow .small{display:block;margin-top:3px}.statTile{padding:12px}.statTile b{display:block;font-size:23px;color:var(--gold)}.statTile span{font-size:10px;color:var(--muted)}.skillCard{padding:12px}.skillCard h3{margin:5px 0;font-size:12px}@media(max-width:520px){.challengeGrid{grid-template-columns:1fr}.challengeGrid .panel{min-width:0}}
+
 </style>
 </head>
 <body>
 <header><div class="brand">🥷 NINJA <span>CLASH</span><small>SHINOBI LEGENDS</small></div><div class="resources"><div class="res">🪙 <b id="gold">1500</b></div><div class="res">🎟️ <b id="tickets">3</b></div><div class="res">🔷 <b id="shards">0</b></div></div></header>
 <main class="wrap">
 <section class="hero"><div><h1>Jalan Shinobi</h1><p>Kumpulkan ninja, bentuk tim terbaik, dan menangkan pertarungan otomatis.<br><b class="gold">Progres tersimpan otomatis di perangkat.</b></p></div><div class="heroIcon">⛩️</div></section>
-<nav class="nav" id="topNav"><button class="active" data-view="home">🏯 Markas</button><button data-view="team">👥 Tim</button><button data-view="summon">✨ Rekrut</button><button data-view="collection">📚 Koleksi</button><button data-view="campaign">🗺️ Misi</button><button data-view="battle">⚔️ Arena</button></nav>
+<nav class="nav" id="topNav"><button class="active" data-view="home">🏯 Markas</button><button data-view="team">👥 Tim</button><button data-view="summon">✨ Rekrut</button><button data-view="collection">📚 Koleksi</button><button data-view="campaign">🗺️ Misi</button><button data-view="battle">⚔️ Arena</button><button data-view="challenges">🏆 Tantangan</button><button data-view="inventory">🎒 Inventaris</button><button data-view="jutsu">🌀 Jutsu</button><button data-view="progress">📊 Progres</button></nav>
 <section class="view active" id="home">
 <div class="featureGrid">
  <div class="panel feature"><div class="small">KEKUATAN TIM AKTIF</div><div class="bigNum" id="teamPower">0</div><p class="small">Gabungan kekuatan 3 ninja pilihanmu.</p><button class="primary" onclick="go('battle')">⚔️ Mulai bertarung</button></div>
@@ -43,6 +46,37 @@ header{position:sticky;top:0;z-index:20;background:#0b1224ed;backdrop-filter:blu
 <section class="view" id="collection"><div class="sectionhead"><div><h2>📚 Koleksi ninja</h2><p id="collectionCount">3 ninja dimiliki</p></div><select id="filterRarity" onchange="renderCollection()" style="background:#1c2943;color:white;border:1px solid var(--line);border-radius:8px;padding:8px"><option value="all">Semua rarity</option><option>SSR</option><option>SR</option><option>R</option></select></div><div class="grid" id="collectionGrid"></div></section>
 <section class="view" id="campaign"><div class="sectionhead"><div><h2>🗺️ Perjalanan shinobi</h2><p>Pilih misi yang sudah terbuka. Kalahkan musuh untuk mendapat hadiah.</p></div></div><div class="panel panelPad" style="margin-bottom:12px"><div class="quest" style="border:0;padding-top:0"><div><b id="selectedStageName">Misi 1 — Gerbang Hutan</b><br><span id="selectedStageDesc">Musuh pemula, cocok untuk mencoba formasi.</span></div><div class="gold" id="stageReward">+150 🪙</div></div><button class="primary" style="width:100%" onclick="startBattle()">⚔️ MULAI MISI TERPILIH</button></div><div class="stageList" id="stageList"></div></section>
 <section class="view" id="battle"><div class="sectionhead"><div><h2>⚔️ Arena pertarungan</h2><p>Pertarungan berlangsung otomatis. Ninja tercepat menyerang lebih dulu.</p></div><span class="rarity" id="battleMode">MISI</span></div><div class="battleArena"><div class="arenaHead"><span id="arenaTitle">MISI 1 · GERBANG HUTAN</span><span id="battleState" class="gold">SIAP</span></div><div class="stage"><div class="moon"></div><div class="cloud">☁</div><div class="teams"><div><div class="teamtitle cyan">TIM SHINOBI</div><div id="allyFighters" class="fighters"></div></div><div><div class="teamtitle red">LAWAN</div><div id="enemyFighters" class="fighters"></div></div></div></div><div class="battleInfo"><span>Status: <b id="battleStatus" style="color:white">Siap bertarung</b></span><span>Waktu: <b id="battleTimer" style="color:white">00:00</b></span><span>Kecepatan: <b id="speedLabel" style="color:white">1x</b></span></div><div class="arenaControls"><button class="primary" id="battleStart" onclick="startBattle()">▶ MULAI PERTARUNGAN</button><button onclick="pauseBattle()" id="pauseBtn">Ⅱ JEDA</button><select id="speed" onchange="changeSpeed()" style="background:#202d48;color:white;border:1px solid #405273;border-radius:9px;padding:9px"><option value="1">1x</option><option value="2">2x</option><option value="3">3x</option></select><button onclick="resetBattle()">↻ Reset</button></div></div><div class="sectionhead"><div><h2>📜 Catatan pertarungan</h2><p>Serangan, skill, damage, dan hasil pertarungan.</p></div><span class="small" id="logCount">0 aksi</span></div><div class="panel panelPad"><div id="battleLog" class="log"><div class="empty">Pilih misi lalu tekan mulai.</div></div></div></section>
+
+<section class="view" id="challenges">
+ <div class="sectionhead"><div><h2>🏆 Tantangan Shinobi</h2><p>Mode tambahan melawan AI. Catatan: ini bukan PvP online.</p></div></div>
+ <div class="grid challengeGrid">
+  <div class="panel panelPad"><div style="font-size:32px">🥋</div><h3>Ujian Arena</h3><p class="small">Lawan tim yang kekuatannya mengikuti progresmu. Menang memberi medali.</p><button class="primary" onclick="startChallenge('arena')">Mulai Arena</button></div>
+  <div class="panel panelPad"><div style="font-size:32px">🗼</div><h3>Menara 100 Lantai</h3><p class="small">Lantai makin tinggi, musuh makin kuat. Progres tersimpan.</p><div class="bigNum" id="towerFloor">1 / 100</div><button class="primary" onclick="startChallenge('tower')">Tantang Lantai</button></div>
+  <div class="panel panelPad"><div style="font-size:32px">🐉</div><h3>Boss Shinobi</h3><p class="small">Hadapi boss tangguh dengan HP besar dan hadiah material.</p><button class="primary" onclick="startChallenge('boss')">Lawan Boss</button></div>
+  <div class="panel panelPad"><div style="font-size:32px">🌊</div><h3>Gelombang Bertahan</h3><p class="small">Hadapi beberapa gelombang musuh. Setiap kemenangan meningkatkan hadiah.</p><div class="bigNum" id="survivalWave">0</div><button class="primary" onclick="startChallenge('survival')">Mulai Bertahan</button></div>
+ </div>
+ <div class="sectionhead"><div><h2>🎯 Tugas harian & mingguan</h2><p>Selesaikan aktivitas untuk hadiah tambahan.</p></div><button onclick="claimQuestRewards()">Klaim hadiah</button></div>
+ <div class="panel panelPad" id="questBoard"></div>
+ <div class="sectionhead"><div><h2>🏅 Pencapaian</h2><p>Target jangka panjang dan hadiah satu kali.</p></div></div><div class="panel panelPad" id="achievementBoard"></div>
+</section>
+<section class="view" id="inventory">
+ <div class="sectionhead"><div><h2>🎒 Inventaris & Perlengkapan</h2><p>Pasang perlengkapan pada ninja untuk meningkatkan atribut.</p></div></div>
+ <div class="featureGrid"><div class="panel panelPad"><h3>📦 Material</h3><div id="materialList"></div></div><div class="panel panelPad"><h3>🛒 Toko Shinobi</h3><p class="small">Barang dibeli memakai koin.</p><div id="shopList"></div></div></div>
+ <div class="sectionhead"><div><h2>🛡️ Perlengkapan ninja</h2><p>Pilih karakter dan pasang item yang dimiliki.</p></div><select id="gearNinja" onchange="renderGear()" style="background:#202d48;color:white;border:1px solid #405273;border-radius:8px;padding:8px"></select></div>
+ <div class="grid" id="gearGrid"></div>
+ <div class="sectionhead"><div><h2>🧪 Ramuan</h2><p>Item sekali pakai untuk persiapan.</p></div></div><div class="panel panelPad" id="potionList"></div>
+</section>
+<section class="view" id="jutsu">
+ <div class="sectionhead"><div><h2>🌀 Dojo Jutsu</h2><p>Tingkatkan skill dan buka spesialisasi. Tiap level skill meningkatkan efeknya.</p></div></div>
+ <div class="panel panelPad"><div class="quest"><div><b>📘 Gulungan jutsu</b><br><span>Material peningkatan skill tersedia di misi dan toko.</span></div><b class="gold" id="scrollCount">0</b></div><div class="quest"><div><b>🌪️ Elemen aktif</b><br><span>Api mengalahkan Angin, Angin mengalahkan Petir, Petir mengalahkan Air, Air mengalahkan Api. Bumi unggul bertahan.</span></div></div></div>
+ <div class="sectionhead"><div><h2>📖 Teknik karakter</h2><p>Setiap karakter punya skill dasar yang bisa ditingkatkan.</p></div></div><div class="grid" id="skillGrid"></div>
+</section>
+<section class="view" id="progress">
+ <div class="sectionhead"><div><h2>📊 Statistik & Data Game</h2><p>Ringkasan progres dan pengelolaan save.</p></div></div>
+ <div class="grid" id="statsGrid"></div>
+ <div class="panel panelPad" style="margin-top:12px"><h3>💾 Cadangan progres</h3><p class="small">Ekspor kode save untuk dicadangkan. Simpan kode itu di tempat aman agar dapat diimpor kembali.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="primary" onclick="exportSave()">Ekspor save</button><button onclick="importSave()">Impor save</button><button class="danger" onclick="resetSave()">Reset semua progres</button></div><textarea id="saveBox" rows="5" placeholder="Kode save akan muncul di sini..." style="width:100%;margin-top:10px;background:#080e1c;color:white;border:1px solid #405273;border-radius:9px;padding:10px"></textarea><p class="small">Save saat ini tersimpan lokal di browser/perangkat ini.</p></div>
+ <div class="panel panelPad" style="margin-top:12px"><h3>⚙️ Preferensi</h3><label style="display:flex;gap:8px;align-items:center;margin:10px 0"><input id="logVerbose" type="checkbox" checked> Catatan pertarungan lebih rinci</label><label style="display:flex;gap:8px;align-items:center;margin:10px 0"><input id="reduceMotion" type="checkbox"> Kurangi animasi</label><button onclick="saveSettings()">Simpan preferensi</button></div>
+</section>
 </main>
 <nav class="bottomNav" id="bottomNav"><button class="active" data-view="home"><span class="ico">🏯</span>Markas</button><button data-view="team"><span class="ico">👥</span>Tim</button><button data-view="summon"><span class="ico">✨</span>Rekrut</button><button data-view="collection"><span class="ico">📚</span>Koleksi</button><button data-view="campaign"><span class="ico">🗺️</span>Misi</button></nav>
 <script>
@@ -124,5 +158,127 @@ function pauseBattle(){if(!battle||!battle.running)return;paused=!paused;$('paus
 function finishBattle(win){clearInterval(loop);loop=null;battle.running=false;battle.done=true;$('battleState').textContent=win?'MENANG':'KALAH';$('battleStatus').textContent=win?'Misi berhasil!':'Tim dikalahkan';$('battleStart').textContent='↻ COBA LAGI';if(win){const st=STAGES[battle.stage-1],gold=st[2],xp=st[3];state.gold+=gold;for(const id of state.team){const o=own(id);if(o){o.xp+=xp;if(o.xp>=o.level*100&&o.level<50){o.xp-=o.level*100;o.level++;addLog('⭐ '+def(id).name+' naik ke level '+o.level+'!','win')}}}state.cleared=Math.max(state.cleared,battle.stage);state.unlocked=Math.min(STAGES.length,Math.max(state.unlocked,battle.stage+1));addLog('🏆 MENANG! Hadiah +'+gold+' koin dan '+xp+' XP untuk anggota tim.','win');toast('Misi berhasil! +'+gold+' koin');save();}else{addLog('Tim kalah. Tingkatkan level atau ubah formasi lalu coba lagi.','ko');toast('Belum berhasil. Coba latih ninja atau ganti formasi.')}renderStages();}
 function resetBattle(){clearInterval(loop);loop=null;paused=false;prepareBattle();toast('Pertarungan direset.')}
 renderAll();prepareBattle();$('speed').addEventListener('change',changeSpeed);
+</script>
+
+<script>
+/* Ninja Clash expansion pack: status combat, gear, dojo, challenges, quests, achievements, save tools. */
+(function(){
+ const baseRenderAll=renderAll, baseStats=stats, baseAttack=attack, baseFinish=finishBattle, baseEnemyFor=enemyFor, baseGo=go;
+ const defaults={medals:0,tower:1,survivalBest:0,materials:{scroll:5,ore:8,cloth:6,herb:5},potions:2,gearOwned:['kunai','vest','charm'],gearEquipped:{},skillLevels:{},challenge:null,challengeWins:0,battleWins:0,battleLosses:0,totalDamage:0,totalHealed:0,totalSummons:0,achievements:[],quests:{},settings:{verbose:true,reduceMotion:false},lastQuestDay:'',lastQuestWeek:'',arenaRank:1};
+ Object.keys(defaults).forEach(k=>{if(state[k]===undefined)state[k]=JSON.parse(JSON.stringify(defaults[k]))});
+ const GEAR=[
+  {id:'kunai',name:'Kunai Baja',icon:'🗡️',desc:'+8 serangan',atk:8,def:0,hp:0,cost:350,slot:'Senjata'},
+  {id:'katana',name:'Katana Chakra',icon:'⚔️',desc:'+17 serangan',atk:17,def:0,hp:0,cost:950,slot:'Senjata'},
+  {id:'vest',name:'Rompi Shinobi',icon:'🥋',desc:'+8 pertahanan, +35 HP',atk:0,def:8,hp:35,cost:400,slot:'Armor'},
+  {id:'armor',name:'Armor Penjaga',icon:'🛡️',desc:'+15 pertahanan, +70 HP',atk:0,def:15,hp:70,cost:1000,slot:'Armor'},
+  {id:'charm',name:'Jimat Angin',icon:'🧿',desc:'+0.12 kecepatan',atk:0,def:0,hp:0,spd:.12,cost:500,slot:'Aksesori'},
+  {id:'crystal',name:'Kristal Chakra',icon:'🔷',desc:'+10 serangan, +25 HP',atk:10,def:0,hp:25,cost:850,slot:'Aksesori'}
+ ];
+ const QUESTS=[
+  {id:'win1',name:'Menangkan 1 pertarungan',desc:'Menangkan pertarungan apa pun.',goal:1,key:'wins',gold:180,mat:1},
+  {id:'summon1',name:'Rekrut 1 ninja',desc:'Lakukan satu rekrutmen.',goal:1,key:'summons',gold:150,mat:0},
+  {id:'train1',name:'Latih ninja',desc:'Naikkan level ninja satu kali.',goal:1,key:'trains',gold:120,mat:1},
+  {id:'win3',name:'Misi beruntun',desc:'Menangkan 3 pertarungan.',goal:3,key:'wins',gold:350,mat:2}
+ ];
+ const ACH=[
+  {id:'firstwin',name:'Langkah Pertama',desc:'Menangkan pertarungan pertama.',test:()=>state.battleWins>=1,reward:250},
+  {id:'collector',name:'Kolektor',desc:'Miliki 8 ninja berbeda.',test:()=>state.owned.length>=8,reward:500},
+  {id:'legend',name:'Legenda Shinobi',desc:'Miliki ninja SSR.',test:()=>state.owned.some(o=>def(o.id).rarity==='SSR'),reward:300},
+  {id:'tower10',name:'Pendaki Menara',desc:'Selesaikan setidaknya 10 lantai.',test:()=>state.tower>=11,reward:650},
+  {id:'rich',name:'Kas Shinobi',desc:'Kumpulkan 5.000 koin atau lebih.',test:()=>state.gold>=5000,reward:400},
+  {id:'summoner',name:'Pemanggil',desc:'Lakukan 10 rekrutmen.',test:()=>state.totalSummons>=10,reward:600}
+ ];
+ const oldStats=stats;
+ stats=function(o){const s=oldStats(o),eq=state.gearEquipped[o.id]||{};for(const slot in eq){const g=GEAR.find(x=>x.id===eq[slot]);if(g){s.hp+=g.hp||0;s.atk+=g.atk||0;s.def+=g.def||0;s.spd+=(g.spd||0)}}return s};
+ function elemMult(a,b){if(a==='Api'&&b==='Angin'||a==='Angin'&&b==='Petir'||a==='Petir'&&b==='Air'||a==='Air'&&b==='Api')return 1.22;if(b==='Api'&&a==='Angin'||b==='Angin'&&a==='Petir'||b==='Petir'&&a==='Air'||b==='Air'&&a==='Api')return .84;return 1}
+ function extendedEnemyFor(stage){const e=baseEnemyFor(stage);e.forEach((x,i)=>{x.element=['Api','Air','Angin','Petir','Bumi','Bayangan'][(stage+i)%6];x.status={};x.chakra=0;x.maxChakra=100;x.role=i===2?'tank':i===1?'support':'attacker';if(state.challenge==='boss'&&i===2){x.name='Boss '+x.name;x.max=Math.round(x.max*3.5);x.hp=x.max;x.atk=Math.round(x.atk*1.3)}});return e}
+ enemyFor=extendedEnemyFor;
+ const baseMakeAlly=makeAlly;
+ makeAlly=function(o){const u=baseMakeAlly(o),d=def(o.id);u.element=d.element;u.status={};u.chakra=25;u.maxChakra=100;u.skillLevel=state.skillLevels[o.id]||1;u.role=(d.id==='hana')?'support':(['daichi','tetsu','goro'].includes(d.id)?'tank':'attacker');return u};
+ function makeStatus(u){if(!u.status)u.status={};return u.status}
+ attack=function(u){
+  if(!u.alive)return;const foes=alive(1-u.team);if(!foes.length)return;
+  const us=makeStatus(u);if(us.stun>0){us.stun--;addLog('💫 '+u.name+' terkena stun dan kehilangan giliran.','ko');return}
+  const team=alive(u.team),friend=team.filter(x=>x.hp/x.max<.68).sort((a,b)=>a.hp/a.max-b.hp/b.max)[0];
+  u.chakra=Math.min(100,(u.chakra||0)+18);
+  if(u.team===0&&u.role==='support'&&friend&&Math.random()<.32){const heal=Math.round(friend.max*(.10+.025*(u.skillLevel||1)));friend.hp=Math.min(friend.max,friend.hp+heal);state.totalHealed+=heal;addLog('💚 '+u.name+' memulihkan '+friend.name+' sebanyak '+heal+' HP.','skill');pop(friend.uid,'+'+heal);return}
+  let t;
+  if(u.role==='attacker'&&Math.random()<.35)t=foes.slice().sort((a,b)=>a.hp/b.max-b.hp/a.max)[0];else t=foes[Math.floor(Math.random()*foes.length)];
+  const special=(u.chakra>=100||Math.random()<.16);let dmg=Math.max(4,Math.round(u.atk*(.78+Math.random()*.45)-t.def*.42));let label='serangan biasa';
+  if(special){u.chakra=Math.max(0,u.chakra-100);dmg=Math.round(dmg*(1.55+.08*((u.skillLevel||1)-1)));label=u.skill;addLog('✨ '+u.name+' melepas '+u.skill+'! Chakra terkuras.','skill')}
+  const mul=elemMult(u.element||'Bayangan',t.element||'Bayangan');dmg=Math.round(dmg*mul);if(mul>1)label+=' · elemen unggul';if(mul<1)label+=' · elemen lemah';
+  const ts=makeStatus(t);if(ts.weak) dmg=Math.round(dmg*1.18);
+  if(t.barrier){const block=Math.min(t.barrier,dmg);t.barrier-=block;dmg-=block}
+  t.hp=Math.max(0,t.hp-dmg);state.totalDamage+=dmg;pop(t.uid,'-'+dmg);addLog(u.name+' menyerang '+t.name+' — '+dmg+' damage ('+label+').');
+  if(special&&u.team===0&&['kuro','yori'].includes(u.uid)&&Math.random()<.35){ts.burn=2;addLog('🔥 '+t.name+' terbakar selama 2 giliran.','skill')}
+  if(special&&u.team===0&&u.uid==='akari'&&Math.random()<.28){ts.stun=1;addLog('💫 '+t.name+' terkena stun!','skill')}
+  if(special&&u.team===0&&u.uid==='mika'){foes.filter(x=>x.alive&&x.uid!==t.uid).forEach(x=>{const splash=Math.round(dmg*.28);x.hp=Math.max(0,x.hp-splash);state.totalDamage+=splash;addLog('🌪️ Serangan area mengenai '+x.name+' ('+splash+').','skill');if(x.hp<=0)x.alive=false})}
+  if(special&&u.team===0&&u.uid==='daichi'){u.barrier=(u.barrier||0)+Math.round(u.max*.12);addLog('🛡️ '+u.name+' memperoleh barrier.','skill')}
+  if(special&&u.team===0&&u.uid==='hana'&&friend){const heal=Math.round(friend.max*.18);friend.hp=Math.min(friend.max,friend.hp+heal);state.totalHealed+=heal;addLog('💚 '+u.name+' memulihkan '+friend.name+' sebanyak '+heal+' HP.','skill')}
+  if(t.hp<=0&&t.alive){t.alive=false;pop(t.uid,'KO');addLog('💥 '+t.name+' tersingkir!','ko')}
+  if(u.name==='Daichi'&&u.team===0&&Math.random()<.12){u.barrier=18;addLog('🛡️ Daichi memasang pertahanan.','skill')}
+  renderArena();
+ };
+ const baseTick=battleTick;
+ battleTick=function(){if(!battle||!battle.running||paused)return;
+  (battle.allies.concat(battle.enemies)).forEach(u=>{const s=makeStatus(u);if(u.alive&&s.burn>0){const n=Math.max(2,Math.round(u.max*.035));u.hp=Math.max(0,u.hp-n);s.burn--;addLog('🔥 '+u.name+' menerima '+n+' damage terbakar.','ko');if(u.hp<=0)u.alive=false}});
+  if(!alive(0).length){finishBattle(false);return}if(!alive(1).length){finishBattle(true);return}baseTick();
+ };
+ finishBattle=function(win){
+  if(battle&&battle.challengeMode){state.challengeWins=state.challengeWins+(win?1:0);if(win){state.medals+=battle.challengeMode==='arena'?3:battle.challengeMode==='boss'?5:2;if(battle.challengeMode==='tower')state.tower=Math.min(100,state.tower+1);if(battle.challengeMode==='survival'){state.survivalBest=Math.max(state.survivalBest,battle.wave||1);state.materials.ore+=2}}state.challenge=null;battle.challengeMode=null}
+  if(win){state.battleWins=(state.battleWins||0)+1;state.quests.wins=(state.quests.wins||0)+1}
+  else state.battleLosses=(state.battleLosses||0)+1;
+  baseFinish(win);renderExpansion();
+ };
+ function startChallenge(mode){
+  if(battle&&battle.running){toast('Selesaikan atau reset pertarungan aktif dulu.');return}
+  state.challenge=mode;let st=mode==='tower'?Math.min(12,Math.ceil(state.tower/8)):mode==='boss'?12:Math.max(1,Math.min(12,state.cleared||1));
+  state.selectedStage=st;prepareBattle();battle.challengeMode=mode;battle.challengeMode=mode;
+  if(mode==='arena'){battle.enemies.forEach(e=>{e.max=Math.round(e.max*(1.05+state.arenaRank*.04));e.hp=e.max;e.atk=Math.round(e.atk*(1+state.arenaRank*.025));e.name='Arena '+e.name})}
+  if(mode==='tower'){const mult=1+state.tower*.045;battle.enemies.forEach(e=>{e.max=Math.round(e.max*mult);e.hp=e.max;e.atk=Math.round(e.atk*mult);e.name='Lantai '+state.tower+' · '+e.name})}
+  if(mode==='boss'){battle.enemies.forEach(e=>{e.max=Math.round(e.max*3);e.hp=e.max;e.atk=Math.round(e.atk*1.4);e.name='BOSS · '+e.name})}
+  if(mode==='survival'){battle.wave=(state.survivalBest||0)+1;battle.enemies.forEach(e=>{e.max=Math.round(e.max*(1+battle.wave*.12));e.hp=e.max;e.atk=Math.round(e.atk*(1+battle.wave*.07))})}
+  go('battle');startBattle();
+ }
+ window.startChallenge=startChallenge;
+ function renderExpansion(){
+  const tower=$('towerFloor');if(tower)tower.textContent=state.tower+' / 100';const wave=$('survivalWave');if(wave)wave.textContent=state.survivalBest||0;
+  const mat=$('materialList');if(mat)mat.innerHTML=Object.entries(state.materials).map(([k,v])=>'<div class="itemRow"><div><b>'+({scroll:'📘 Gulungan Jutsu',ore:'⛏️ Bijih',cloth:'🧵 Kain Shinobi',herb:'🌿 Herbal'}[k]||k)+'</b></div><strong>'+v+'</strong></div>').join('');
+  const shop=$('shopList');if(shop)shop.innerHTML=GEAR.map(g=>'<div class="itemRow"><div><b>'+g.icon+' '+g.name+'</b><span class="small">'+g.desc+'</span></div><button '+(state.gearOwned.includes(g.id)?'disabled':'')+' onclick="buyGear(\''+g.id+'\')">'+(state.gearOwned.includes(g.id)?'Dimiliki':g.cost+' 🪙')+'</button></div>').join('');
+  const potion=$('potionList');if(potion)potion.innerHTML='<div class="itemRow"><div><b>🧪 Ramuan Pemulihan ×'+state.potions+'</b><span class="small">Memulihkan tim setelah pertarungan atau memberi bonus hadiah persiapan.</span></div><button '+(state.potions<1?'disabled':'')+' onclick="usePotion()">Gunakan</button></div>';
+  const gearNinja=$('gearNinja');if(gearNinja){const prev=gearNinja.value;gearNinja.innerHTML=state.owned.map(o=>'<option value="'+o.id+'">'+def(o.id).name+'</option>').join('');if(own(prev))gearNinja.value=prev;renderGear()}
+  const sg=$('skillGrid');if(sg)sg.innerHTML=state.owned.map(o=>{const d=def(o.id),lv=state.skillLevels[o.id]||1,cost=lv*2;return '<div class="panel skillCard"><div style="font-size:30px">'+d.emoji+'</div><h3>'+d.name+' · '+d.skill+'</h3><div class="small">'+d.element+' · Skill Lv.'+lv+'/10</div><p class="small">Kekuatan jurus meningkat setiap level. Biaya: '+cost+' gulungan + '+(lv*120)+' koin.</p><button '+(lv>=10?'disabled':'')+' onclick="upgradeSkill(\''+o.id+'\')">⬆ Tingkatkan</button></div>'}).join('');
+  const q=$('questBoard');if(q){const day=new Date().toISOString().slice(0,10);if(state.lastQuestDay!==day){state.lastQuestDay=day;state.quests.claimed={};state.quests.wins=0;state.quests.summons=0;state.quests.trains=0}q.innerHTML=QUESTS.map(x=>{const val=state.quests[x.key]||0,claimed=!!(state.quests.claimed&&state.quests.claimed[x.id]);return '<div class="itemRow"><div><b>'+x.name+'</b><span class="small">'+x.desc+' · '+Math.min(val,x.goal)+'/'+x.goal+'</span><div class="meter"><i style="width:'+Math.min(100,val/x.goal*100)+'%"></i></div></div><button '+(claimed||val<x.goal?'disabled':'')+' onclick="claimQuest(\''+x.id+'\')">'+(claimed?'Selesai':val>=x.goal?'Klaim':'Berjalan')+'</button></div>'}).join('')}
+  const ab=$('achievementBoard');if(ab)ab.innerHTML=ACH.map(a=>{const done=state.achievements.includes(a.id),ready=a.test();return '<div class="itemRow"><div><b>'+(done?'🏅':'🎖️')+' '+a.name+'</b><span class="small">'+a.desc+' · Hadiah '+a.reward+' koin</span></div><button '+(!ready||done?'disabled':'')+' onclick="claimAchievement(\''+a.id+'\')">'+(done?'Diperoleh':ready?'Klaim':'Belum')+'</button></div>'}).join('');
+  const statsG=$('statsGrid');if(statsG)statsG.innerHTML=[['Ninja dimiliki',state.owned.length],['Kekuatan tim',Math.round(totalPower())],['Misi terbuka',state.unlocked+'/'+STAGES.length],['Menang',state.battleWins],['Kalah',state.battleLosses],['Damage total',state.totalDamage],['HP dipulihkan',state.totalHealed],['Medali',state.medals],['Rekrutmen',state.totalSummons],['Arena rank',state.arenaRank],['Lantai tertinggi',state.tower],['Gold',state.gold]].map(x=>'<div class="panel statTile"><b>'+x[1]+'</b><span>'+x[0]+'</span></div>').join('');
+ }
+ function renderGear(){const id=$('gearNinja')?.value;if(!id)return;const eq=state.gearEquipped[id]||{};const grid=$('gearGrid');if(!grid)return;grid.innerHTML=['Senjata','Armor','Aksesori'].map(slot=>{const equipped=eq[slot],g=GEAR.find(x=>x.id===equipped);return '<div class="panel panelPad"><div class="small">'+slot.toUpperCase()+'</div><h3>'+(g?g.icon+' '+g.name:'Kosong')+'</h3><div class="small">'+(g?g.desc:'Pilih perlengkapan yang sudah dimiliki.')+'</div><select onchange="equipGear(\''+id+'\',\''+slot+'\',this.value)" style="margin-top:9px;width:100%;background:#202d48;color:white;border:1px solid #405273;border-radius:8px;padding:8px"><option value="">Tidak dipasang</option>'+state.gearOwned.map(gid=>GEAR.find(x=>x.id===gid)).filter(x=>x&&x.slot===slot).map(x=>'<option value="'+x.id+'" '+(x.id===equipped?'selected':'')+'>'+x.name+'</option>').join('')+'</select></div>'}).join('')}
+ window.renderGear=renderGear;
+ window.buyGear=function(id){const g=GEAR.find(x=>x.id===id);if(!g||state.gearOwned.includes(id)||state.gold<g.cost){toast('Koin tidak cukup atau item sudah dimiliki.');return}state.gold-=g.cost;state.gearOwned.push(id);if(!state.materials)state.materials={};state.materials.ore+=1;save();renderExpansion();toast(g.name+' dibeli!')};
+ window.equipGear=function(id,slot,gid){state.gearEquipped[id]=state.gearEquipped[id]||{};if(gid)state.gearEquipped[id][slot]=gid;else delete state.gearEquipped[id][slot];save();renderExpansion();toast('Perlengkapan diperbarui.')};
+ window.upgradeSkill=function(id){const lv=state.skillLevels[id]||1,cost=lv*2,gold=lv*120;if(lv>=10)return;if(state.materials.scroll<cost||state.gold<gold){toast('Material atau koin belum cukup.');return}state.materials.scroll-=cost;state.gold-=gold;state.skillLevels[id]=lv+1;save();renderExpansion();toast('Skill '+def(id).name+' naik ke level '+(lv+1)+'!')};
+ window.usePotion=function(){if(state.potions<1){toast('Ramuan habis.');return}state.potions--;state.gold+=80;state.materials.herb+=1;save();renderExpansion();toast('Ramuan digunakan: bonus persiapan +80 koin dan +1 herbal.')};
+ window.claimQuest=function(id){const q=QUESTS.find(x=>x.id===id);if(!q)return;state.quests.claimed=state.quests.claimed||{};if(state.quests.claimed[id]||(state.quests[q.key]||0)<q.goal){toast('Tugas belum selesai.');return}state.quests.claimed[id]=true;state.gold+=q.gold;state.materials.scroll+=q.mat;save();renderExpansion();toast('Hadiah tugas diterima!')};
+ window.claimQuestRewards=function(){let n=0;QUESTS.forEach(q=>{if((state.quests[q.key]||0)>=q.goal&&!(state.quests.claimed||{})[q.id]){state.quests.claimed=state.quests.claimed||{};state.quests.claimed[q.id]=true;state.gold+=q.gold;state.materials.scroll+=q.mat;n++}});save();renderExpansion();toast(n?'Berhasil klaim '+n+' hadiah tugas.':'Belum ada tugas yang bisa diklaim.')};
+ window.claimAchievement=function(id){const a=ACH.find(x=>x.id===id);if(!a||state.achievements.includes(id)||!a.test())return;state.achievements.push(id);state.gold+=a.reward;save();renderExpansion();toast('Pencapaian '+a.name+' diperoleh!')};
+ window.startChallenge=startChallenge;
+ window.exportSave=function(){const box=$('saveBox');box.value=btoa(unescape(encodeURIComponent(JSON.stringify(state))));box.focus();box.select();toast('Kode save siap disalin.')};
+ window.importSave=function(){try{const raw=decodeURIComponent(escape(atob($('saveBox').value.trim())));const obj=JSON.parse(raw);if(!obj.owned||!obj.team||typeof obj.gold!=='number')throw new Error();if(!confirm('Impor akan mengganti progres saat ini. Lanjutkan?'))return;localStorage.setItem('ninjaClashSave',JSON.stringify(obj));location.reload()}catch(e){toast('Kode save tidak valid. Tempel kode ekspor yang lengkap.')}};
+ window.resetSave=function(){if(!confirm('Yakin menghapus seluruh progres Ninja Clash di perangkat ini?'))return;localStorage.removeItem('ninjaClashSave');location.reload()};
+ window.saveSettings=function(){state.settings.verbose=$('logVerbose').checked;state.settings.reduceMotion=$('reduceMotion').checked;save();document.body.classList.toggle('reduceMotion',state.settings.reduceMotion);toast('Preferensi disimpan.')};
+ const oldTrain=train;train=function(id){oldTrain(id);state.quests.trains=(state.quests.trains||0)+1;save();renderExpansion()};
+ const oldSummon=summon;summon=function(type){const before=state.owned.length;oldSummon(type);if(state.gold>=0){state.totalSummons++;state.quests.summons=(state.quests.summons||0)+1;save();renderExpansion()}};
+ renderAll=function(){baseRenderAll();renderExpansion()};
+ go=function(view){baseGo(view);if(['challenges','inventory','jutsu','progress'].includes(view))renderExpansion()};
+ const originalStart=startBattle;
+ startBattle=function(){if(battle&&battle.challengeMode){const mode=battle.challengeMode;const wave=battle.wave;const allies=teamOwned().map(makeAlly);const enemies=battle.enemies;/* preserve scaled challenge opponents */battle.allies=allies;battle.running=true;battle.done=false;paused=false;$('battleState').textContent='BERTARUNG';$('battleStatus').textContent='Pertarungan berlangsung';$('battleStart').textContent='⚔️ SEDANG BERLANGSUNG';$('pauseBtn').textContent='Ⅱ JEDA';$('battleLog').innerHTML='';actions=0;addLog('⚔️ Tantangan '+mode+' dimulai!');go('battle');scheduleBattle();return}originalStart()};
+ const oldSelectStage=selectStage;selectStage=function(n){state.challenge=null;oldSelectStage(n)};
+ const oldDaily=daily;daily=function(){oldDaily();renderExpansion()};
+ const oldFinish=finishBattle;
+ /* finishBattle wrapper above tracks quest counters; extra daily claim is intentionally kept separate. */
+ document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{if(['challenges','inventory','jutsu','progress'].includes(b.dataset.view))setTimeout(renderExpansion,0)}));
+ const style=document.createElement('style');style.textContent='.reduceMotion *{animation-duration:.001ms!important;transition-duration:.001ms!important;scroll-behavior:auto!important}';document.head.appendChild(style);
+ renderAll();renderExpansion();
+})();
 </script>
 </body></html>
