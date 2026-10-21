@@ -766,7 +766,7 @@ function resolveWars(){
    garrisonKeys.forEach(k=>{g[k]=Math.max(0,Math.round((b[k]||0)/n));});
    if((b.troops||0)>0&&g.troops<500)g.troops=Math.min(b.troops,500);
   }
-  const logisticsA=clamp((.68+(Number(a.resources?.oil)||0)/100*.22+(Number(a.resources?.food)||0)/150*.14+(Number(a.budget)||0)/150*.12+(Number(a.techTree?.logistics)||0)*.0015)*(Number(a.supplyEfficiency)||1),.38,1.25),logisticsB=clamp((.68+(Number(b.resources?.oil)||0)/100*.22+(Number(b.resources?.food)||0)/150*.14+(Number(b.budget)||0)/150*.12+(Number(b.techTree?.logistics)||0)*.0015)*(Number(b.supplyEfficiency)||1),.38,1.25);
+  const weatherLogistics=clamp(1-(Number(state.worldClimate?.severity)||0)*.055,.82,1);const logisticsA=clamp((.68+(Number(a.resources?.oil)||0)/100*.22+(Number(a.resources?.food)||0)/150*.14+(Number(a.budget)||0)/150*.12+(Number(a.techTree?.logistics)||0)*.0015)*(Number(a.supplyEfficiency)||1)*weatherLogistics,.38,1.25),logisticsB=clamp((.68+(Number(b.resources?.oil)||0)/100*.22+(Number(b.resources?.food)||0)/150*.14+(Number(b.budget)||0)/150*.12+(Number(b.techTree?.logistics)||0)*.0015)*(Number(b.supplyEfficiency)||1)*weatherLogistics,.38,1.25);
   // Pertahanan wilayah punya keuntungan posisi; penyerang tidak otomatis menang.
   const attackBase=attack.troops*.001+attack.tanks*2.2+attack.aircraft*2.5+attack.ships*.8+attack.artillery*1.7+attack.missiles*2.8;
   const defenseBase=(g.troops||0)*.001+(g.tanks||0)*2.2+(g.aircraft||0)*2.5+(g.ships||0)*.8+(g.artillery||0)*1.7+(g.missiles||0)*2.8;
@@ -777,7 +777,8 @@ function resolveWars(){
   const defenseBonus=target.kind==="Pusat"?1.28:1.18;
   const defenseDoctrine=ensureWarDoctrine(b);
   const defenseStyle=defenseDoctrine?.id==="fortress"?1.22:defenseDoctrine?.id==="limited"?1.04:1;
-  const scoreB=defenseBase*defenseBonus*defenseStyle*commanderModifier(b,"defense")*(.78+Math.random()*.52)*clamp((b.morale||50)/70,.55,1.3)*logisticsB*(1+allySupportB)+(b.research||40)*.1+(b.infrastructure||40)*.2+(Number(b.techTree?.military)||0)*.12+12;
+  const terrainBonus=target.terrain==="Pegunungan"?1.22:target.terrain==="Hutan"?1.12:target.terrain==="Perkotaan"?1.18:target.terrain==="Pesisir"?1.04:1;const contaminationPenalty=clamp((Number(target.radioactiveContamination)||0)*.0015,0,.12);const weatherDefense=clamp((Number(state.worldClimate?.severity)||0)*.035,0,.06);
+  const scoreB=defenseBase*defenseBonus*defenseStyle*terrainBonus*(1+contaminationPenalty)*commanderModifier(b,"defense")*(.78+Math.random()*.52)*clamp((b.morale||50)/70,.55,1.3)*logisticsB*(1+allySupportB)*(1+weatherDefense)+(b.research||40)*.1+(b.infrastructure||40)*.2+(Number(b.techTree?.military)||0)*.12+12;
   // Kemenangan dihitung sebagai peluang, bukan sekadar scoreA > scoreB.
   // Keunggulan besar membantu, tetapi medan, kesiapan, dan variasi pertempuran tetap berpengaruh.
   const readinessA=clamp((Number(a.army)||50)/70,.55,1.25),readinessB=clamp((Number(b.army)||50)/70,.55,1.25);
@@ -1894,6 +1895,7 @@ function nuclearSystemsTick(){
    defender.refugees=(Number(defender.refugees)||0)+Math.floor(pop*.025);
    defender.equipmentDamage=clamp((Number(defender.equipmentDamage)||0)+18,0,100);
    target.nuclearDamage=clamp((Number(target.nuclearDamage)||0)+45,0,100);
+   target.radioactiveContamination=clamp((Number(target.radioactiveContamination)||0)+45,0,100);target.infrastructureDamage=clamp((Number(target.infrastructureDamage)||0)+35,0,100);
    target.garrison=target.garrison||{troops:0,tanks:0,aircraft:0,ships:0,artillery:0,missiles:0};
    ["troops","tanks","aircraft","ships","artillery","missiles"].forEach(k=>target.garrison[k]=Math.floor((Number(target.garrison[k])||0)*.58));
    ["troops","tanks","aircraft","ships","artillery","missiles"].forEach(k=>attacker[k]=Math.max(0,Math.floor((Number(attacker[k])||0)-(k==="troops"?0:0))));
