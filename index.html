@@ -1816,12 +1816,126 @@ function advancedNationalSystemsTick(){
  });
 }
 
+
+/* Sistem nuklir strategis: riset, program, pencegahan, peluncuran AI, dan konsekuensi. */
+function nuclearSystemsTick(){
+ const cs=living();
+ cs.forEach(c=>{
+  if(!c.resources||typeof c.resources!=="object")c.resources={uranium:10,oil:40,coal:40,iron:40,food:60};
+  if(!c.techTree||typeof c.techTree!=="object")c.techTree={industry:30,medicine:30,energy:30,military:30,logistics:30};
+  if(!Number.isFinite(c.nuclearResearch))c.nuclearResearch=0;
+  if(!Number.isFinite(c.nuclearWarheads))c.nuclearWarheads=0;
+  if(!Number.isFinite(c.nuclearProgramLevel))c.nuclearProgramLevel=0;
+  if(!Number.isFinite(c.nuclearCooldown))c.nuclearCooldown=0;
+  if(!Number.isFinite(c.nuclearDeterrence))c.nuclearDeterrence=0;
+  if(!Number.isFinite(c.nuclearFallout))c.nuclearFallout=0;
+  c.nuclearCooldown=Math.max(0,c.nuclearCooldown-1);
+  c.nuclearFallout=Math.max(0,c.nuclearFallout-.04);
+
+  const research=Number(c.research)||0, industry=Number(c.industry)||0;
+  const energy=Number(c.techTree.energy)||0, military=Number(c.techTree.military)||0;
+  const uranium=Number(c.resources.uranium)||0;
+  const researchChance=.025+(research+energy+industry)/9000;
+  const canResearch=research>=35&&industry>=35&&uranium>=8&&c.budget>250;
+  if(canResearch&&c.nuclearResearch<100&&Math.random()<researchChance){
+   c.nuclearResearch=clamp(c.nuclearResearch+.25+research/180,0,100);
+   if(Math.round(c.nuclearResearch)%10===0 && Math.random()<.12)
+    addEvent("technology","Kemajuan riset nuklir",c.name+" mencatat kemajuan dalam riset nuklir. Program masih membutuhkan investasi dan pengawasan.", "☢️");
+  }
+  if(c.nuclearResearch>=35&&c.nuclearProgramLevel===0&&industry>=40&&energy>=25&&uranium>=12&&c.budget>500&&Math.random()<.025){
+   c.nuclearProgramLevel=1;
+   addEvent("technology","Program nuklir dimulai",c.name+" memulai program nuklir nasional setelah memenuhi persyaratan teknologi dan ekonomi.","☢️");
+  }
+  if(c.nuclearProgramLevel>=1&&c.nuclearResearch>=65&&military>=40&&uranium>=20&&c.budget>700&&Math.random()<.012){
+   c.nuclearProgramLevel=2;
+   addEvent("technology","Kemampuan nuklir tercapai",c.name+" berhasil mencapai kemampuan senjata nuklir dalam simulasi. Perkembangan ini memicu perhatian internasional.","☢️");
+   c.nuclearDeterrence=clamp(c.nuclearDeterrence+15,0,100);
+  }
+  if(c.nuclearProgramLevel>=2&&c.nuclearResearch>=75&&uranium>=15&&c.budget>900&&c.nuclearWarheads<12&&Math.random()<.045){
+   const cost=Math.round(150+industry*2.5);
+   if(c.budget>=cost){
+    c.budget-=cost;recordDailyExpense(c,cost);
+    c.resources.uranium=Math.max(0,uranium-1);
+    c.nuclearWarheads++;
+    addEvent("technology","Persediaan nuklir bertambah",c.name+" menambah persediaan senjata nuklirnya. Negara lain dapat merespons melalui diplomasi dan kesiapan pertahanan.","☢️");
+   }
+  }
+  if(c.nuclearWarheads>0)c.nuclearDeterrence=clamp(c.nuclearDeterrence+.04,0,100);
+ });
+
+ // Keputusan penggunaan bersifat sangat langka; hanya ketika perang aktif dan kondisi ekstrem.
+ const activeWars=state.wars.filter(w=>w.active);
+ for(const w of activeWars){
+  const a=getC(w.a),b=getC(w.b);
+  if(!a||!b||!a.alive||!b.alive)continue;
+  const contenders=[a,b];
+  for(const attacker of contenders){
+   const defender=attacker.id===a.id?b:a;
+   if((attacker.nuclearWarheads||0)<1||(attacker.nuclearCooldown||0)>0)continue;
+   const ownPressure=(Number(attacker.warWeariness)||0)+(100-(Number(attacker.stability)||50))*.25;
+   const enemyThreat=(Number(defender.nuclearWarheads)||0)>0?1.4:1;
+   const extreme=ownPressure>115 && (Number(attacker.morale)||50)<42;
+   if(!extreme||Math.random()>(defender.nuclearWarheads>0?.0008:.0015))continue;
+   const targets=state.regions.filter(r=>r.owner===defender.id);
+   if(!targets.length)continue;
+   const target=targets.find(r=>r.kind==="Pusat")||targets[Math.floor(Math.random()*targets.length)];
+   const civilianShare=clamp(.7-(Number(defender.infrastructure)||40)/400,.35,.7);
+   const pop=Math.max(0,Number(defender.population)||0);
+   const casualties=Math.min(Math.floor(pop*.018*civilianShare),Math.floor(pop*.035));
+   defender.population=Math.max(0,pop-casualties);
+   defender.deathsPerDay=(Number(defender.deathsPerDay)||0)+casualties;
+   defender.warDeathsPerDay=(Number(defender.warDeathsPerDay)||0)+casualties;
+   defender.warDamage=clamp((Number(defender.warDamage)||0)+24,0,100);
+   defender.economy=clamp((Number(defender.economy)||0)-16,0,100);
+   defender.stability=clamp((Number(defender.stability)||0)-18,0,100);
+   defender.morale=clamp((Number(defender.morale)||0)-22,0,100);
+   defender.infrastructure=clamp((Number(defender.infrastructure)||0)-12,0,100);
+   defender.nuclearFallout=clamp((Number(defender.nuclearFallout)||0)+35,0,100);
+   defender.refugees=(Number(defender.refugees)||0)+Math.floor(pop*.025);
+   defender.equipmentDamage=clamp((Number(defender.equipmentDamage)||0)+18,0,100);
+   target.nuclearDamage=clamp((Number(target.nuclearDamage)||0)+45,0,100);
+   target.garrison=target.garrison||{troops:0,tanks:0,aircraft:0,ships:0,artillery:0,missiles:0};
+   ["troops","tanks","aircraft","ships","artillery","missiles"].forEach(k=>target.garrison[k]=Math.floor((Number(target.garrison[k])||0)*.58));
+   ["troops","tanks","aircraft","ships","artillery","missiles"].forEach(k=>attacker[k]=Math.max(0,Math.floor((Number(attacker[k])||0)-(k==="troops"?0:0))));
+   attacker.nuclearWarheads=Math.max(0,(Number(attacker.nuclearWarheads)||0)-1);
+   attacker.nuclearCooldown=180;
+   attacker.stability=clamp((Number(attacker.stability)||0)-12,0,100);
+   attacker.morale=clamp((Number(attacker.morale)||0)-8,0,100);
+   attacker.nuclearDeterrence=clamp((Number(attacker.nuclearDeterrence)||0)-20,0,100);
+   addEvent("war","SERANGAN NUKLIR: "+attacker.name+" → "+defender.name,
+    "Senjata nuklir menghantam "+target.name+". Perkiraan korban penduduk dalam simulasi: "+fmt(casualties)+". Infrastruktur, ekonomi, pasukan setempat, dan stabilitas terdampak berat; kontaminasi radioaktif akan berkurang perlahan.","☢️");
+   state.battles=Array.isArray(state.battles)?state.battles:[];
+   state.battles.unshift({day:state.day,a:attacker.id,b:defender.id,winner:attacker.id,ranged:true,mode:"nuclear",troopsB:casualties,description:"Serangan nuklir di "+target.name});
+   if(state.battles.length>100)state.battles.length=100;
+   // Serangan balasan adalah kemungkinan langka, bukan hasil otomatis.
+   if((Number(defender.nuclearWarheads)||0)>0&&Math.random()<.28){
+    defender.nuclearWarheads=Math.max(0,defender.nuclearWarheads-1);
+    defender.nuclearCooldown=180;
+    attacker.population=Math.max(0,(Number(attacker.population)||0)-Math.floor((Number(attacker.population)||0)*.012));
+    attacker.warDamage=clamp((Number(attacker.warDamage)||0)+18,0,100);
+    attacker.economy=clamp((Number(attacker.economy)||0)-12,0,100);
+    attacker.stability=clamp((Number(attacker.stability)||0)-20,0,100);
+    attacker.nuclearFallout=clamp((Number(attacker.nuclearFallout)||0)+28,0,100);
+    addEvent("war","Balasan nuklir",defender.name+" melancarkan balasan nuklir terhadap "+attacker.name+". Kedua negara menanggung kerusakan besar dan risiko eskalasi meningkat.","☢️");
+   }
+   // Negara lain bereaksi secara diplomatik.
+   cs.forEach(other=>{
+    if(other.id===attacker.id||other.id===defender.id||!other.alive)return;
+    other.relations=other.relations||{};
+    other.relations[attacker.id]=clamp((Number(other.relations[attacker.id])||0)-8,-100,100);
+    other.relations[defender.id]=clamp((Number(other.relations[defender.id])||0)-3,-100,100);
+   });
+   break;
+  }
+ }
+}
+
 function tick(){
  validateSimulationState();
  state.day++;state.year=Math.floor((state.day-1)/365)+1;
  if(!Array.isArray(state.trends))state.trends=[];
  if(state.day%10===0){const cs=living();state.trends.push({day:state.day,year:state.year,averageEconomy:cs.length?cs.reduce((n,c)=>n+(c.economy||0),0)/cs.length:0,averageInflation:cs.length?cs.reduce((n,c)=>n+(c.inflation||0),0)/cs.length:0,averagePopulation:cs.length?cs.reduce((n,c)=>n+(c.population||0),0)/cs.length:0,averageTech:cs.length?cs.reduce((n,c)=>n+(c.techLevel||30),0)/cs.length:0,totalDebt:cs.reduce((n,c)=>n+(c.debt||0),0),activeWars:state.wars.filter(w=>w.active).length,activeCountries:cs.length,territories:state.regions.filter(r=>r.owner).length});if(state.trends.length>60)state.trends.shift();}
-economyTick();demographyTick();resourceMarketTick();economicExpansionTick();tradeAgreementTick();politicsTick();developmentTick();nationalSystemsTick();governmentStrategyTick();internationalOrganizationTick();espionageTick();goalsTick();updateMilitaryReadiness();strategicRecoveryTick();advancedNationalSystemsTick();
+economyTick();demographyTick();resourceMarketTick();economicExpansionTick();tradeAgreementTick();politicsTick();developmentTick();nationalSystemsTick();governmentStrategyTick();internationalOrganizationTick();espionageTick();goalsTick();updateMilitaryReadiness();strategicRecoveryTick();advancedNationalSystemsTick();nuclearSystemsTick();
  reinforceFronts();
  resolveWars();negotiatePeace();diplomacy();peacefulDevelopment();
 integratedConsequencesTick();
@@ -1868,6 +1982,7 @@ function renderDetail(){
  '<h3 style="font-size:12px;margin:12px 0 6px">🎖️ KOMANDO & PENGALAMAN JENDERAL</h3><div class="equipment"><span>'+ensureCommander(c).rank+' · '+ensureCommander(c).name+'</span><b>Spesialisasi '+ensureCommander(c).skill+' · tingkat '+ensureCommander(c).skillLevel+'/10</b><small style="display:block;color:var(--muted)">Pengalaman '+Math.round(ensureCommander(c).experience)+' · kemenangan '+ensureCommander(c).victories+' · kekalahan '+ensureCommander(c).defeats+'</small></div>'+
  '<h3 style="font-size:12px;margin:12px 0 6px">🚚 LOGISTIK & PEMULIHAN PERANG</h3><div class="equipment-grid"><div class="equipment"><span>Efisiensi suplai</span><b>'+Math.round((c.supplyEfficiency||1)*100)+'%</b></div><div class="equipment"><span>Kerusakan nasional</span><b>'+Math.round(c.warDamage||0)+'/100</b></div></div>'+
  '<h3 style="font-size:12px;margin:12px 0 6px">🛡️ PERTAHANAN MODERN & INDUSTRI MILITER</h3><div class="equipment-grid"><div class="equipment"><span>Pertahanan udara</span><b>'+Math.round(c.airDefense||0)+'/100</b></div><div class="equipment"><span>Perang elektronik</span><b>'+Math.round(c.electronicWarfare||0)+'/100</b></div><div class="equipment"><span>Kerusakan peralatan</span><b>'+Math.round(c.equipmentDamage||0)+'/100</b></div><div class="equipment"><span>Antrean produksi</span><b>'+(c.productionQueue||[]).length+' proyek</b></div><div class="equipment"><span>Inovasi nasional</span><b>'+Math.round(c.innovationScore||0)+' terobosan</b></div><div class="equipment"><span>Pengungsi</span><b>'+fmt(c.refugees||0)+'</b></div><div class="equipment"><span>Kapasitas evakuasi sipil</span><b>'+Math.round(c.evacuationCapacity||0)+'/100</b></div><div class="equipment"><span>Kekurangan tenaga kerja</span><b>'+Math.round((c.laborShortage||0)*100)+'%</b></div><div class="equipment"><span>Konflik domestik</span><b>'+(c.internalConflictDays||0)+' hari tersisa</b></div></div>'+
+ '<h3 style="font-size:12px;margin:12px 0 6px">☢️ PROGRAM NUKLIR & PENCEGAHAN</h3><div class="equipment-grid"><div class="equipment"><span>Riset nuklir</span><b>'+Math.round(c.nuclearResearch||0)+'/100</b></div><div class="equipment"><span>Status program</span><b>'+((c.nuclearProgramLevel||0)>=2?'Kemampuan senjata':(c.nuclearProgramLevel||0)===1?'Program aktif':'Belum aktif')+'</b></div><div class="equipment"><span>Persediaan nuklir</span><b>'+fmt(c.nuclearWarheads||0)+' hulu ledak</b></div><div class="equipment"><span>Daya tangkal</span><b>'+Math.round(c.nuclearDeterrence||0)+'/100</b></div><div class="equipment"><span>Kontaminasi radioaktif</span><b>'+Math.round(c.nuclearFallout||0)+'/100</b></div><div class="equipment"><span>Jeda penggunaan</span><b>'+Math.round(c.nuclearCooldown||0)+' hari</b></div></div>'+
  '<h3 style="font-size:12px;margin:12px 0 6px">⚔️ DOKTRIN PERANG AI</h3><div class="equipment"><span>'+ensureWarDoctrine(c).name+'</span><b>'+ensureWarDoctrine(c).desc+'</b></div>'+
  '<h3 style="font-size:12px;margin:12px 0 6px">🤝 KONTRAK DAGANG</h3>'+contractHtml+
  '<h3 style="font-size:12px;margin:12px 0 6px">🪖 INVENTARIS MILITER</h3><div class="equipment-grid">'+Object.keys(units).map(k=>'<div class="equipment"><span>'+units[k]+'</span><b>'+fmt(c[k])+'</b></div>').join("")+'<div class="equipment"><span>💰 Anggaran pertahanan</span><b>'+moneyFmt(c,c.budget)+'</b></div><div class="equipment"><span>🩹 Kehilangan personel kumulatif</span><b>'+fmt(c.battleLosses)+'</b></div></div>'+
