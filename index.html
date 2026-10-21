@@ -1965,7 +1965,9 @@ function worldDepthSystemsTick(){
    const pressure=clamp((55-stability)*.035+(Number(r.infrastructureDamage)||0)*.002+(Number(r.radioactiveContamination)||0)*.001,0,.65);
    r.resistance=clamp((Number(r.resistance)||0)+pressure+(Math.random()<.006?.08:0),0,100);
    if(occupier){
-    occupier.occupationCost=(Number(occupier.occupationCost)||0)+.015+((Number(r.resistance)||0)/100)*.025;
+    const occupationDailyCost=.015+((Number(r.resistance)||0)/100)*.025;
+    occupier.occupationCost=(Number(occupier.occupationCost)||0)+occupationDailyCost;
+    occupier.budget=Math.max(0,(Number(occupier.budget)||0)-occupationDailyCost);recordDailyExpense(occupier,occupationDailyCost);
     occupier.stability=clamp((Number(occupier.stability)||50)-((Number(r.resistance)||0)>75?.025:.004),0,100);
    }
    if(origin&&origin.alive&&r.resistance>92&&Math.random()<.0015){
@@ -1993,6 +1995,7 @@ function worldDepthSystemsTick(){
   if(!Number.isFinite(c.blockadePressure))c.blockadePressure=0;
   if(!Number.isFinite(c.disasterRecovery))c.disasterRecovery=0;
   if(!Number.isFinite(c.lastDisasterDay))c.lastDisasterDay=0;
+  c.occupationCost=0;
   const atWar=state.wars.some(w=>w.active&&(w.a===c.id||w.b===c.id));
   const weatherPenalty=climate.severity*(climate.weather==="Badai"?.035:climate.weather==="Hujan lebat"?.025:.012);
   c.weatherImpact=weatherPenalty;
