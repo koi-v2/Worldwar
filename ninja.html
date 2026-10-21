@@ -123,7 +123,6 @@ function changeSpeed(){$('speedLabel').textContent=$('speed').value+'x';if(battl
 function pauseBattle(){if(!battle||!battle.running)return;paused=!paused;$('pauseBtn').textContent=paused?'▶ LANJUT':'Ⅱ JEDA';$('battleStatus').textContent=paused?'Dijeda':'Pertarungan berlangsung';if(!paused)scheduleBattle();}
 function finishBattle(win){clearInterval(loop);loop=null;battle.running=false;battle.done=true;$('battleState').textContent=win?'MENANG':'KALAH';$('battleStatus').textContent=win?'Misi berhasil!':'Tim dikalahkan';$('battleStart').textContent='↻ COBA LAGI';if(win){const st=STAGES[battle.stage-1],gold=st[2],xp=st[3];state.gold+=gold;for(const id of state.team){const o=own(id);if(o){o.xp+=xp;if(o.xp>=o.level*100&&o.level<50){o.xp-=o.level*100;o.level++;addLog('⭐ '+def(id).name+' naik ke level '+o.level+'!','win')}}}state.cleared=Math.max(state.cleared,battle.stage);state.unlocked=Math.min(STAGES.length,Math.max(state.unlocked,battle.stage+1));addLog('🏆 MENANG! Hadiah +'+gold+' koin dan '+xp+' XP untuk anggota tim.','win');toast('Misi berhasil! +'+gold+' koin');save();}else{addLog('Tim kalah. Tingkatkan level atau ubah formasi lalu coba lagi.','ko');toast('Belum berhasil. Coba latih ninja atau ganti formasi.')}renderStages();}
 function resetBattle(){clearInterval(loop);loop=null;paused=false;prepareBattle();toast('Pertarungan direset.')}
-function daily(){}
 renderAll();prepareBattle();$('speed').addEventListener('change',changeSpeed);
 </script>
 </body></html>
