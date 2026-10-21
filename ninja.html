@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#10152a">
+<title>Ninja Clash — Auto Battle</title>
+<style>
+:root{--bg:#0b1020;--panel:#151d35;--line:#293653;--gold:#ffd166;--cyan:#69e4ff;--red:#ff657a;--green:#7df0b1;--text:#f3f5ff;--muted:#9ca9c9}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#1d2b50 0,#0b1020 58%);color:var(--text);font:14px system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh}
+header{padding:18px 16px 12px;text-align:center}header .eyebrow{font-size:10px;letter-spacing:4px;color:var(--cyan);font-weight:900}h1{margin:4px 0;font-size:clamp(25px,7vw,38px);letter-spacing:1px}h1 span{color:var(--gold)}.sub{color:var(--muted);font-size:12px}
+.wrap{max-width:900px;margin:auto;padding:0 12px 24px}.arena{border:1px solid #344363;border-radius:18px;overflow:hidden;background:#111a30;box-shadow:0 15px 50px #0006}
+.arena-top{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#1a2541;border-bottom:1px solid var(--line);font-weight:800;font-size:12px}.badge{border:1px solid #526384;border-radius:99px;padding:5px 9px;color:var(--gold);font-size:10px}
+.stage{position:relative;min-height:220px;padding:24px 10px 18px;background:linear-gradient(180deg,#182849 0%,#293c5b 54%,#18243b 55%,#11192b 100%);overflow:hidden}
+.moon{position:absolute;right:12%;top:16px;width:52px;height:52px;border-radius:50%;background:#eaf6ff;opacity:.8;box-shadow:0 0 35px #8adfff66}
+.cloud{position:absolute;top:58px;left:12%;color:#9eb6d6;font-size:20px;opacity:.35}.cloud.two{left:65%;top:85px}.ground{position:absolute;left:0;right:0;bottom:0;height:25px;background:linear-gradient(#34425a,#121a2c);border-top:1px solid #60718c}
+.teams{position:relative;z-index:1;display:grid;grid-template-columns:1fr 1fr;gap:12px}.team-title{text-align:center;font-weight:900;font-size:11px;letter-spacing:1.5px;margin-bottom:13px}.blue-title{color:var(--cyan)}.red-title{color:#ff8d9b}
+.fighters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.fighter{min-width:0;text-align:center;transition:transform .16s;position:relative}.fighter.hit{animation:hit .23s}.fighter.dead{opacity:.25;filter:grayscale(1)}@keyframes hit{50%{transform:translateX(5px) scale(1.07)}}.sprite{height:72px;display:flex;align-items:center;justify-content:center;font-size:43px;filter:drop-shadow(0 6px 2px #0005);text-shadow:0 2px 0 #0005}.fighter.red .sprite{transform:scaleX(-1)}.fighter .name{font-size:10px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hp{height:6px;background:#070b15;border-radius:9px;margin:5px 2px 0;overflow:hidden;border:1px solid #ffffff20}.hp>i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#4bdc9a,#a4ffba);transition:width .25s}.fighter.red .hp>i{background:linear-gradient(90deg,#ff536f,#ffb08b)}.hptext{font-size:9px;color:#cbd5e8;margin-top:2px}.float{position:absolute;left:50%;top:5px;transform:translateX(-50%);font-weight:1000;color:#fff;font-size:15px;text-shadow:0 2px 5px #000;pointer-events:none;animation:floatup .8s forwards;z-index:5}@keyframes floatup{to{top:-18px;opacity:0}}
+.statusline{display:flex;justify-content:space-between;gap:10px;padding:10px 14px;background:#10182c;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}.statusline b{color:var(--text)}
+.controls{display:flex;flex-wrap:wrap;gap:8px;padding:12px;background:#151e35;border-top:1px solid var(--line)}button,select{border:1px solid #405273;background:#202d4a;color:#fff;border-radius:10px;padding:11px 14px;font:700 12px system-ui;cursor:pointer}button.primary{background:linear-gradient(135deg,#f6bd4c,#ff8d55);color:#1b1a23;border:0;flex:1}button:active{transform:scale(.98)}select{min-width:100px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.stat{background:#141d33;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}.stat strong{display:block;font-size:21px;color:var(--gold)}.stat span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.lower{display:grid;grid-template-columns:1fr 1fr;gap:12px}.box{background:#141d33;border:1px solid var(--line);border-radius:14px;overflow:hidden}.boxhead{padding:12px 13px;font-size:12px;font-weight:900;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}.boxbody{padding:12px}.roster{display:grid;gap:9px}.unitrow{display:flex;gap:9px;align-items:center}.mini{width:35px;height:35px;display:grid;place-items:center;background:#222e4a;border-radius:10px;font-size:22px;flex-shrink:0}.unitinfo{flex:1;min-width:0}.unitinfo b{display:block;font-size:11px}.unitinfo small{color:var(--muted);font-size:10px}.power{font-size:10px;color:var(--gold);font-weight:900}
+.log{height:190px;overflow:auto;display:flex;flex-direction:column;gap:7px}.logline{font-size:11px;color:#c4cee4;border-left:2px solid #4a628d;padding:4px 0 4px 8px;line-height:1.4}.logline.skill{border-color:var(--gold);color:#ffe2a0}.logline.ko{border-color:var(--red);color:#ff9ba8}.logline.win{border-color:var(--green);color:var(--green);font-weight:800}.empty{color:var(--muted);font-size:12px;text-align:center;padding:20px}
+footer{text-align:center;color:#6f7d9d;font-size:10px;padding:16px 0 0}
+@media(max-width:560px){.stage{padding:20px 6px 18px;min-height:210px}.teams{gap:4px}.fighters{gap:2px}.sprite{height:65px;font-size:35px}.fighter .name{font-size:9px}.lower{grid-template-columns:1fr}.stats{gap:5px}.stat{padding:10px 4px}.stat strong{font-size:18px}.controls{gap:6px}button,select{padding:10px 11px}}
+</style>
+</head>
+<body>
+<header><div class="eyebrow">SHINOBI SIMULATION</div><h1>NINJA <span>CLASH</span></h1><div class="sub">Prototype pertarungan otomatis • 3 lawan 3</div></header>
+<main class="wrap">
+<section class="arena">
+ <div class="arena-top"><span>⚔️ ARENA DAUN TERSEMBUNYI</span><span class="badge" id="roundBadge">PERTARUNGAN 01</span></div>
+ <div class="stage">
+  <div class="moon"></div><div class="cloud">☁</div><div class="cloud two">☁</div>
+  <div class="teams"><div><div class="team-title blue-title">TIM SHINOBI</div><div class="fighters" id="leftTeam"></div></div><div><div class="team-title red-title">TIM PENANTANG</div><div class="fighters" id="rightTeam"></div></div></div>
+  <div class="ground"></div>
+ </div>
+ <div class="statusline"><span>Status: <b id="status">Siap bertarung</b></span><span>Waktu: <b id="timer">00:00</b></span><span>Kecepatan: <b id="speedLabel">1x</b></span></div>
+ <div class="controls"><button class="primary" id="startBtn">▶ MULAI PERTARUNGAN</button><button id="pauseBtn">Ⅱ JEDA</button><button id="resetBtn">↻ ULANG</button><select id="speed"><option value="1">Kecepatan 1x</option><option value="2">Kecepatan 2x</option><option value="4">Kecepatan 4x</option></select></div>
+</section>
+<div class="stats"><div class="stat"><strong id="rounds">0</strong><span>Putaran</span></div><div class="stat"><strong id="damage">0</strong><span>Total Damage</span></div><div class="stat"><strong id="knockouts">0</strong><span>Ninja KO</span></div></div>
+<div class="lower">
+ <section class="box"><div class="boxhead"><span>👥 SUSUNAN TIM</span><span>6 NINJA</span></div><div class="boxbody"><div class="roster" id="roster"></div></div></section>
+ <section class="box"><div class="boxhead"><span>📜 CATATAN PERTARUNGAN</span><span id="logCount">0 aksi</span></div><div class="boxbody"><div class="log" id="log"><div class="empty">Tekan MULAI untuk menyaksikan pertarungan.</div></div></div></section>
+</div>
+<footer>Demo lokal — data pertarungan berjalan di perangkat ini.</footer>
+</main>
+<script>
+const initial=[
+ {id:0,name:"Ren",emoji:"🥷",hp:125,max:125,atk:18,def:7,spd:1.12,team:0,skill:"Bayangan Tebas",color:"blue"},
+ {id:1,name:"Akari",emoji:"👩🏻‍🎤",hp:95,max:95,atk:24,def:3,spd:1.25,team:0,skill:"Kunai Kilat",color:"blue"},
+ {id:2,name:"Daichi",emoji:"🧑🏻‍🦱",hp:150,max:150,atk:15,def:10,spd:.82,team:0,skill:"Benteng Bumi",color:"blue"},
+ {id:3,name:"Kuro",emoji:"🥷🏿",hp:118,max:118,atk:20,def:5,spd:1.05,team:1,skill:"Api Hitam",color:"red"},
+ {id:4,name:"Mika",emoji:"🧝🏻‍♀️",hp:100,max:100,atk:21,def:4,spd:1.18,team:1,skill:"Badai Shuriken",color:"red"},
+ {id:5,name:"Goro",emoji:"👹",hp:160,max:160,atk:16,def:9,spd:.78,team:1,skill:"Hantaman Ogre",color:"red"}
+];
+let units=[],running=false,paused=false,interval=null,round=1,totalDamage=0,kos=0,actionCount=0,seconds=0,turn=0;
+const $=id=>document.getElementById(id);
+function cloneUnits(){return initial.map(x=>({...x,hp:x.max,alive:true,barrier:0,acted:false}));}
+function render(){
+ $('leftTeam').innerHTML=units.filter(u=>u.team===0).map(card).join('');
+ $('rightTeam').innerHTML=units.filter(u=>u.team===1).map(card).join('');
+ $('roster').innerHTML=units.map(u=>'<div class="unitrow"><div class="mini">'+u.emoji+'</div><div class="unitinfo"><b>'+u.name+(u.alive?'':' — KO')+'</b><small>'+ (u.team===0?'Tim Shinobi':'Tim Penantang')+' · '+u.skill+'</small></div><div class="power">ATK '+u.atk+'</div></div>').join('');
+ $('rounds').textContent=round-1;$('damage').textContent=totalDamage;$('knockouts').textContent=kos;
+}
+function card(u){let pct=Math.max(0,u.hp/u.max*100);return '<div class="fighter '+u.color+(u.alive?'':' dead')+'" id="fighter'+u.id+'"><div class="sprite">'+u.emoji+'</div><div class="name">'+u.name+'</div><div class="hp"><i style="width:'+pct+'%"></i></div><div class="hptext">'+Math.max(0,Math.ceil(u.hp))+'/'+u.max+'</div></div>';}
+function log(msg,type=''){const box=$('log');if(box.querySelector('.empty'))box.innerHTML='';const row=document.createElement('div');row.className='logline '+type;row.textContent=msg;box.prepend(row);while(box.children.length>60)box.lastChild.remove();actionCount++;$('logCount').textContent=actionCount+' aksi';}
+function alive(team){return units.filter(u=>u.team===team&&u.alive);}
+function targetFor(u){const foes=alive(1-u.team);if(!foes.length)return null;return foes.sort((a,b)=>(a.hp/a.max)-(b.hp/b.max))[0];}
+function popup(id,text){const el=$('fighter'+id);if(!el)return;const p=document.createElement('div');p.className='float';p.textContent=text;el.appendChild(p);setTimeout(()=>p.remove(),850);el.classList.remove('hit');void el.offsetWidth;el.classList.add('hit');}
+function attack(u){
+ if(!u.alive)return;const t=targetFor(u);if(!t)return;
+ const special=Math.random()<.24;let damage=Math.max(5,Math.round((u.atk*(.78+Math.random()*.5))-(t.def*.48)));
+ let text='Serangan biasa';
+ if(special){damage=Math.round(damage*1.75);text=u.skill;log('✨ '+u.name+' menggunakan '+u.skill+'!','skill');}
+ if(t.barrier){const blocked=Math.min(t.barrier,damage);t.barrier-=blocked;damage-=blocked;if(blocked)log(t.name+' menahan '+blocked+' damage dengan pertahanan!');}
+ t.hp=Math.max(0,t.hp-damage);totalDamage+=damage;popup(t.id,'-'+damage);log(u.name+' menyerang '+t.name+' ('+text+') — '+damage+' damage.');
+ if(t.hp<=0&&t.alive){t.alive=false;kos++;popup(t.id,'KO');log('💥 '+t.name+' tersingkir dari pertarungan!','ko');}
+ if(u.name==='Daichi'&&Math.random()<.13&&u.alive){u.barrier=12;log('🛡️ Daichi memasang pertahanan, mengurangi damage berikutnya.','skill');}
+ render();
+}
+function tick(){
+ if(!running||paused)return;
+ seconds++;$('timer').textContent=String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');
+ const fighters=units.filter(u=>u.alive).sort((a,b)=>(b.spd+Math.random()*.18)-(a.spd+Math.random()*.18));
+ for(const u of fighters){if(!u.alive||!alive(1-u.team).length)break;attack(u);if(!alive(0).length||!alive(1).length)break;}
+ round++;$('roundBadge').textContent='PUTARAN '+String(round-1).padStart(2,'0');$('rounds').textContent=round-1;
+ if(!alive(0).length||!alive(1).length)finish();
+}
+function finish(){running=false;clearInterval(interval);interval=null;const winner=alive(0).length?'TIM SHINOBI':'TIM PENANTANG';$('status').textContent=winner+' MENANG!';log('🏆 '+winner+' memenangkan pertarungan!','win');$('startBtn').textContent='▶ PERTARUNGAN SELESAI';}
+function schedule(){clearInterval(interval);interval=setInterval(tick,1100/Number($('speed').value));}
+function start(){if(running){paused=false;$('status').textContent='Pertarungan berlangsung';$('pauseBtn').textContent='Ⅱ JEDA';schedule();return;}reset(false);running=true;paused=false;$('status').textContent='Pertarungan berlangsung';$('startBtn').textContent='⚔️ BERLANGSUNG';$('pauseBtn').textContent='Ⅱ JEDA';log('⚔️ Pertarungan dimulai! Kedua tim maju ke arena.');schedule();}
+function pause(){if(!running)return;paused=!paused;$('pauseBtn').textContent=paused?'▶ LANJUT':'Ⅱ JEDA';$('status').textContent=paused?'Dijeda':'Pertarungan berlangsung';}
+function reset(clearLog=true){clearInterval(interval);interval=null;running=false;paused=false;units=cloneUnits();round=1;totalDamage=0;kos=0;actionCount=0;seconds=0;turn=0;$('timer').textContent='00:00';$('roundBadge').textContent='PERTARUNGAN 01';$('status').textContent='Siap bertarung';$('startBtn').textContent='▶ MULAI PERTARUNGAN';$('pauseBtn').textContent='Ⅱ JEDA';if(clearLog){$('log').innerHTML='<div class="empty">Tekan MULAI untuk menyaksikan pertarungan.</div>';$('logCount').textContent='0 aksi';}render();}
+$('startBtn').addEventListener('click',start);$('pauseBtn').addEventListener('click',pause);$('resetBtn').addEventListener('click',()=>reset(true));$('speed').addEventListener('change',()=>{$('speedLabel').textContent=$('speed').value+'x';if(running)schedule();});
+reset();
+</script>
+</body>
+</html>
