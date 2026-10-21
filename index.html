@@ -1930,12 +1930,147 @@ function nuclearSystemsTick(){
  }
 }
 
+
+/* Sistem dunia lanjutan: mobilisasi, pendudukan, cuaca/medan, blokade,
+   bencana, rekonstruksi, bantuan, dan pengendalian senjata. */
+function worldDepthSystemsTick(){
+ const cs=living();
+ if(!state.worldClimate||typeof state.worldClimate!=="object")state.worldClimate={season:0,weather:"Cerah",severity:0};
+ const climate=state.worldClimate;
+ if(!Number.isFinite(climate.lastChangedDay)||state.day-climate.lastChangedDay>=3){
+  const seasons=["Musim kering","Musim hujan","Musim peralihan","Musim dingin"];
+  climate.season=Math.floor((state.day%120)/30);
+  climate.weather=rand(["Cerah","Hujan lebat","Badai","Gelombang panas","Kabut"]);
+  climate.severity=climate.weather==="Cerah"?0:climate.weather==="Hujan lebat"?.65:climate.weather==="Badai"?.9:climate.weather==="Gelombang panas"?.55:.35;
+  climate.seasonName=seasons[climate.season]||"Musim peralihan";
+  climate.lastChangedDay=state.day;
+ }
+ // Medan tiap wilayah dibuat stabil, tidak berubah secara acak tiap hari.
+ const terrains=["Dataran","Pegunungan","Hutan","Perkotaan","Pesisir"];
+ state.regions.forEach((r,i)=>{
+  if(!r.terrain)r.terrain=terrains[(i*7+(String(r.origin||r.id).charCodeAt(0)||0))%terrains.length];
+  if(!Number.isFinite(r.infrastructureDamage))r.infrastructureDamage=0;
+  if(!Number.isFinite(r.radioactiveContamination))r.radioactiveContamination=0;
+  if(!Number.isFinite(r.occupationDays))r.occupationDays=0;
+  if(!Number.isFinite(r.resistance))r.resistance=0;
+  if(!Number.isFinite(r.reconstructionLevel))r.reconstructionLevel=0;
+  r.radioactiveContamination=Math.max(0,r.radioactiveContamination-.025);
+  r.infrastructureDamage=Math.max(0,r.infrastructureDamage-.01);
+  if(r.owner&&r.origin&&r.owner!==r.origin){
+   r.occupationDays++;
+   const occupier=getC(r.owner),origin=getC(r.origin);
+   const stability=Number(occupier?.stability)||40;
+   const pressure=clamp((55-stability)*.035+(Number(r.infrastructureDamage)||0)*.002+(Number(r.radioactiveContamination)||0)*.001,0,.65);
+   r.resistance=clamp((Number(r.resistance)||0)+pressure+(Math.random()<.006?.08:0),0,100);
+   if(occupier){
+    occupier.occupationCost=(Number(occupier.occupationCost)||0)+.015+((Number(r.resistance)||0)/100)*.025;
+    occupier.stability=clamp((Number(occupier.stability)||50)-((Number(r.resistance)||0)>75?.025:.004),0,100);
+   }
+   if(origin&&origin.alive&&r.resistance>92&&Math.random()<.0015){
+    r.owner=origin.id;r.occupationDays=0;r.resistance=15;
+    if(occupier){occupier.stability=clamp((Number(occupier.stability)||50)-1,0,100);occupier.warDamage=clamp((Number(occupier.warDamage)||0)+1,0,100);}
+    addEvent("war","Pemberontakan wilayah",r.name+" kembali ke kendali "+origin.name+" setelah perlawanan terhadap pendudukan.","🏴");
+   }
+  }else{
+   r.occupationDays=0;r.resistance=Math.max(0,(Number(r.resistance)||0)-.08);
+  }
+  if(r.reconstructionLevel>0&&r.owner){
+   const c=getC(r.owner);
+   if(c&&Number(c.budget)>1&&Number(c.resources?.iron||0)>0){
+    const cost=.08;
+    c.budget=Math.max(0,c.budget-cost);
+    r.infrastructureDamage=Math.max(0,(Number(r.infrastructureDamage)||0)-.12);
+    r.reconstructionLevel=Math.max(0,r.reconstructionLevel-.05);
+   }
+  }
+ });
+ cs.forEach(c=>{
+  if(!c.resources||typeof c.resources!=="object")c.resources={oil:40,coal:40,iron:40,food:60,uranium:10};
+  if(!Number.isFinite(c.reserveTroops))c.reserveTroops=Math.max(0,Math.floor((Number(c.troops)||0)*.12));
+  if(!Number.isFinite(c.mobilizationLevel))c.mobilizationLevel=0;
+  if(!Number.isFinite(c.blockadePressure))c.blockadePressure=0;
+  if(!Number.isFinite(c.disasterRecovery))c.disasterRecovery=0;
+  if(!Number.isFinite(c.lastDisasterDay))c.lastDisasterDay=0;
+  const atWar=state.wars.some(w=>w.active&&(w.a===c.id||w.b===c.id));
+  const weatherPenalty=climate.severity*(climate.weather==="Badai"?.035:climate.weather==="Hujan lebat"?.025:.012);
+  c.weatherImpact=weatherPenalty;
+  c.supplyEfficiency=clamp((Number(c.supplyEfficiency)||1)-weatherPenalty+(atWar?-.002:.001),.38,1.25);
+  c.supplyEfficiency=clamp(c.supplyEfficiency+(atWar?0:.006),.38,1.25);
+  if(atWar&&c.mobilizationLevel<100&&c.budget>5&&c.resources.food>8&&Math.random()<.07){
+   const newly=Math.min(c.reserveTroops,Math.max(100,Math.floor((Number(c.troops)||0)*.008)));
+   if(newly>0){
+    c.troops+=newly;c.reserveTroops-=newly;c.mobilizationLevel=clamp(c.mobilizationLevel+Math.max(1,newly/Math.max(1,c.troops)*100),0,100);
+    c.budget=Math.max(0,c.budget-Math.max(.05,newly/50000));c.unemployment=clamp((Number(c.unemployment)||10)+.015,0,100);
+   }
+  }else if(!atWar&&c.mobilizationLevel>0&&Math.random()<.12){
+   const returning=Math.min(Math.max(0,c.troops-1000),Math.max(50,Math.floor((Number(c.troops)||0)*.006)));
+   c.troops-=returning;c.reserveTroops+=returning;c.mobilizationLevel=Math.max(0,c.mobilizationLevel-.7);
+   c.unemployment=clamp((Number(c.unemployment)||10)-.02,0,100);
+  }
+  // Rekonstruksi nasional hanya berjalan jika ada anggaran dan material.
+  if(!atWar&&Number(c.warDamage)>3&&Number(c.budget)>8&&Number(c.resources.iron)>1&&Math.random()<.12){
+   const cost=Math.min(Number(c.budget),Math.max(.2,Number(c.warDamage)*.025));
+   c.budget-=cost;recordDailyExpense(c,cost);
+   c.warDamage=Math.max(0,c.warDamage-.08);c.infrastructure=clamp((Number(c.infrastructure)||40)+.035,0,100);
+   const damaged=state.regions.find(r=>r.owner===c.id&&(Number(r.infrastructureDamage)||0)>0);
+   if(damaged){damaged.infrastructureDamage=Math.max(0,damaged.infrastructureDamage-.3);damaged.reconstructionLevel=Math.max(0,(Number(damaged.reconstructionLevel)||0)-.1);}
+  }
+  // Blokade abstrak: kapal perang yang cukup kuat mengganggu pasokan lawan selama perang.
+  const navalThreats=state.wars.filter(w=>w.active&&(w.a===c.id||w.b===c.id)).map(w=>getC(w.a===c.id?w.b:w.a)).filter(x=>x&&x.alive&&Number(x.ships)>Math.max(120,Number(c.ships||0)*1.15));
+  c.blockadePressure=clamp(navalThreats.length?Math.min(.45,.08+navalThreats.length*.08+(Math.min(1000,Math.max(...navalThreats.map(x=>Number(x.ships)||0)))/1000)*.12):Math.max(0,(Number(c.blockadePressure)||0)-.025),0,.45);
+  if(c.blockadePressure>.04&&Math.random()<.18){
+   ["oil","food","iron"].forEach(k=>c.resources[k]=Math.max(0,(Number(c.resources[k])||0)-c.blockadePressure*.08));
+   c.economy=clamp((Number(c.economy)||50)-c.blockadePressure*.025,0,100);
+  }
+  // Bencana jarang terjadi dan pemulihan memerlukan kapasitas fiskal.
+  if(state.day-(Number(c.lastDisasterDay)||0)>45&&Math.random()<.0007){
+   const event=rand(["Banjir besar","Gempa bumi","Kekeringan","Badai ekstrem"]);
+   const damage=event==="Gempa bumi"?10:event==="Banjir besar"?7:event==="Kekeringan"?6:8;
+   c.lastDisasterDay=state.day;c.disasterRecovery=45;c.warDamage=clamp((Number(c.warDamage)||0)+damage,0,100);
+   c.infrastructure=clamp((Number(c.infrastructure)||40)-damage*.65,0,100);
+   c.economy=clamp((Number(c.economy)||50)-damage*.25,0,100);
+   c.population=Math.max(1000,(Number(c.population)||1000000)-Math.floor((Number(c.population)||1000000)*damage*.000025));
+   if(event==="Kekeringan")c.resources.food=Math.max(0,(Number(c.resources.food)||0)-8);
+   if(event==="Banjir besar")c.resources.food=Math.max(0,(Number(c.resources.food)||0)-5);
+   addEvent("world","Bencana nasional: "+event,event+" melanda "+c.name+". Pemerintah perlu mengalokasikan dana dan sumber daya untuk pemulihan.","🌪️");
+  }
+  if(c.disasterRecovery>0){
+   if(c.budget>2&&c.resources.food>0&&Math.random()<.25){
+    const cost=Math.min(c.budget,.15);c.budget-=cost;recordDailyExpense(c,cost);
+    c.disasterRecovery=Math.max(0,c.disasterRecovery-1);c.infrastructure=clamp((Number(c.infrastructure)||0)+.06,0,100);
+   }else c.disasterRecovery=Math.max(0,c.disasterRecovery-.25);
+  }
+  // Bantuan kemanusiaan antarnegeri: hanya bila negara donor mampu dan bukan pihak yang berperang.
+  if(state.day%7===0&&c.budget>20&&c.stability>50){
+   const recipient=cs.filter(x=>x.id!==c.id&&x.alive&&!isAtWar(c.id,x.id)&&((Number(x.refugees)||0)>10000||Number(x.disasterRecovery)>10||Number(x.resources?.food)<5)).sort((a,b)=>((Number(b.refugees)||0)+(Number(b.disasterRecovery)||0)*10000)-((Number(a.refugees)||0)+(Number(a.disasterRecovery)||0)*10000))[0];
+   if(recipient&&Math.random()<.08){
+    const aid=Math.min(1.5,c.budget*.01);c.budget-=aid;recordDailyExpense(c,aid);
+    recipient.budget+=aid*.5;recipient.resources.food=clamp((Number(recipient.resources.food)||0)+2,0,resourceCapacity(recipient));
+    recipient.refugees=Math.max(0,(Number(recipient.refugees)||0)-Math.floor((Number(recipient.refugees)||0)*.015));
+    addEvent("diplomacy","Bantuan kemanusiaan",c.name+" mengirim bantuan kepada "+recipient.name+" untuk mendukung pemulihan dan pasokan pangan.","🤝");
+   }
+  }
+ });
+ // Perjanjian pembatasan senjata nuklir muncul secara langka jika beberapa negara telah memiliki hulu ledak.
+ if(!Array.isArray(state.armsControlTreaties))state.armsControlTreaties=[];
+ const nuclearStates=cs.filter(c=>(Number(c.nuclearWarheads)||0)>0);
+ if(nuclearStates.length>=2&&state.day%30===0&&Math.random()<.08){
+  const a=rand(nuclearStates),b=rand(nuclearStates.filter(c=>c.id!==a.id));
+  if(a&&b&&!state.armsControlTreaties.some(t=>t.active&&((t.a===a.id&&t.b===b.id)||(t.a===b.id&&t.b===a.id)))){
+   state.armsControlTreaties.push({a:a.id,b:b.id,day:state.day,active:true});
+   a.nuclearWarheads=Math.max(0,a.nuclearWarheads-1);b.nuclearWarheads=Math.max(0,b.nuclearWarheads-1);
+   a.nuclearDeterrence=clamp((Number(a.nuclearDeterrence)||0)+4,0,100);b.nuclearDeterrence=clamp((Number(b.nuclearDeterrence)||0)+4,0,100);
+   addEvent("diplomacy","Kesepakatan pembatasan nuklir",a.name+" dan "+b.name+" menyepakati pengurangan persediaan nuklir untuk menekan risiko eskalasi.","🕊️");
+  }
+ }
+}
+
 function tick(){
  validateSimulationState();
  state.day++;state.year=Math.floor((state.day-1)/365)+1;
  if(!Array.isArray(state.trends))state.trends=[];
  if(state.day%10===0){const cs=living();state.trends.push({day:state.day,year:state.year,averageEconomy:cs.length?cs.reduce((n,c)=>n+(c.economy||0),0)/cs.length:0,averageInflation:cs.length?cs.reduce((n,c)=>n+(c.inflation||0),0)/cs.length:0,averagePopulation:cs.length?cs.reduce((n,c)=>n+(c.population||0),0)/cs.length:0,averageTech:cs.length?cs.reduce((n,c)=>n+(c.techLevel||30),0)/cs.length:0,totalDebt:cs.reduce((n,c)=>n+(c.debt||0),0),activeWars:state.wars.filter(w=>w.active).length,activeCountries:cs.length,territories:state.regions.filter(r=>r.owner).length});if(state.trends.length>60)state.trends.shift();}
-economyTick();demographyTick();resourceMarketTick();economicExpansionTick();tradeAgreementTick();politicsTick();developmentTick();nationalSystemsTick();governmentStrategyTick();internationalOrganizationTick();espionageTick();goalsTick();updateMilitaryReadiness();strategicRecoveryTick();advancedNationalSystemsTick();nuclearSystemsTick();
+economyTick();demographyTick();resourceMarketTick();economicExpansionTick();tradeAgreementTick();politicsTick();developmentTick();nationalSystemsTick();governmentStrategyTick();internationalOrganizationTick();espionageTick();goalsTick();updateMilitaryReadiness();strategicRecoveryTick();advancedNationalSystemsTick();nuclearSystemsTick();worldDepthSystemsTick();
  reinforceFronts();
  resolveWars();negotiatePeace();diplomacy();peacefulDevelopment();
 integratedConsequencesTick();
@@ -1983,6 +2118,7 @@ function renderDetail(){
  '<h3 style="font-size:12px;margin:12px 0 6px">🚚 LOGISTIK & PEMULIHAN PERANG</h3><div class="equipment-grid"><div class="equipment"><span>Efisiensi suplai</span><b>'+Math.round((c.supplyEfficiency||1)*100)+'%</b></div><div class="equipment"><span>Kerusakan nasional</span><b>'+Math.round(c.warDamage||0)+'/100</b></div></div>'+
  '<h3 style="font-size:12px;margin:12px 0 6px">🛡️ PERTAHANAN MODERN & INDUSTRI MILITER</h3><div class="equipment-grid"><div class="equipment"><span>Pertahanan udara</span><b>'+Math.round(c.airDefense||0)+'/100</b></div><div class="equipment"><span>Perang elektronik</span><b>'+Math.round(c.electronicWarfare||0)+'/100</b></div><div class="equipment"><span>Kerusakan peralatan</span><b>'+Math.round(c.equipmentDamage||0)+'/100</b></div><div class="equipment"><span>Antrean produksi</span><b>'+(c.productionQueue||[]).length+' proyek</b></div><div class="equipment"><span>Inovasi nasional</span><b>'+Math.round(c.innovationScore||0)+' terobosan</b></div><div class="equipment"><span>Pengungsi</span><b>'+fmt(c.refugees||0)+'</b></div><div class="equipment"><span>Kapasitas evakuasi sipil</span><b>'+Math.round(c.evacuationCapacity||0)+'/100</b></div><div class="equipment"><span>Kekurangan tenaga kerja</span><b>'+Math.round((c.laborShortage||0)*100)+'%</b></div><div class="equipment"><span>Konflik domestik</span><b>'+(c.internalConflictDays||0)+' hari tersisa</b></div></div>'+
  '<h3 style="font-size:12px;margin:12px 0 6px">☢️ PROGRAM NUKLIR & PENCEGAHAN</h3><div class="equipment-grid"><div class="equipment"><span>Riset nuklir</span><b>'+Math.round(c.nuclearResearch||0)+'/100</b></div><div class="equipment"><span>Status program</span><b>'+((c.nuclearProgramLevel||0)>=2?'Kemampuan senjata':(c.nuclearProgramLevel||0)===1?'Program aktif':'Belum aktif')+'</b></div><div class="equipment"><span>Persediaan nuklir</span><b>'+fmt(c.nuclearWarheads||0)+' hulu ledak</b></div><div class="equipment"><span>Daya tangkal</span><b>'+Math.round(c.nuclearDeterrence||0)+'/100</b></div><div class="equipment"><span>Kontaminasi radioaktif</span><b>'+Math.round(c.nuclearFallout||0)+'/100</b></div><div class="equipment"><span>Jeda penggunaan</span><b>'+Math.round(c.nuclearCooldown||0)+' hari</b></div></div>'+
+ '<h3 style="font-size:12px;margin:12px 0 6px">🌐 KONDISI DUNIA & KETAHANAN NEGARA</h3><div class="equipment-grid"><div class="equipment"><span>Mobilisasi militer</span><b>'+Math.round(c.mobilizationLevel||0)+'/100</b></div><div class="equipment"><span>Cadangan personel</span><b>'+fmt(c.reserveTroops||0)+'</b></div><div class="equipment"><span>Tekanan blokade</span><b>'+Math.round((c.blockadePressure||0)*100)+'%</b></div><div class="equipment"><span>Dampak cuaca</span><b>'+Math.round((c.weatherImpact||0)*100)+'%</b></div><div class="equipment"><span>Kerusakan perang</span><b>'+Math.round(c.warDamage||0)+'/100</b></div><div class="equipment"><span>Pemulihan bencana</span><b>'+Math.round(c.disasterRecovery||0)+' hari</b></div><div class="equipment"><span>Biaya pendudukan</span><b>'+moneyFmt(c,c.occupationCost||0)+'</b></div></div>'+
  '<h3 style="font-size:12px;margin:12px 0 6px">⚔️ DOKTRIN PERANG AI</h3><div class="equipment"><span>'+ensureWarDoctrine(c).name+'</span><b>'+ensureWarDoctrine(c).desc+'</b></div>'+
  '<h3 style="font-size:12px;margin:12px 0 6px">🤝 KONTRAK DAGANG</h3>'+contractHtml+
  '<h3 style="font-size:12px;margin:12px 0 6px">🪖 INVENTARIS MILITER</h3><div class="equipment-grid">'+Object.keys(units).map(k=>'<div class="equipment"><span>'+units[k]+'</span><b>'+fmt(c[k])+'</b></div>').join("")+'<div class="equipment"><span>💰 Anggaran pertahanan</span><b>'+moneyFmt(c,c.budget)+'</b></div><div class="equipment"><span>🩹 Kehilangan personel kumulatif</span><b>'+fmt(c.battleLosses)+'</b></div></div>'+
