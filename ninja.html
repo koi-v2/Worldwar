@@ -212,6 +212,11 @@ renderAll();prepareBattle();$('speed').addEventListener('change',changeSpeed);
   t.hp=Math.max(0,t.hp-dmg);state.totalDamage+=dmg;pop(t.uid,'-'+dmg);addLog(u.name+' menyerang '+t.name+' — '+dmg+' damage ('+label+').');
   if(special&&u.team===0&&['kuro','yori'].includes(u.uid)&&Math.random()<.35){ts.burn=2;addLog('🔥 '+t.name+' terbakar selama 2 giliran.','skill')}
   if(special&&u.team===0&&u.uid==='akari'&&Math.random()<.28){ts.stun=1;addLog('💫 '+t.name+' terkena stun!','skill')}
+  if(special&&u.team===0&&u.uid==='tsuki'){ts.weak=2;addLog('🌑 '+t.name+' terkena kutukan Bulan: menerima damage tambahan selama 2 giliran.','skill')}
+  if(special&&u.team===0&&u.uid==='raiden'&&Math.random()<.45){ts.stun=1;addLog('⚡ '+t.name+' lumpuh oleh Kilat Surgawi!','skill')}
+  if(special&&u.team===0&&u.uid==='goro'){const heal=Math.round(dmg*.22);u.hp=Math.min(u.max,u.hp+heal);addLog('👹 Goro menyerap energi dan memulihkan '+heal+' HP.','skill');pop(u.uid,'+'+heal)}
+  if(special&&u.team===0&&u.uid==='tetsu'){u.barrier=(u.barrier||0)+Math.round(u.max*.22);addLog('🛡️ Tetsu membangun Dinding Baja yang kuat!','skill')}
+  if(special&&u.team===0&&u.uid==='sora'){u.barrier=(u.barrier||0)+Math.round(u.max*.10);u.chakra=Math.min(100,u.chakra+10);addLog('🪽 Sora menghindar dengan Tarian Langit dan membentuk pelindung.','skill')}
   if(special&&u.team===0&&u.uid==='mika'){foes.filter(x=>x.alive&&x.uid!==t.uid).forEach(x=>{const splash=Math.round(dmg*.28);x.hp=Math.max(0,x.hp-splash);state.totalDamage+=splash;addLog('🌪️ Serangan area mengenai '+x.name+' ('+splash+').','skill');if(x.hp<=0)x.alive=false})}
   if(special&&u.team===0&&u.uid==='daichi'){u.barrier=(u.barrier||0)+Math.round(u.max*.12);addLog('🛡️ '+u.name+' memperoleh barrier.','skill')}
   if(special&&u.team===0&&u.uid==='hana'&&friend){const heal=Math.round(friend.max*.18);friend.hp=Math.min(friend.max,friend.hp+heal);state.totalHealed+=heal;addLog('💚 '+u.name+' memulihkan '+friend.name+' sebanyak '+heal+' HP.','skill')}
