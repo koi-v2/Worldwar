@@ -1534,7 +1534,9 @@ function demographyTick(){
   c.deathsPerDay=Math.max(0,Math.round(pop*deathRate));
   // Korban penduduk akibat perang dihitung terpisah dari kematian normal.
   const activeWars=state.wars.filter(w=>w.active&&(w.a===c.id||w.b===c.id)).length;
-  const warLossRate=activeWars?Math.min(.00006,.000025+(activeWars-1)*.000008):0;
+  if(!Number.isFinite(c.evacuationCapacity))c.evacuationCapacity=clamp((Number(c.infrastructure)||40)*.32+(Number(c.stability)||40)*.18+(Number(c.techTree?.logistics)||0)*.12,0,70);
+  const evacuationFactor=1-clamp(Number(c.evacuationCapacity||0)*.004,0,.28);
+  const warLossRate=activeWars?Math.min(.00006,.000025+(activeWars-1)*.000008)*evacuationFactor:0;
   c.warDeathsPerDay=Math.round(pop*warLossRate);
   c.migrationPressure=clamp((Number(c.economy??50)-50)*.12+(50-unemployment)*.08+(stability-50)*.08-(inflation>12?3:0)-(food<10?5:0),-20,20);
   const netMigration=Math.round(pop*c.migrationPressure*.0000005);
@@ -1709,6 +1711,7 @@ function advancedNationalSystemsTick(){
   if(!Array.isArray(c.productionQueue))c.productionQueue=[];
   const atWar=isAtWar(c.id),r=c.resources||{},budget=Number(c.budget)||0;
   // Riset dan investasi memperkuat kemampuan siber/elektronik serta pertahanan udara.
+  c.evacuationCapacity=clamp((Number(c.infrastructure)||40)*.32+(Number(c.stability)||40)*.18+(Number(c.techTree?.logistics)||0)*.12+(Number(c.budget)||0)*.035,0,100);
   if(state.day%7===0&&budget>12&&Number(c.research||0)>20){
    const cost=clamp(.8+(Number(c.techLevel)||30)*.012,.8,2.2);
    c.budget=Math.max(0,budget-cost);recordDailyExpense(c,cost);
@@ -1864,7 +1867,7 @@ function renderDetail(){
  '<h3 style="font-size:12px;margin:12px 0 6px">🧪 CABANG TEKNOLOGI NASIONAL</h3><div class="equipment-grid">'+Object.entries({industry:"🏭 Industri",medicine:"🏥 Medis",energy:"⚡ Energi",military:"⚔️ Militer",logistics:"🚚 Logistik"}).map(([k,label])=>'<div class="equipment"><span>'+label+'</span><b>'+Math.round(Number(c.techTree?.[k])||0)+'/100</b></div>').join("")+'</div>'+
  '<h3 style="font-size:12px;margin:12px 0 6px">🎖️ KOMANDO & PENGALAMAN JENDERAL</h3><div class="equipment"><span>'+ensureCommander(c).rank+' · '+ensureCommander(c).name+'</span><b>Spesialisasi '+ensureCommander(c).skill+' · tingkat '+ensureCommander(c).skillLevel+'/10</b><small style="display:block;color:var(--muted)">Pengalaman '+Math.round(ensureCommander(c).experience)+' · kemenangan '+ensureCommander(c).victories+' · kekalahan '+ensureCommander(c).defeats+'</small></div>'+
  '<h3 style="font-size:12px;margin:12px 0 6px">🚚 LOGISTIK & PEMULIHAN PERANG</h3><div class="equipment-grid"><div class="equipment"><span>Efisiensi suplai</span><b>'+Math.round((c.supplyEfficiency||1)*100)+'%</b></div><div class="equipment"><span>Kerusakan nasional</span><b>'+Math.round(c.warDamage||0)+'/100</b></div></div>'+
- '<h3 style="font-size:12px;margin:12px 0 6px">🛡️ PERTAHANAN MODERN & INDUSTRI MILITER</h3><div class="equipment-grid"><div class="equipment"><span>Pertahanan udara</span><b>'+Math.round(c.airDefense||0)+'/100</b></div><div class="equipment"><span>Perang elektronik</span><b>'+Math.round(c.electronicWarfare||0)+'/100</b></div><div class="equipment"><span>Kerusakan peralatan</span><b>'+Math.round(c.equipmentDamage||0)+'/100</b></div><div class="equipment"><span>Antrean produksi</span><b>'+(c.productionQueue||[]).length+' proyek</b></div><div class="equipment"><span>Inovasi nasional</span><b>'+Math.round(c.innovationScore||0)+' terobosan</b></div><div class="equipment"><span>Pengungsi</span><b>'+fmt(c.refugees||0)+'</b></div><div class="equipment"><span>Kekurangan tenaga kerja</span><b>'+Math.round((c.laborShortage||0)*100)+'%</b></div><div class="equipment"><span>Konflik domestik</span><b>'+(c.internalConflictDays||0)+' hari tersisa</b></div></div>'+
+ '<h3 style="font-size:12px;margin:12px 0 6px">🛡️ PERTAHANAN MODERN & INDUSTRI MILITER</h3><div class="equipment-grid"><div class="equipment"><span>Pertahanan udara</span><b>'+Math.round(c.airDefense||0)+'/100</b></div><div class="equipment"><span>Perang elektronik</span><b>'+Math.round(c.electronicWarfare||0)+'/100</b></div><div class="equipment"><span>Kerusakan peralatan</span><b>'+Math.round(c.equipmentDamage||0)+'/100</b></div><div class="equipment"><span>Antrean produksi</span><b>'+(c.productionQueue||[]).length+' proyek</b></div><div class="equipment"><span>Inovasi nasional</span><b>'+Math.round(c.innovationScore||0)+' terobosan</b></div><div class="equipment"><span>Pengungsi</span><b>'+fmt(c.refugees||0)+'</b></div><div class="equipment"><span>Kapasitas evakuasi sipil</span><b>'+Math.round(c.evacuationCapacity||0)+'/100</b></div><div class="equipment"><span>Kekurangan tenaga kerja</span><b>'+Math.round((c.laborShortage||0)*100)+'%</b></div><div class="equipment"><span>Konflik domestik</span><b>'+(c.internalConflictDays||0)+' hari tersisa</b></div></div>'+
  '<h3 style="font-size:12px;margin:12px 0 6px">⚔️ DOKTRIN PERANG AI</h3><div class="equipment"><span>'+ensureWarDoctrine(c).name+'</span><b>'+ensureWarDoctrine(c).desc+'</b></div>'+
  '<h3 style="font-size:12px;margin:12px 0 6px">🤝 KONTRAK DAGANG</h3>'+contractHtml+
  '<h3 style="font-size:12px;margin:12px 0 6px">🪖 INVENTARIS MILITER</h3><div class="equipment-grid">'+Object.keys(units).map(k=>'<div class="equipment"><span>'+units[k]+'</span><b>'+fmt(c[k])+'</b></div>').join("")+'<div class="equipment"><span>💰 Anggaran pertahanan</span><b>'+moneyFmt(c,c.budget)+'</b></div><div class="equipment"><span>🩹 Kehilangan personel kumulatif</span><b>'+fmt(c.battleLosses)+'</b></div></div>'+
