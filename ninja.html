@@ -191,7 +191,7 @@ renderAll();prepareBattle();$('speed').addEventListener('change',changeSpeed);
  const oldStats=stats;
  stats=function(o){const s=oldStats(o),eq=state.gearEquipped[o.id]||{};for(const slot in eq){const g=GEAR.find(x=>x.id===eq[slot]);if(g){s.hp+=g.hp||0;s.atk+=g.atk||0;s.def+=g.def||0;s.spd+=(g.spd||0)}}return s};
  function elemMult(a,b){if(a==='Api'&&b==='Angin'||a==='Angin'&&b==='Petir'||a==='Petir'&&b==='Air'||a==='Air'&&b==='Api')return 1.22;if(b==='Api'&&a==='Angin'||b==='Angin'&&a==='Petir'||b==='Petir'&&a==='Air'||b==='Air'&&a==='Api')return .84;return 1}
- function extendedEnemyFor(stage){const e=baseEnemyFor(stage);e.forEach((x,i)=>{x.element=['Api','Air','Angin','Petir','Bumi','Bayangan'][(stage+i)%6];x.status={};x.chakra=0;x.maxChakra=100;x.role=i===2?'tank':i===1?'support':'attacker';if(state.challenge==='boss'&&i===2){x.name='Boss '+x.name;x.max=Math.round(x.max*3.5);x.hp=x.max;x.atk=Math.round(x.atk*1.3)}});return e}
+ function extendedEnemyFor(stage){const e=baseEnemyFor(stage);e.forEach((x,i)=>{x.element=['Api','Air','Angin','Petir','Bumi','Bayangan'][(stage+i)%6];x.status={};x.chakra=0;x.maxChakra=100;x.role=i===2?'tank':i===1?'support':'attacker';x.skillLevel=Math.max(1,Math.ceil(stage/3));if(state.challenge==='boss'&&i===2){x.name='Boss '+x.name;x.max=Math.round(x.max*3.5);x.hp=x.max;x.atk=Math.round(x.atk*1.3)}});return e}
  enemyFor=extendedEnemyFor;
  const baseMakeAlly=makeAlly;
  makeAlly=function(o){const u=baseMakeAlly(o),d=def(o.id);u.element=d.element;u.status={};u.chakra=25;u.maxChakra=100;u.skillLevel=state.skillLevels[o.id]||1;u.role=(d.id==='hana')?'support':(['daichi','tetsu','goro'].includes(d.id)?'tank':'attacker');return u};
@@ -200,14 +200,14 @@ renderAll();prepareBattle();$('speed').addEventListener('change',changeSpeed);
   if(!u.alive)return;const foes=alive(1-u.team);if(!foes.length)return;
   const us=makeStatus(u);if(us.stun>0){us.stun--;addLog('💫 '+u.name+' terkena stun dan kehilangan giliran.','ko');return}
   const team=alive(u.team),friend=team.filter(x=>x.hp/x.max<.68).sort((a,b)=>a.hp/a.max-b.hp/b.max)[0];
-  u.chakra=Math.min(100,(u.chakra||0)+18);
+  u.chakra=Math.min(100,(u.chakra||0)+25);
   if(u.team===0&&u.role==='support'&&friend&&Math.random()<.32){const heal=Math.round(friend.max*(.10+.025*(u.skillLevel||1)));friend.hp=Math.min(friend.max,friend.hp+heal);state.totalHealed+=heal;addLog('💚 '+u.name+' memulihkan '+friend.name+' sebanyak '+heal+' HP.','skill');pop(friend.uid,'+'+heal);return}
   let t;
-  if(u.role==='attacker'&&Math.random()<.35)t=foes.slice().sort((a,b)=>a.hp/b.max-b.hp/a.max)[0];else t=foes[Math.floor(Math.random()*foes.length)];
-  const special=(u.chakra>=100||Math.random()<.16);let dmg=Math.max(4,Math.round(u.atk*(.78+Math.random()*.45)-t.def*.42));let label='serangan biasa';
-  if(special){u.chakra=Math.max(0,u.chakra-100);dmg=Math.round(dmg*(1.55+.08*((u.skillLevel||1)-1)));label=u.skill;addLog('✨ '+u.name+' melepas '+u.skill+'! Chakra terkuras.','skill')}
+  if(u.role==='attacker'&&Math.random()<.35)t=foes.slice().sort((a,b)=>(a.hp/a.max)-(b.hp/b.max))[0];else if(u.role==='tank'&&Math.random()<.35)t=foes.slice().sort((a,b)=>b.atk-a.atk)[0];else t=foes[Math.floor(Math.random()*foes.length)];
+  const special=u.chakra>=100;let dmg=Math.max(4,Math.round(u.atk*(.78+Math.random()*.45)-t.def*.42));let label='serangan biasa';
+  if(special){u.chakra=0;dmg=Math.round(dmg*(1.55+.08*((u.skillLevel||1)-1)));label=u.skill;addLog('✨ '+u.name+' melepas '+u.skill+'! Chakra terkuras.','skill')}
   const mul=elemMult(u.element||'Bayangan',t.element||'Bayangan');dmg=Math.round(dmg*mul);if(mul>1)label+=' · elemen unggul';if(mul<1)label+=' · elemen lemah';
-  const ts=makeStatus(t);if(ts.weak) dmg=Math.round(dmg*1.18);
+  const ts=makeStatus(t);if(ts.weak) dmg=Math.round(dmg*1.18);if((t.element||'')==='Bumi')dmg=Math.round(dmg*.90);
   if(t.barrier){const block=Math.min(t.barrier,dmg);t.barrier-=block;dmg-=block}
   t.hp=Math.max(0,t.hp-dmg);state.totalDamage+=dmg;pop(t.uid,'-'+dmg);addLog(u.name+' menyerang '+t.name+' — '+dmg+' damage ('+label+').');
   if(special&&u.team===0&&['kuro','yori'].includes(u.uid)&&Math.random()<.35){ts.burn=2;addLog('🔥 '+t.name+' terbakar selama 2 giliran.','skill')}
