@@ -284,10 +284,9 @@ func _layout_ui() -> void:
 		return
 	# Keep the HUD and controls usable on both portrait phones and landscape screens.
 	if hud_canvas != null:
-		var proximity := hud_canvas.get_node_or_null("Label") as Label
-		if proximity != null:
-			proximity.position = Vector2(14, 82)
-			proximity.size = Vector2(maxf(140.0, view_size.x - 28.0), 44)
+		if proximity_label != null:
+			proximity_label.position = Vector2(14, 82)
+			proximity_label.size = Vector2(maxf(140.0, view_size.x - 28.0), 44)
 		var base := Vector2(18, view_size.y - 194)
 		for key in direction_buttons:
 			var item: Dictionary = direction_buttons[key]
