@@ -47,6 +47,7 @@ func _process(delta: float) -> void:
 		walk_frame = 0
 	player_position.x = clampf(player_position.x, 30.0, WORLD_SIZE.x - 30.0)
 	player_position.y = clampf(player_position.y, 70.0, WORLD_SIZE.y - 30.0)
+	_update_camera(delta)
 	queue_redraw()
 
 func _update_camera(delta: float) -> void:
