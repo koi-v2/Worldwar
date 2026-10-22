@@ -1,32 +1,63 @@
-name: Build KoiWorld Android APK
+name: Build GrowWorld Godot Android APK
+
 on:
   workflow_dispatch:
   push:
     paths:
       - 'growtopia/**'
       - '.github/workflows/growtopia-android.yml'
+
+permissions:
+  contents: read
+
 jobs:
-  build:
+  build-godot-android:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" "cmdline-tools;latest"
+          yes | sdkmanager --licenses
+
+      - name: Set up Godot and Android export templates
+        uses: chickensoft-games/setup-godot@v2
         with:
-          gradle-version: '8.7'
-      - name: Build debug APK
-        working-directory: growtopia
-        run: gradle --no-daemon assembleDebug
-      - name: Upload APK
+          version: 4.3.0
+          use-dotnet: false
+          include-templates: true
+
+      - name: Check Godot version
+        run: godot --version
+
+      - name: Import and validate Godot project
+        run: |
+          godot --headless --path growtopia --editor --import
+          godot --headless --path growtopia --editor --quit
+
+      - name: Export native Android APK
+        run: |
+          mkdir -p growtopia/build
+          godot --headless --path growtopia --export-debug "Android" growtopia/build/GrowWorld-debug.apk
+          test -s growtopia/build/GrowWorld-debug.apk
+          ls -lh growtopia/build/GrowWorld-debug.apk
+          file growtopia/build/GrowWorld-debug.apk
+
+      - name: Upload GrowWorld APK
         uses: actions/upload-artifact@v4
         with:
-          name: KoiWorld-Android-APK
-          path: growtopia/app/build/outputs/apk/debug/app-debug.apk
+          name: GrowWorld-Godot-Android-APK
+          path: growtopia/build/GrowWorld-debug.apk
           if-no-files-found: error
           retention-days: 14
