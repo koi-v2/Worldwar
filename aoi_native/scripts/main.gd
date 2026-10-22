@@ -182,43 +182,41 @@ func _close_npc_dialogue() -> void:
 			panel.visible = false
 
 func _draw() -> void:
-	# Town map drawn with simple shapes so guessed atlas coordinates cannot
-	# turn the entire world into repeated crop/plant tiles.
-	draw_rect(Rect2(Vector2.ZERO, WORLD_SIZE), Color("#83bd70"))
+	# Tile atlas Koi World: gunakan potongan dari tileset.png, bukan placeholder.
+	if tileset_texture == null:
+		draw_rect(Rect2(Vector2.ZERO, WORLD_SIZE), Color("#83bd70"))
+	else:
+		# Rumput dasar diulang dari tile rumput kiri-atas atlas.
+		var grass_src := Rect2(8, 8, 72, 72)
+		for x in range(0, int(WORLD_SIZE.x), 72):
+			for y in range(0, int(WORLD_SIZE.y), 72):
+				_draw_atlas_tile(Rect2(x, y, 72, 72), grass_src)
 
-	# Grass patches provide subtle variation without covering the ground.
-	for x in range(24, int(WORLD_SIZE.x), 144):
-		for y in range(30, int(WORLD_SIZE.y), 132):
-			draw_rect(Rect2(x, y, 62, 34), Color("#7ab568"))
+	# Jalan tanah dari tile tanah atlas.
+	var dirt_src := Rect2(460, 94, 72, 60)
+	for x in range(0, int(WORLD_SIZE.x), 72):
+		_draw_atlas_tile(Rect2(x, 492, 72, 88), dirt_src)
+	# Jalan vertikal memakai transform rotasi agar tetap memakai tile atlas.
+	draw_set_transform(Vector2(826, 600), PI / 2.0)
+	for y in range(-900, 900, 72):
+		_draw_atlas_tile(Rect2(-44, y, 88, 72), dirt_src)
+	draw_set_transform(Vector2.ZERO, 0.0)
 
-	# Main paths form a small connected village grid.
-	draw_rect(Rect2(0, 492, WORLD_SIZE.x, 88), Color("#d8bd8d"))
-	draw_rect(Rect2(780, 0, 92, WORLD_SIZE.y), Color("#d8bd8d"))
-	draw_rect(Rect2(0, 518, WORLD_SIZE.x, 4), Color("#c7a678"))
-	draw_rect(Rect2(0, 556, WORLD_SIZE.x, 4), Color("#c7a678"))
-	draw_rect(Rect2(806, 0, 4, WORLD_SIZE.y), Color("#c7a678"))
-	draw_rect(Rect2(842, 0, 4, WORLD_SIZE.y), Color("#c7a678"))
+	# Plaza kecil di pertemuan jalan.
+	draw_rect(Rect2(732, 444, 188, 184), Color("#d8bd91"))
+	_draw_atlas_tile(Rect2(748, 460, 156, 152), Rect2(1080, 250, 174, 53))
 
-	# Small central plaza.
-	draw_rect(Rect2(732, 444, 188, 184), Color("#e5cfa7"))
-	draw_rect(Rect2(748, 460, 156, 152), Color("#d9bd91"))
-	draw_circle(Vector2(826, 536), 30, Color("#86b96e"))
-	draw_circle(Vector2(826, 536), 18, Color("#d8c7a5"))
+	# Kolam memakai elemen air dari atlas.
+	_draw_atlas_tile(Rect2(390, 748, 270, 210), Rect2(7, 309, 180, 72))
+	_draw_atlas_tile(Rect2(408, 764, 234, 178), Rect2(1255, 309, 140, 72))
 
-	# Pond with a grassy bank, kept clear of the main road.
-	draw_rect(Rect2(390, 748, 270, 210), Color("#6c9f58"))
-	draw_rect(Rect2(408, 764, 234, 178), Color("#4fa9c4"))
-	draw_arc(Vector2(525, 853), 102, PI, TAU, 32, Color("#8ad6df"), 4.0)
-	draw_circle(Vector2(470, 820), 7, Color("#b7edf0"))
-	draw_circle(Vector2(570, 884), 5, Color("#b7edf0"))
-
-	# House/shop lots: roof, walls, door, windows and a short garden border.
+	# Bangunan sederhana dipertahankan, lalu dikelilingi aset atlas asli.
 	_draw_building(Vector2(230, 220), Vector2(190, 150), Color("#e8d5ae"), "RUMAH")
 	_draw_building(Vector2(1120, 220), Vector2(210, 160), Color("#ead1a0"), "TOKO")
 	_draw_building(Vector2(250, 700), Vector2(205, 160), Color("#d9e1bd"), "RUMAH")
 	_draw_building(Vector2(1130, 720), Vector2(220, 165), Color("#e4c5a5"), "KAFE")
 
-	# Trees and shrubs placed in clusters, not as a repeating tile grid.
+	# Pepohonan atlas ditempatkan sebagai objek, bukan tile berulang.
 	for tree in [
 		Vector2(112, 150), Vector2(165, 182), Vector2(470, 180), Vector2(560, 260),
 		Vector2(1010, 160), Vector2(1430, 170), Vector2(1510, 215), Vector2(1450, 610),
@@ -228,31 +226,37 @@ func _draw() -> void:
 	]:
 		_draw_tree(tree)
 
-	# Flower patches and garden stones add variety around paths.
+	# Bunga atlas sebagai detail taman.
 	for flower in [
 		Vector2(150, 390), Vector2(190, 420), Vector2(480, 390), Vector2(530, 410),
 		Vector2(1020, 410), Vector2(1080, 430), Vector2(680, 680), Vector2(710, 720),
 		Vector2(940, 760), Vector2(990, 790), Vector2(700, 920), Vector2(740, 950)
 	]:
-		draw_circle(flower, 5, Color("#f5e7a1"))
-		draw_circle(flower + Vector2(7, 4), 4, Color("#f0a5b5"))
-		draw_circle(flower + Vector2(-6, 5), 4, Color("#f0a5b5"))
-		draw_circle(flower + Vector2(0, 9), 4, Color("#fff0d1"))
+		_draw_atlas_tile(Rect2(flower - Vector2(20, 20), Vector2(40, 40)), Rect2(810, 385, 65, 63))
 
-	# Reuse the existing NPCs and player rendering.
+	# Bangku taman dari atlas.
+	for bench in [Vector2(360, 390), Vector2(980, 920), Vector2(1260, 450)]:
+		_draw_atlas_tile(Rect2(bench - Vector2(34, 20), Vector2(68, 40)), Rect2(790, 652, 82, 55))
+
 	_draw_npc(Vector2(730, 450), Color("#e8c0a0"), Color("#8657b7"))
 	_draw_npc(Vector2(1040, 670), Color("#f1d1b1"), Color("#e06c75"))
 	_draw_npc(Vector2(580, 690), Color("#bd8a67"), Color("#4f7fc2"))
 	_draw_player()
 
+func _draw_atlas_tile(destination: Rect2, source: Rect2) -> void:
+	if tileset_texture != null:
+		draw_texture_rect_region(tileset_texture, destination, source, Color.WHITE, false, true)
 func _draw_tree(pos: Vector2) -> void:
-	# Soft shadow, trunk and layered canopy.
-	draw_circle(pos + Vector2(1, 28), 24, Color(0, 0, 0, 0.16))
-	draw_rect(Rect2(pos + Vector2(-5, 8), Vector2(10, 25)), Color("#79533a"))
-	draw_circle(pos + Vector2(-9, 0), 20, Color("#3d8547"))
-	draw_circle(pos + Vector2(9, -7), 22, Color("#4f9b4e"))
-	draw_circle(pos + Vector2(1, -17), 17, Color("#68ad55"))
-	draw_circle(pos + Vector2(-8, -5), 6, Color("#86c96a"))
+	if tileset_texture != null:
+		# Broadleaf tree sprite from the supplied atlas.
+		_draw_atlas_tile(Rect2(pos - Vector2(48, 58), Vector2(96, 116)), Rect2(205, 454, 112, 122))
+	else:
+		draw_circle(pos + Vector2(1, 28), 24, Color(0, 0, 0, 0.16))
+		draw_rect(Rect2(pos + Vector2(-5, 8), Vector2(10, 25)), Color("#79533a"))
+		draw_circle(pos + Vector2(-9, 0), 20, Color("#3d8547"))
+		draw_circle(pos + Vector2(9, -7), 22, Color("#4f9b4e"))
+		draw_circle(pos + Vector2(1, -17), 17, Color("#68ad55"))
+		draw_circle(pos + Vector2(-8, -5), 6, Color("#86c96a"))
 
 func _draw_player() -> void:
 	if koi_texture != null:
