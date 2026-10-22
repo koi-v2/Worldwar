@@ -13,6 +13,8 @@ var held_directions: Dictionary = {}
 var status_label: Label
 var proximity_label: Label
 var koi_texture: Texture2D
+var tileset_texture: Texture2D
+const TILESET_PATH := "res://assets/tileset.png"
 var walk_time := 0.0
 var walk_frame := 0
 var facing := "down"
@@ -32,6 +34,8 @@ var direction_buttons: Dictionary = {}
 func _ready() -> void:
 	if ResourceLoader.exists(KOI_TEXTURE_PATH):
 		koi_texture = load(KOI_TEXTURE_PATH) as Texture2D
+	if ResourceLoader.exists(TILESET_PATH):
+		tileset_texture = load(TILESET_PATH) as Texture2D
 	_load_game()
 	_build_hud()
 	_build_dialogue_ui()
@@ -179,18 +183,21 @@ func _close_npc_dialogue() -> void:
 
 func _draw() -> void:
 	# Top-down 2D town map built from small tiles, paths, parks and landmarks.
-	draw_rect(Rect2(Vector2.ZERO, WORLD_SIZE), Color("#79b96d"))
+	# Paint the ground using the uploaded illustrated tileset grass tile.
 	var tile_size := 48
+	var grass_source := Rect2(8, 8, 74, 72)
 	for x in range(0, int(WORLD_SIZE.x), tile_size):
 		for y in range(0, int(WORLD_SIZE.y), tile_size):
 			var tile_index := int(x / tile_size) * 7 + int(y / tile_size) * 13
-			var grass_color := Color("#79b96d") if tile_index % 3 != 0 else Color("#73b267")
-			draw_rect(Rect2(x, y, tile_size, tile_size), grass_color)
-			# Tiny grass flecks give the ground a tiled, hand-drawn feel.
-			if tile_index % 4 == 0:
-				draw_line(Vector2(x + 12, y + 16), Vector2(x + 16, y + 12), Color("#609b58"), 2.0)
-			if tile_index % 5 == 0:
-				draw_circle(Vector2(x + 34, y + 32), 2.0, Color("#a3ce7c"))
+			if tileset_texture != null:
+				# Slightly vary tile scale to hide obvious repetition while keeping a seamless ground.
+				var source := grass_source
+				if tile_index % 5 == 0:
+					source = Rect2(96, 8, 74, 72)
+				draw_texture_rect_region(tileset_texture, Rect2(x, y, tile_size, tile_size), source)
+			else:
+				var grass_color := Color("#79b96d") if tile_index % 3 != 0 else Color("#73b267")
+				draw_rect(Rect2(x, y, tile_size, tile_size), grass_color)
 
 	# Main roads with soft shoulders and dashed center markings.
 	draw_rect(Rect2(0, 486, WORLD_SIZE.x, 148), Color("#b5a184"))
