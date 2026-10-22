@@ -28,7 +28,39 @@ var hold_action := ""
 
 func _ready() -> void:
     _generate_world()
+    _load_world()
     queue_redraw()
+
+func _notification(what: int) -> void:
+    if what == NOTIFICATION_WM_CLOSE_REQUEST:
+        _save_world()
+
+func _save_world() -> void:
+    var saved_blocks: Array = []
+    for pos in blocks.keys():
+        saved_blocks.append({"x": pos.x, "y": pos.y, "kind": blocks[pos]})
+    var data := {"blocks": saved_blocks, "inventory": inventory, "player_x": player_pos.x, "player_y": player_pos.y}
+    var file := FileAccess.open("user://growworld_save.json", FileAccess.WRITE)
+    if file:
+        file.store_string(JSON.stringify(data))
+
+func _load_world() -> void:
+    if not FileAccess.file_exists("user://growworld_save.json"):
+        return
+    var file := FileAccess.open("user://growworld_save.json", FileAccess.READ)
+    if file == null:
+        return
+    var parsed = JSON.parse_string(file.get_as_text())
+    if typeof(parsed) != TYPE_DICTIONARY or not parsed.has("blocks"):
+        return
+    blocks.clear()
+    for item in parsed["blocks"]:
+        if typeof(item) == TYPE_DICTIONARY and item.has("x") and item.has("y") and item.has("kind"):
+            blocks[Vector2i(int(item["x"]), int(item["y"]))] = str(item["kind"])
+    if parsed.has("inventory") and typeof(parsed["inventory"]) == TYPE_DICTIONARY:
+        for key in parsed["inventory"].keys():
+            inventory[str(key)] = int(parsed["inventory"][key])
+    player_pos = Vector2(float(parsed.get("player_x", player_pos.x)), float(parsed.get("player_y", player_pos.y)))
 
 func _generate_world() -> void:
     for x in range(WORLD_WIDTH):
@@ -177,8 +209,8 @@ func _input(event: InputEvent) -> void:
                 elif event.position.x > screen.x-125: jump_requested = true
                 elif event.position.x > screen.x-235: _break_nearby_block()
                 else: _select_hotbar(event.position)
-            else:
-                _mine_at(event.position)
+            elif event.position.y < screen.y - 135:
+                _interact_with_world(event.position)
         else:
             move_dir = 0
     if event is InputEventScreenDrag:
@@ -194,25 +226,53 @@ func _select_hotbar(pos: Vector2) -> void:
     if pos.y > screen.y-100 and pos.x >= bx:
         selected_block = clampi(int((pos.x-bx)/72),0,3)
 
-func _mine_at(screen_pos: Vector2) -> void:
-    var tile_pos := Vector2i(floori(_screen_to_world(screen_pos).x/TILE),floori(_screen_to_world(screen_pos).y/TILE))
-    if blocks.has(tile_pos) and Vector2(tile_pos*TILE).distance_to(player_pos) < TILE*4.0:
+func _interact_with_world(screen_pos: Vector2) -> void:
+    var world_pos := _screen_to_world(screen_pos)
+    var tile_pos := Vector2i(floori(world_pos.x / TILE), floori(world_pos.y / TILE))
+    var center := Vector2(tile_pos * TILE) + Vector2(TILE / 2.0, TILE / 2.0)
+    if center.distance_to(player_pos) > TILE * 4.0:
+        toast = "Dekati blok untuk berinteraksi"
+        toast_time = 1.0
+        return
+    if blocks.has(tile_pos):
         var kind: String = blocks[tile_pos]
         blocks.erase(tile_pos)
-        inventory[kind] = int(inventory.get(kind,0))+1
+        inventory[kind] = int(inventory.get(kind, 0)) + 1
         toast = kind + " +1"
         toast_time = 1.0
+        _save_world()
     else:
-        toast = "Dekati blok untuk menambang"
-        toast_time = 1.0
+        _place_block(tile_pos)
 
-func _break_nearby_block() -> void:
-    var target := Vector2i(floori((player_pos.x+facing*TILE*1.4)/TILE),floori((player_pos.y-15)/TILE))
-    if blocks.has(target):
-        var kind: String = blocks[target]
-        blocks.erase(target)
-        inventory[kind] = int(inventory.get(kind,0))+1
-        toast = kind + " +1"
-    else:
-        toast = "Tidak ada blok di dekatmu"
+func _place_block(tile_pos: Vector2i) -> void:
+    var kind: String = block_names[selected_block]
+    if int(inventory.get(kind, 0)) <= 0:
+        toast = "Blok " + kind + " habis"
+        toast_time = 1.0
+        return
+    if tile_pos.x < 0 or tile_pos.x >= WORLD_WIDTH or tile_pos.y < 0 or tile_pos.y >= 40:
+        return
+    var center := Vector2(tile_pos * TILE) + Vector2(TILE / 2.0, TILE / 2.0)
+    if center.distance_to(player_pos) > TILE * 4.0:
+        toast = "Terlalu jauh untuk memasang blok"
+        toast_time = 1.0
+        return
+    var attached := false
+    for offset in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+        if blocks.has(tile_pos + offset):
+            attached = true
+            break
+    if not attached:
+        toast = "Pasang blok di sebelah blok lain"
+        toast_time = 1.0
+        return
+    var player_rect := Rect2(player_pos - Vector2(PLAYER_SIZE.x / 2.0, PLAYER_SIZE.y), PLAYER_SIZE)
+    if player_rect.intersects(Rect2(Vector2(tile_pos * TILE), Vector2(TILE, TILE))):
+        toast = "Tidak bisa memasang blok di tubuh karakter"
+        toast_time = 1.0
+        return
+    blocks[tile_pos] = kind
+    inventory[kind] = int(inventory[kind]) - 1
+    toast = kind + " dipasang"
     toast_time = 1.0
+    _save_world()
