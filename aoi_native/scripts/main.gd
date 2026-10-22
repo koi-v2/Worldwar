@@ -19,10 +19,14 @@ var is_player_moving := false
 var dialogue_label: Label
 var nearby_npc_name := ""
 var dialogue_open := false
+var coins := 100
+const SAVE_PATH := "user://koi_world_save.cfg"
+var autosave_timer := 0.0
 
 func _ready() -> void:
 	if ResourceLoader.exists(KOI_TEXTURE_PATH):
 		koi_texture = load(KOI_TEXTURE_PATH) as Texture2D
+	_load_game()
 	_build_hud()
 	_build_dialogue_ui()
 	_update_camera(1.0)
@@ -54,8 +58,35 @@ func _process(delta: float) -> void:
 	player_position.x = clampf(player_position.x, 30.0, WORLD_SIZE.x - 30.0)
 	player_position.y = clampf(player_position.y, 70.0, WORLD_SIZE.y - 30.0)
 	_update_nearby_npc()
+	autosave_timer += delta
+	if autosave_timer >= 10.0:
+		autosave_timer = 0.0
+		_save_game()
 	_update_camera(delta)
 	queue_redraw()
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_APPLICATION_PAUSED:
+		_save_game()
+
+func _save_game() -> void:
+	var save := ConfigFile.new()
+	save.set_value("player", "x", player_position.x)
+	save.set_value("player", "y", player_position.y)
+	save.set_value("player", "facing", facing)
+	save.set_value("wallet", "coins", coins)
+	save.save(SAVE_PATH)
+
+func _load_game() -> void:
+	var save := ConfigFile.new()
+	if save.load(SAVE_PATH) != OK:
+		return
+	player_position.x = float(save.get_value("player", "x", player_position.x))
+	player_position.y = float(save.get_value("player", "y", player_position.y))
+	facing = str(save.get_value("player", "facing", facing))
+	coins = int(save.get_value("wallet", "coins", coins))
+	player_position.x = clampf(player_position.x, 30.0, WORLD_SIZE.x - 30.0)
+	player_position.y = clampf(player_position.y, 70.0, WORLD_SIZE.y - 30.0)
 
 func _update_camera(delta: float) -> void:
 	var viewport_size := get_viewport_rect().size
@@ -205,7 +236,7 @@ func _build_hud() -> void:
 	title.add_theme_font_size_override("font_size", 19)
 	box.add_child(title)
 	status_label = Label.new()
-	status_label.text = "Kota Lumnia  |  Koin: 100"
+	status_label.text = "Kota Lumnia  |  Koin: %d" % coins
 	box.add_child(status_label)
 	var hint := Label.new()
 	hint.text = "Jelajahi kota • Prototype offline"
