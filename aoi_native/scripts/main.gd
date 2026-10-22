@@ -2,13 +2,17 @@ extends Node2D
 
 const WORLD_SIZE := Vector2(1800, 1200)
 const PLAYER_SPEED := 230.0
-const KOI_TEXTURE_PATH := "res://assets/koi_character.svg"
+const KOI_TEXTURE_PATH := "res://assets/file_00000000072882079690a16cbdd8338a.png"
+const SPRITE_COLUMNS := 4
+const SPRITE_ROWS := 4
+const WALK_FPS := 7.0
 
 var player_position := Vector2(900, 600)
 var held_directions: Dictionary = {}
 var status_label: Label
 var koi_texture: Texture2D
 var walk_time := 0.0
+var walk_frame := 0
 var facing := "down"
 
 func _ready() -> void:
@@ -30,6 +34,9 @@ func _process(delta: float) -> void:
 	if direction != Vector2.ZERO:
 		player_position += direction.normalized() * PLAYER_SPEED * delta
 		walk_time += delta
+		walk_frame = int(walk_time * WALK_FPS) % 4
+	else:
+		walk_frame = 0
 		if absf(direction.x) > absf(direction.y):
 			facing = "right" if direction.x > 0 else "left"
 		else:
@@ -66,8 +73,18 @@ func _draw() -> void:
 func _draw_player() -> void:
 	if koi_texture != null:
 		var size := Vector2(76, 96)
+		var sheet_size := Vector2(koi_texture.get_size())
+		var cell := sheet_size / Vector2(SPRITE_COLUMNS, SPRITE_ROWS)
+		var row := 0
+		match facing:
+			"down": row = 0
+			"left": row = 1
+			"right": row = 2
+			"up": row = 3
+		var frame := walk_frame if _is_moving() else 0
+		var source := Rect2(Vector2(frame, row) * cell, cell)
 		var bob := sin(walk_time * 12.0) * 2.0 if _is_moving() else 0.0
-		draw_texture_rect(koi_texture, Rect2(player_position - Vector2(size.x / 2.0, size.y / 2.0) + Vector2(0, bob), size), false)
+		draw_texture_rect_region(koi_texture, Rect2(player_position - Vector2(size.x / 2.0, size.y / 2.0) + Vector2(0, bob), size), source)
 	else:
 		draw_circle(player_position + Vector2(0, 8), 18, Color(0, 0, 0, 0.2))
 		draw_circle(player_position, 16, Color("#f5cda7"))
