@@ -96,6 +96,9 @@ jobs:
           package/show_in_android_tv=false
           package/disable_network_state=false
           permissions/internet=true
+          permissions/read_external_storage=true
+          permissions/write_external_storage=true
+          permissions/custom_permissions=PackedStringArray("android.permission.READ_MEDIA_IMAGES")
           EOF
 
       - name: Export debug APK
