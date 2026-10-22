@@ -23,6 +23,11 @@ var dialogue_open := false
 var coins := 100
 const SAVE_PATH := "user://koi_world_save.cfg"
 var autosave_timer := 0.0
+var hud_canvas: CanvasLayer
+var dialogue_canvas: CanvasLayer
+var dialogue_panel: PanelContainer
+var talk_button: Button
+var direction_buttons: Dictionary = {}
 
 func _ready() -> void:
 	if ResourceLoader.exists(KOI_TEXTURE_PATH):
@@ -30,6 +35,8 @@ func _ready() -> void:
 	_load_game()
 	_build_hud()
 	_build_dialogue_ui()
+	_layout_ui()
+	get_viewport().size_changed.connect(_layout_ui)
 	_update_camera(1.0)
 	queue_redraw()
 
@@ -119,16 +126,14 @@ func _update_nearby_npc() -> void:
 		proximity_label.visible = not dialogue_open
 
 func _build_dialogue_ui() -> void:
-	var canvas := get_node_or_null("DialogueLayer") as CanvasLayer
-	if canvas == null:
-		canvas = CanvasLayer.new()
-		canvas.name = "DialogueLayer"
-		add_child(canvas)
+	var canvas := CanvasLayer.new()
+	canvas.name = "DialogueLayer"
+	add_child(canvas)
+	dialogue_canvas = canvas
 	var panel := PanelContainer.new()
 	panel.name = "DialoguePanel"
-	panel.position = Vector2(230, 365)
-	panel.size = Vector2(500, 105)
 	panel.visible = false
+	dialogue_panel = panel
 	canvas.add_child(panel)
 	var box := VBoxContainer.new()
 	panel.add_child(box)
@@ -140,10 +145,9 @@ func _build_dialogue_ui() -> void:
 	close_button.text = "Tutup"
 	close_button.pressed.connect(_close_npc_dialogue)
 	box.add_child(close_button)
-	var talk_button := Button.new()
+	talk_button = Button.new()
 	talk_button.text = "BICARA"
-	talk_button.position = Vector2(750, 410)
-	talk_button.size = Vector2(150, 62)
+	talk_button.custom_minimum_size = Vector2(112, 52)
 	talk_button.pressed.connect(_open_npc_dialogue)
 	canvas.add_child(talk_button)
 
@@ -235,8 +239,9 @@ func _draw_npc(pos: Vector2, skin: Color, shirt: Color) -> void:
 	draw_arc(pos + Vector2(0, -10), 10, PI, TAU, 20, Color("#49352b"), 5.0)
 
 func _build_hud() -> void:
-	var canvas := CanvasLayer.new()
-	add_child(canvas)
+	hud_canvas = CanvasLayer.new()
+	add_child(hud_canvas)
+	var canvas := hud_canvas
 	var panel := PanelContainer.new()
 	panel.position = Vector2(14, 12)
 	panel.custom_minimum_size = Vector2(260, 64)
@@ -265,9 +270,35 @@ func _build_hud() -> void:
 func _create_direction_button(canvas: CanvasLayer, caption: String, direction: String, offset: Vector2) -> void:
 	var button := Button.new()
 	button.text = caption
-	button.position = Vector2(24, 350) + offset
-	button.size = Vector2(74, 58)
+	button.size = Vector2(64, 54)
+	direction_buttons[direction] = {"button": button, "offset": offset}
 	button.add_theme_font_size_override("font_size", 25)
 	button.button_down.connect(func(): held_directions[direction] = true)
 	button.button_up.connect(func(): held_directions.erase(direction))
 	canvas.add_child(button)
+
+
+func _layout_ui() -> void:
+	var view_size := get_viewport_rect().size
+	if view_size.x <= 0.0 or view_size.y <= 0.0:
+		return
+	# Keep the HUD and controls usable on both portrait phones and landscape screens.
+	if hud_canvas != null:
+		var proximity := hud_canvas.get_node_or_null("Label") as Label
+		if proximity != null:
+			proximity.position = Vector2(14, 82)
+			proximity.size = Vector2(maxf(140.0, view_size.x - 28.0), 44)
+		var base := Vector2(18, view_size.y - 194)
+		for key in direction_buttons:
+			var item: Dictionary = direction_buttons[key]
+			var button: Button = item["button"]
+			var offset: Vector2 = item["offset"]
+			button.position = base + offset * 0.72
+			button.size = Vector2(58, 50)
+	if dialogue_panel != null:
+		var panel_width := minf(500.0, view_size.x - 24.0)
+		dialogue_panel.position = Vector2((view_size.x - panel_width) / 2.0, maxf(90.0, view_size.y - 150.0))
+		dialogue_panel.size = Vector2(panel_width, 125)
+	if talk_button != null:
+		talk_button.position = Vector2(maxf(12.0, view_size.x - 126.0), view_size.y - 72.0)
+		talk_button.size = Vector2(112, 52)
