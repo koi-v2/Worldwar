@@ -1,124 +1,32 @@
-name: Build Koi World Android APK
-
+name: Build KoiWorld Android APK
 on:
   workflow_dispatch:
   push:
     paths:
-      - 'aoi_native/**'
-      - '.github/workflows/aoi-android.yml'
-
+      - 'growtopia/**'
+      - '.github/workflows/growtopia-android.yml'
 jobs:
-  export-android:
-    name: Export Android APK
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Setup Java 17
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
-      - name: Setup Godot
-        uses: chickensoft-games/setup-godot@v2
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
-          version: 4.4.1
-          use-dotnet: false
-
-      - name: Install Android SDK tools
-        uses: android-actions/setup-android@v4
-        with:
-          packages: platform-tools
-
-      - name: Install Android build packages
-        run: |
-          SDK_ROOT="$ANDROID_HOME"
-          if [ -z "$SDK_ROOT" ]; then SDK_ROOT="$ANDROID_SDK_ROOT"; fi
-          echo "Android SDK: $SDK_ROOT"
-          if [ -z "$SDK_ROOT" ]; then
-            echo "::error::Android SDK path was not set by setup-android."
-            exit 1
-          fi
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager --sdk_root="$SDK_ROOT" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "cmdline-tools;latest" "ndk;23.2.8568313" "cmake;3.10.2.4988404"
-
-      - name: Install Godot export templates
-        run: |
-          mkdir -p "$HOME/.local/share/godot/export_templates/4.4.1.stable"
-          wget -q https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_export_templates.tpz -O /tmp/godot-templates.tpz
-          mkdir -p /tmp/godot-templates
-          unzip -q /tmp/godot-templates.tpz -d /tmp/godot-templates
-          cp -r /tmp/godot-templates/templates/* "$HOME/.local/share/godot/export_templates/4.4.1.stable/"
-
-      - name: Configure Godot Android SDK paths
-        run: |
-          mkdir -p "$HOME/.config/godot"
-          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
-          [gd_resource type="EditorSettings" format=3]
-
-          [resource]
-          export/android/android_sdk_path = "$ANDROID_HOME"
-          export/android/java_sdk_path = "$JAVA_HOME"
-          EOF
-
-      - name: Create Android export preset
-        working-directory: aoi_native
-        run: |
-          cat > export_presets.cfg <<'EOF'
-          [preset.0]
-          name="Android"
-          platform="Android"
-          runnable=true
-          advanced_options=false
-          dedicated_server=false
-          custom_features=""
-          export_filter="all_resources"
-          include_filter=""
-          exclude_filter=""
-          export_path="../KoiWorld-android-debug.apk"
-          encryption_include_filters=""
-          encryption_exclude_filters=""
-          encrypt_pck=false
-          encrypt_directory=false
-          [preset.0.options]
-          custom_template/debug=""
-          custom_template/release=""
-          gradle_build/use_gradle_build=false
-          gradle_build/export_format=0
-          package/unique_name="com.koiv2.koiworld"
-          package/name="Koi World"
-          package/signed=true
-          package/app_category=2
-          package/retain_data_on_uninstall=false
-          package/exclude_from_recents=false
-          package/show_in_android_tv=false
-          package/disable_network_state=false
-          permissions/internet=true
-          permissions/read_external_storage=true
-          permissions/write_external_storage=true
-          permissions/read_media_images=true
-          permissions/read_media_video=false
-          permissions/read_media_audio=false
-          permissions/read_external_storage=true
-          permissions/write_external_storage=true
-          permissions/custom_permissions=PackedStringArray("android.permission.READ_MEDIA_IMAGES")
-          EOF
-
-      - name: Export debug APK
-        working-directory: aoi_native
-        run: |
-          godot --version
-          godot --headless --editor --path . --quit
-          godot --headless --verbose --path . --export-debug "Android" ../KoiWorld-android-debug.apk
-          test -s ../KoiWorld-android-debug.apk
-          ls -lh ../KoiWorld-android-debug.apk
-
-      - name: Upload APK artifact
+          gradle-version: '8.7'
+      - name: Build debug APK
+        working-directory: growtopia
+        run: gradle --no-daemon assembleDebug
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: KoiWorld-Android-APK
-          path: KoiWorld-android-debug.apk
+          path: growtopia/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
