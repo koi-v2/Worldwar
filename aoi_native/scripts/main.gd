@@ -210,8 +210,8 @@ func _draw() -> void:
 		_draw_atlas_tile(Rect2(775, 485, 100, 100), Rect2(1078, 250, 80, 52))
 
 	# Pond in the southwest, outside the road and building footprints.
-	draw_ellipse(Rect2(370, 770, 300, 185), Color("#527f45"))
-	draw_ellipse(Rect2(382, 778, 276, 160), Color("#35a9bd"))
+	draw_circle(Vector2(520, 862), 155, Color("#527f45"))
+	draw_circle(Vector2(520, 855), 137, Color("#35a9bd"))
 	draw_arc(Vector2(520, 855), 124, PI, TAU, 48, Color("#77dbe0"), 5.0)
 	draw_circle(Vector2(465, 820), 7, Color("#a5edf0"))
 	draw_circle(Vector2(568, 885), 5, Color("#a5edf0"))
