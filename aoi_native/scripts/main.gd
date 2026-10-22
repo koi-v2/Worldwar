@@ -182,91 +182,78 @@ func _close_npc_dialogue() -> void:
 			panel.visible = false
 
 func _draw() -> void:
-	# Rebuild the whole town from pieces of the uploaded atlas.
-	# Atlas regions are kept in one place so their coordinates can be adjusted easily.
-	if tileset_texture == null:
-		draw_rect(Rect2(Vector2.ZERO, WORLD_SIZE), Color("#79b96d"))
-		_draw_fallback_map()
-		_draw_npc(Vector2(730, 450), Color("#e8c0a0"), Color("#8657b7"))
-		_draw_npc(Vector2(1040, 670), Color("#f1d1b1"), Color("#e06c75"))
-		_draw_npc(Vector2(580, 690), Color("#bd8a67"), Color("#4f7fc2"))
-		_draw_player()
-		return
+	# Town map drawn with simple shapes so guessed atlas coordinates cannot
+	# turn the entire world into repeated crop/plant tiles.
+	draw_rect(Rect2(Vector2.ZERO, WORLD_SIZE), Color("#83bd70"))
 
-	var tile := 48.0
-	# Atlas is a generated sheet; sample consistent square cells from its grid.
-	var atlas_size := Vector2(tileset_texture.get_size())
-	var cols := 8
-	var rows := 8
-	var cell_w := atlas_size.x / float(cols)
-	var cell_h := atlas_size.y / float(rows)
-	# Ground base and gentle grass variation across the complete map.
-	for x in range(0, int(WORLD_SIZE.x), int(tile)):
-		for y in range(0, int(WORLD_SIZE.y), int(tile)):
-			var idx := (int(x / tile) * 7 + int(y / tile) * 13) % 5
-			var grass_cell := 0 if idx < 3 else 1
-			_draw_atlas_cell(grass_cell, 0, Rect2(x, y, tile, tile), cols, rows)
+	# Grass patches provide subtle variation without covering the ground.
+	for x in range(24, int(WORLD_SIZE.x), 144):
+		for y in range(30, int(WORLD_SIZE.y), 132):
+			draw_rect(Rect2(x, y, 62, 34), Color("#7ab568"))
 
-	# Wide horizontal and vertical roads, plus a plaza at the crossing.
-	for x in range(0, int(WORLD_SIZE.x), int(tile)):
-		_draw_atlas_cell(2, 0, Rect2(x, 504, tile, tile), cols, rows)
-		_draw_atlas_cell(2, 0, Rect2(x, 552, tile, tile), cols, rows)
-	for y in range(0, int(WORLD_SIZE.y), int(tile)):
-		_draw_atlas_cell(2, 0, Rect2(816, y, tile, tile), cols, rows)
-		_draw_atlas_cell(2, 0, Rect2(864, y, tile, tile), cols, rows)
-	# Crossroads paved centre.
-	for x in range(816, 912, int(tile)):
-		for y in range(504, 600, int(tile)):
-			_draw_atlas_cell(2, 0, Rect2(x, y, tile, tile), cols, rows)
+	# Main paths form a small connected village grid.
+	draw_rect(Rect2(0, 492, WORLD_SIZE.x, 88), Color("#d8bd8d"))
+	draw_rect(Rect2(780, 0, 92, WORLD_SIZE.y), Color("#d8bd8d"))
+	draw_rect(Rect2(0, 518, WORLD_SIZE.x, 4), Color("#c7a678"))
+	draw_rect(Rect2(0, 556, WORLD_SIZE.x, 4), Color("#c7a678"))
+	draw_rect(Rect2(806, 0, 4, WORLD_SIZE.y), Color("#c7a678"))
+	draw_rect(Rect2(842, 0, 4, WORLD_SIZE.y), Color("#c7a678"))
 
-	# Pond assembled from water tiles, surrounded by sandy edge tiles.
-	for x in range(480, 720, int(tile)):
-		for y in range(744, 984, int(tile)):
-			var is_edge := x == 480 or x == 672 or y == 744 or y == 936
-			_draw_atlas_cell(3 if is_edge else 4, 0, Rect2(x, y, tile, tile), cols, rows)
+	# Small central plaza.
+	draw_rect(Rect2(732, 444, 188, 184), Color("#e5cfa7"))
+	draw_rect(Rect2(748, 460, 156, 152), Color("#d9bd91"))
+	draw_circle(Vector2(826, 536), 30, Color("#86b96e"))
+	draw_circle(Vector2(826, 536), 18, Color("#d8c7a5"))
 
-	# Homes and shops are laid out as garden lots, with atlas decoration around them.
-	_draw_atlas_cell(5, 0, Rect2(240, 240, 240, 192), cols, rows)
-	_draw_atlas_cell(6, 0, Rect2(1180, 228, 264, 204), cols, rows)
-	_draw_atlas_cell(5, 0, Rect2(288, 744, 288, 216), cols, rows)
-	_draw_atlas_cell(6, 0, Rect2(1200, 768, 240, 192), cols, rows)
+	# Pond with a grassy bank, kept clear of the main road.
+	draw_rect(Rect2(390, 748, 270, 210), Color("#6c9f58"))
+	draw_rect(Rect2(408, 764, 234, 178), Color("#4fa9c4"))
+	draw_arc(Vector2(525, 853), 102, PI, TAU, 32, Color("#8ad6df"), 4.0)
+	draw_circle(Vector2(470, 820), 7, Color("#b7edf0"))
+	draw_circle(Vector2(570, 884), 5, Color("#b7edf0"))
 
-	# Trees, shrubs, flowers, fences and park furniture from the same sheet.
+	# House/shop lots: roof, walls, door, windows and a short garden border.
+	_draw_building(Vector2(230, 220), Vector2(190, 150), Color("#e8d5ae"), "RUMAH")
+	_draw_building(Vector2(1120, 220), Vector2(210, 160), Color("#ead1a0"), "TOKO")
+	_draw_building(Vector2(250, 700), Vector2(205, 160), Color("#d9e1bd"), "RUMAH")
+	_draw_building(Vector2(1130, 720), Vector2(220, 165), Color("#e4c5a5"), "KAFE")
+
+	# Trees and shrubs placed in clusters, not as a repeating tile grid.
 	for tree in [
-		Vector2(130, 130), Vector2(190, 170), Vector2(500, 360), Vector2(680, 260),
-		Vector2(1500, 180), Vector2(1570, 220), Vector2(1510, 650), Vector2(1600, 700),
-		Vector2(1080, 980), Vector2(1160, 1030), Vector2(420, 1030), Vector2(1650, 1040),
-		Vector2(160, 680), Vector2(690, 1010), Vector2(1380, 480), Vector2(360, 430)
+		Vector2(112, 150), Vector2(165, 182), Vector2(470, 180), Vector2(560, 260),
+		Vector2(1010, 160), Vector2(1430, 170), Vector2(1510, 215), Vector2(1450, 610),
+		Vector2(1540, 660), Vector2(1010, 960), Vector2(1110, 1020), Vector2(700, 1030),
+		Vector2(150, 650), Vector2(520, 1030), Vector2(1400, 430), Vector2(510, 430),
+		Vector2(680, 340), Vector2(960, 360), Vector2(340, 930), Vector2(1370, 1000)
 	]:
-		_draw_atlas_cell(7, 0, Rect2(tree - Vector2(36, 42), Vector2(72, 84)), cols, rows)
-	for flower in [Vector2(102, 842), Vector2(146, 885), Vector2(198, 850), Vector2(176, 916), Vector2(119, 910), Vector2(740, 300), Vector2(1080, 850)]:
-		_draw_atlas_cell(0, 1, Rect2(flower - Vector2(12, 12), Vector2(24, 24)), cols, rows)
-	for fence_x in range(70, 250, 48):
-		_draw_atlas_cell(1, 1, Rect2(fence_x, 790, 48, 24), cols, rows)
-	_draw_atlas_cell(2, 1, Rect2(180, 860, 48, 48), cols, rows)
-	_draw_atlas_cell(3, 1, Rect2(220, 860, 36, 48), cols, rows)
+		_draw_tree(tree)
 
+	# Flower patches and garden stones add variety around paths.
+	for flower in [
+		Vector2(150, 390), Vector2(190, 420), Vector2(480, 390), Vector2(530, 410),
+		Vector2(1020, 410), Vector2(1080, 430), Vector2(680, 680), Vector2(710, 720),
+		Vector2(940, 760), Vector2(990, 790), Vector2(700, 920), Vector2(740, 950)
+	]:
+		draw_circle(flower, 5, Color("#f5e7a1"))
+		draw_circle(flower + Vector2(7, 4), 4, Color("#f0a5b5"))
+		draw_circle(flower + Vector2(-6, 5), 4, Color("#f0a5b5"))
+		draw_circle(flower + Vector2(0, 9), 4, Color("#fff0d1"))
+
+	# Reuse the existing NPCs and player rendering.
 	_draw_npc(Vector2(730, 450), Color("#e8c0a0"), Color("#8657b7"))
 	_draw_npc(Vector2(1040, 670), Color("#f1d1b1"), Color("#e06c75"))
 	_draw_npc(Vector2(580, 690), Color("#bd8a67"), Color("#4f7fc2"))
 	_draw_player()
 
-func _draw_atlas_cell(col: int, row: int, dest: Rect2, cols: int, rows: int) -> void:
-	if tileset_texture == null:
-		return
-	var atlas_size := Vector2(tileset_texture.get_size())
-	var cell := atlas_size / Vector2(float(cols), float(rows))
-	var source := Rect2(Vector2(float(col), float(row)) * cell, cell)
-	draw_texture_rect_region(tileset_texture, dest, source)
+func _draw_tree(pos: Vector2) -> void:
+	# Soft shadow, trunk and layered canopy.
+	draw_ellipse(Rect2(pos + Vector2(-26, 18), Vector2(54, 20)), Color(0, 0, 0, 0.16))
+	draw_rect(Rect2(pos + Vector2(-5, 8), Vector2(10, 25)), Color("#79533a"))
+	draw_circle(pos + Vector2(-9, 0), 20, Color("#3d8547"))
+	draw_circle(pos + Vector2(9, -7), 22, Color("#4f9b4e"))
+	draw_circle(pos + Vector2(1, -17), 17, Color("#68ad55"))
+	draw_circle(pos + Vector2(-8, -5), 6, Color("#86c96a"))
 
-func _draw_fallback_map() -> void:
-	# Used only if the uploaded texture is missing at runtime.
-	for x in range(0, int(WORLD_SIZE.x), 48):
-		for y in range(0, int(WORLD_SIZE.y), 48):
-			draw_rect(Rect2(x, y, 48, 48), Color("#79b96d") if ((x / 48 + y / 48) % 3 != 0) else Color("#73b267"))
-	draw_rect(Rect2(0, 504, WORLD_SIZE.x, 96), Color("#d8c7a5"))
-	draw_rect(Rect2(816, 0, 96, WORLD_SIZE.y), Color("#d8c7a5"))
-	draw_circle(Vector2(600, 864), 112, Color("#4eaccb"))
 func _draw_player() -> void:
 	if koi_texture != null:
 		var size := Vector2(76, 96)
