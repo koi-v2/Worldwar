@@ -34,7 +34,15 @@ jobs:
 
       - name: Install Android build packages
         run: |
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" "cmdline-tools;latest" "ndk;23.2.8568313" "cmake;3.10.2.4988404"
+          SDK_ROOT="$ANDROID_HOME"
+          if [ -z "$SDK_ROOT" ]; then SDK_ROOT="$ANDROID_SDK_ROOT"; fi
+          echo "Android SDK: $SDK_ROOT"
+          if [ -z "$SDK_ROOT" ]; then
+            echo "::error::Android SDK path was not set by setup-android."
+            exit 1
+          fi
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager --sdk_root="$SDK_ROOT" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "cmdline-tools;latest" "ndk;23.2.8568313" "cmake;3.10.2.4988404"
 
       - name: Install Godot export templates
         run: |
@@ -51,7 +59,7 @@ jobs:
           [gd_resource type="EditorSettings" format=3]
 
           [resource]
-          export/android/android_sdk_path = "/usr/local/lib/android/sdk"
+          export/android/android_sdk_path = "$ANDROID_HOME"
           export/android/java_sdk_path = "$JAVA_HOME"
           EOF
 
@@ -93,8 +101,11 @@ jobs:
       - name: Export debug APK
         working-directory: aoi_native
         run: |
+          godot --version
           godot --headless --editor --path . --quit
           godot --headless --verbose --path . --export-debug "Android" ../KoiWorld-android-debug.apk
+          test -s ../KoiWorld-android-debug.apk
+          ls -lh ../KoiWorld-android-debug.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
