@@ -23,11 +23,16 @@ jobs:
 
       - name: Install Android SDK tools
         uses: android-actions/setup-android@v3
+        with:
+          # "tools" is a retired SDK package; requesting it makes setup fail.
+          packages: platform-tools
+
+      - name: Accept Android SDK licenses
+        run: yes | sdkmanager --licenses
 
       - name: Install Android build packages
         run: |
           sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" "cmdline-tools;latest"
-          yes | sdkmanager --licenses
 
       - name: Install Godot export templates
         run: |
@@ -68,10 +73,9 @@ jobs:
           package/retain_data_on_uninstall=false
           package/exclude_from_recents=false
           package/show_in_android_tv=false
-          package/disable નetwork_state=false
+          package/disable_network_state=false
           permissions/internet=true
           EOF
-          sed -i 's/package\/disable નetwork_state=false/package\/disable_network_state=false/' export_presets.cfg
 
       - name: Export debug APK
         working-directory: aoi_native
