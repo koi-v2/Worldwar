@@ -21,6 +21,7 @@ func _ready() -> void:
 	if ResourceLoader.exists(KOI_TEXTURE_PATH):
 		koi_texture = load(KOI_TEXTURE_PATH) as Texture2D
 	_build_hud()
+	_update_camera(1.0)
 	queue_redraw()
 
 func _process(delta: float) -> void:
@@ -47,6 +48,14 @@ func _process(delta: float) -> void:
 	player_position.x = clampf(player_position.x, 30.0, WORLD_SIZE.x - 30.0)
 	player_position.y = clampf(player_position.y, 70.0, WORLD_SIZE.y - 30.0)
 	queue_redraw()
+
+func _update_camera(delta: float) -> void:
+	var viewport_size := get_viewport_rect().size
+	var target_offset := viewport_size * 0.5 - player_position
+	# Keep the camera inside the world so empty space never appears at edges.
+	target_offset.x = clampf(target_offset.x, viewport_size.x - WORLD_SIZE.x, 0.0)
+	target_offset.y = clampf(target_offset.y, viewport_size.y - WORLD_SIZE.y, 0.0)
+	position = position.lerp(target_offset, 1.0 - exp(-8.0 * delta))
 
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, WORLD_SIZE), Color("#6fae69"))
