@@ -16,16 +16,23 @@ var walk_time := 0.0
 var walk_frame := 0
 var facing := "down"
 var is_player_moving := false
+var dialogue_label: Label
+var nearby_npc_name := ""
+var dialogue_open := false
 
 func _ready() -> void:
 	if ResourceLoader.exists(KOI_TEXTURE_PATH):
 		koi_texture = load(KOI_TEXTURE_PATH) as Texture2D
 	_build_hud()
+	_build_dialogue_ui()
 	_update_camera(1.0)
 	queue_redraw()
 
 func _process(delta: float) -> void:
-	var direction := Vector2.ZERO
+	if Input.is_key_pressed(KEY_E) or Input.is_key_pressed(KEY_ENTER):
+		if nearby_npc_name != "" and not dialogue_open:
+			_open_npc_dialogue()
+		var direction := Vector2.ZERO
 	if Input.is_key_pressed(KEY_LEFT) or Input.is_key_pressed(KEY_A) or held_directions.has("left"):
 		direction.x -= 1.0
 	if Input.is_key_pressed(KEY_RIGHT) or Input.is_key_pressed(KEY_D) or held_directions.has("right"):
@@ -47,6 +54,7 @@ func _process(delta: float) -> void:
 		walk_frame = 0
 	player_position.x = clampf(player_position.x, 30.0, WORLD_SIZE.x - 30.0)
 	player_position.y = clampf(player_position.y, 70.0, WORLD_SIZE.y - 30.0)
+	_update_nearby_npc()
 	_update_camera(delta)
 	queue_redraw()
 
@@ -57,6 +65,71 @@ func _update_camera(delta: float) -> void:
 	target_offset.x = clampf(target_offset.x, viewport_size.x - WORLD_SIZE.x, 0.0)
 	target_offset.y = clampf(target_offset.y, viewport_size.y - WORLD_SIZE.y, 0.0)
 	position = position.lerp(target_offset, 1.0 - exp(-8.0 * delta))
+
+func _update_nearby_npc() -> void:
+	var npc_data := [
+		{"name": "Mira", "position": Vector2(730, 450)},
+		{"name": "Raka", "position": Vector2(1040, 670)},
+		{"name": "Dian", "position": Vector2(580, 690)}
+	]
+	nearby_npc_name = ""
+	for npc in npc_data:
+		if player_position.distance_to(npc.position) <= 95.0:
+			nearby_npc_name = npc.name
+			break
+	if dialogue_label != null and not dialogue_open:
+		dialogue_label.text = "Tekan BICARA untuk ngobrol dengan %s" % nearby_npc_name if nearby_npc_name != "" else "Dekati penduduk untuk mengobrol"
+
+func _build_dialogue_ui() -> void:
+	var canvas := get_node_or_null("DialogueLayer") as CanvasLayer
+	if canvas == null:
+		canvas = CanvasLayer.new()
+		canvas.name = "DialogueLayer"
+		add_child(canvas)
+	var panel := PanelContainer.new()
+	panel.name = "DialoguePanel"
+	panel.position = Vector2(230, 365)
+	panel.size = Vector2(500, 105)
+	panel.visible = false
+	canvas.add_child(panel)
+	var box := VBoxContainer.new()
+	panel.add_child(box)
+	dialogue_label = Label.new()
+	dialogue_label.text = "Dekati penduduk untuk mengobrol"
+	dialogue_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(dialogue_label)
+	var close_button := Button.new()
+	close_button.text = "Tutup"
+	close_button.pressed.connect(_close_npc_dialogue)
+	box.add_child(close_button)
+	var talk_button := Button.new()
+	talk_button.text = "BICARA"
+	talk_button.position = Vector2(750, 410)
+	talk_button.size = Vector2(150, 62)
+	talk_button.pressed.connect(_open_npc_dialogue)
+	canvas.add_child(talk_button)
+
+func _open_npc_dialogue() -> void:
+	if nearby_npc_name == "":
+		if dialogue_label != null:
+			dialogue_label.text = "Dekati penduduk terlebih dahulu."
+		return
+	dialogue_open = true
+	var canvas := get_node_or_null("DialogueLayer") as CanvasLayer
+	if canvas != null:
+		var panel := canvas.get_node_or_null("DialoguePanel") as PanelContainer
+		if panel != null:
+			panel.visible = true
+	if dialogue_label != null:
+		dialogue_label.text = "%s: Hai! Senang bertemu denganmu di Lumnia. Semoga harimu menyenangkan!" % nearby_npc_name
+
+func _close_npc_dialogue() -> void:
+	dialogue_open = false
+	var canvas := get_node_or_null("DialogueLayer") as CanvasLayer
+	if canvas != null:
+		var panel := canvas.get_node_or_null("DialoguePanel") as PanelContainer
+		if panel != null:
+			panel.visible = false
 
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, WORLD_SIZE), Color("#6fae69"))
