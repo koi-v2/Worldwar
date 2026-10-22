@@ -35,12 +35,12 @@ func _process(delta: float) -> void:
 		player_position += direction.normalized() * PLAYER_SPEED * delta
 		walk_time += delta
 		walk_frame = int(walk_time * WALK_FPS) % 4
-	else:
-		walk_frame = 0
 		if absf(direction.x) > absf(direction.y):
 			facing = "right" if direction.x > 0 else "left"
 		else:
 			facing = "down" if direction.y > 0 else "up"
+	else:
+		walk_frame = 0
 	player_position.x = clampf(player_position.x, 30.0, WORLD_SIZE.x - 30.0)
 	player_position.y = clampf(player_position.y, 70.0, WORLD_SIZE.y - 30.0)
 	queue_redraw()
