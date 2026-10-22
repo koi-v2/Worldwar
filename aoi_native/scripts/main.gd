@@ -56,6 +56,8 @@ func _ready() -> void:
 	if ResourceLoader.exists(TILESET_PATH):
 		tileset_texture = load(TILESET_PATH) as Texture2D
 	_load_game()
+	if OS.get_name() == "Android":
+		OS.request_permissions()
 	_build_hud()
 	_build_dialogue_ui()
 	_build_image_editor()
@@ -443,7 +445,7 @@ func _build_image_editor() -> void:
 	crop_preview.gui_input.connect(_on_crop_preview_input)
 	column.add_child(crop_preview)
 	crop_status = Label.new()
-	crop_status.text = "Pilih gambar, lalu tarik area yang ingin dipotong."
+	crop_status.text = "Tekan PILIH GAMBAR. Jika Android meminta izin foto/media, pilih Izinkan."
 	crop_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(crop_status)
 	var row := HBoxContainer.new()
@@ -473,6 +475,8 @@ func _toggle_map_editor() -> void:
 
 func _open_image_picker() -> void:
 	if OS.has_feature("android"):
+		OS.request_permissions()
+	if OS.get_name() == "Android":
 		OS.request_permissions()
 	image_dialog.popup_centered_ratio(0.9)
 
