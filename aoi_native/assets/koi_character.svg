@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="160" viewBox="0 0 128 160">
+<ellipse cx="64" cy="145" rx="34" ry="8" fill="#24362c" opacity=".22"/>
+<!-- legs and shoes --><path d="M43 112 L59 113 L57 137 L46 140 L39 132Z" fill="#e8c4a4" stroke="#47352f" stroke-width="3"/><path d="M68 112 L84 112 L88 133 L79 140 L68 134Z" fill="#e8c4a4" stroke="#47352f" stroke-width="3"/>
+<path d="M39 132 Q49 135 57 132 L59 141 Q51 147 38 141Z" fill="#51404a" stroke="#302b36" stroke-width="3"/><path d="M72 133 Q81 136 88 131 L94 140 Q85 147 74 141Z" fill="#51404a" stroke="#302b36" stroke-width="3"/>
+<!-- body hoodie --><path d="M37 67 Q64 54 91 67 L100 111 Q82 122 64 119 Q46 122 28 111Z" fill="#7560d7" stroke="#443b73" stroke-width="4"/><path d="M48 67 Q64 81 80 67 L78 80 L50 80Z" fill="#b6a6ff"/><path d="M57 76 L57 91 M71 76 L71 91" stroke="#d8d0ff" stroke-width="3" stroke-linecap="round"/><path d="M43 94 L56 94 L56 104 L43 104Z" fill="#6551c3" stroke="#443b73" stroke-width="2"/><path d="M72 94 L85 94 L85 104 L72 104Z" fill="#6551c3" stroke="#443b73" stroke-width="2"/>
+<!-- neck --><rect x="54" y="53" width="20" height="19" rx="7" fill="#f3c7a8"/>
+<!-- head --><ellipse cx="64" cy="42" rx="31" ry="35" fill="#f6cfb2" stroke="#4b3537" stroke-width="3"/>
+<!-- ears --><ellipse cx="33" cy="44" rx="6" ry="10" fill="#f2c4a5"/><ellipse cx="95" cy="44" rx="6" ry="10" fill="#f2c4a5"/>
+<!-- hair --><path d="M33 45 Q22 22 42 12 Q54 -2 70 9 Q92 5 99 27 Q107 38 94 53 L87 34 Q73 29 63 20 Q51 34 37 34Z" fill="#342b35" stroke="#241f2a" stroke-width="4"/><path d="M38 28 Q52 8 65 19 Q76 28 91 27" fill="none" stroke="#65505e" stroke-width="4" stroke-linecap="round"/>
+<!-- eyes --><ellipse cx="51" cy="45" rx="6" ry="8" fill="#fff"/><ellipse cx="77" cy="45" rx="6" ry="8" fill="#fff"/><ellipse cx="52" cy="46" rx="3.5" ry="5" fill="#4b3843"/><ellipse cx="76" cy="46" rx="3.5" ry="5" fill="#4b3843"/><circle cx="53" cy="44" r="1.5" fill="#fff"/><circle cx="77" cy="44" r="1.5" fill="#fff"/><path d="M59 59 Q64 62 69 59" fill="none" stroke="#b66d70" stroke-width="2" stroke-linecap="round"/><path d="M43 58 Q49 61 54 58 M74 58 Q79 61 85 58" stroke="#e8a0a0" stroke-width="3" opacity=".6" stroke-linecap="round"/>
+</svg>
