@@ -29,10 +29,9 @@ func _ready() -> void:
 	queue_redraw()
 
 func _process(delta: float) -> void:
-	if Input.is_key_pressed(KEY_E) or Input.is_key_pressed(KEY_ENTER):
-		if nearby_npc_name != "" and not dialogue_open:
-			_open_npc_dialogue()
-		var direction := Vector2.ZERO
+	if (Input.is_key_pressed(KEY_E) or Input.is_key_pressed(KEY_ENTER)) and nearby_npc_name != "" and not dialogue_open:
+		_open_npc_dialogue()
+	var direction := Vector2.ZERO
 	if Input.is_key_pressed(KEY_LEFT) or Input.is_key_pressed(KEY_A) or held_directions.has("left"):
 		direction.x -= 1.0
 	if Input.is_key_pressed(KEY_RIGHT) or Input.is_key_pressed(KEY_D) or held_directions.has("right"):
