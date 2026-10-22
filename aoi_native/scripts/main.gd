@@ -247,7 +247,7 @@ func _draw() -> void:
 
 func _draw_tree(pos: Vector2) -> void:
 	# Soft shadow, trunk and layered canopy.
-	draw_ellipse(Rect2(pos + Vector2(-26, 18), Vector2(54, 20)), Color(0, 0, 0, 0.16))
+	draw_circle(pos + Vector2(1, 28), 24, Color(0, 0, 0, 0.16))
 	draw_rect(Rect2(pos + Vector2(-5, 8), Vector2(10, 25)), Color("#79533a"))
 	draw_circle(pos + Vector2(-9, 0), 20, Color("#3d8547"))
 	draw_circle(pos + Vector2(9, -7), 22, Color("#4f9b4e"))
