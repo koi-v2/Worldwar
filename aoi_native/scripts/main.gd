@@ -178,30 +178,74 @@ func _close_npc_dialogue() -> void:
 			panel.visible = false
 
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, WORLD_SIZE), Color("#6fae69"))
-	for x in range(0, int(WORLD_SIZE.x), 96):
-		for y in range(0, int(WORLD_SIZE.y), 96):
-			if ((x / 96) + (y / 96)) % 2 == 0:
-				draw_rect(Rect2(x, y, 96, 96), Color(0.43, 0.67, 0.39, 0.18))
-	draw_rect(Rect2(0, 500, WORLD_SIZE.x, 120), Color("#c8b99a"))
-	draw_rect(Rect2(820, 0, 150, WORLD_SIZE.y), Color("#c8b99a"))
-	draw_rect(Rect2(0, 548, WORLD_SIZE.x, 5), Color("#eee0b8"))
-	draw_rect(Rect2(892, 0, 5, WORLD_SIZE.y), Color("#eee0b8"))
+	# Top-down 2D town map built from small tiles, paths, parks and landmarks.
+	draw_rect(Rect2(Vector2.ZERO, WORLD_SIZE), Color("#79b96d"))
+	var tile_size := 48
+	for x in range(0, int(WORLD_SIZE.x), tile_size):
+		for y in range(0, int(WORLD_SIZE.y), tile_size):
+			var tile_index := int(x / tile_size) * 7 + int(y / tile_size) * 13
+			var grass_color := Color("#79b96d") if tile_index % 3 != 0 else Color("#73b267")
+			draw_rect(Rect2(x, y, tile_size, tile_size), grass_color)
+			# Tiny grass flecks give the ground a tiled, hand-drawn feel.
+			if tile_index % 4 == 0:
+				draw_line(Vector2(x + 12, y + 16), Vector2(x + 16, y + 12), Color("#609b58"), 2.0)
+			if tile_index % 5 == 0:
+				draw_circle(Vector2(x + 34, y + 32), 2.0, Color("#a3ce7c"))
+
+	# Main roads with soft shoulders and dashed center markings.
+	draw_rect(Rect2(0, 486, WORLD_SIZE.x, 148), Color("#b5a184"))
+	draw_rect(Rect2(0, 500, WORLD_SIZE.x, 120), Color("#d8c7a5"))
+	draw_rect(Rect2(806, 0, 178, WORLD_SIZE.y), Color("#b5a184"))
+	draw_rect(Rect2(820, 0, 150, WORLD_SIZE.y), Color("#d8c7a5"))
+	for x in range(24, int(WORLD_SIZE.x), 84):
+		draw_rect(Rect2(x, 557, 42, 5), Color("#f7e8c7"))
+	for y in range(22, int(WORLD_SIZE.y), 84):
+		draw_rect(Rect2(892, y, 5, 42), Color("#f7e8c7"))
+	# Small sidewalks and plaza paving around the road crossing.
+	draw_rect(Rect2(0, 482, WORLD_SIZE.x, 4), Color("#eee0c2"))
+	draw_rect(Rect2(0, 634, WORLD_SIZE.x, 4), Color("#eee0c2"))
+	draw_rect(Rect2(802, 0, 4, WORLD_SIZE.y), Color("#eee0c2"))
+	draw_rect(Rect2(984, 0, 4, WORLD_SIZE.y), Color("#eee0c2"))
+
+	# Pond and surrounding sand bank.
+	draw_circle(Vector2(620, 870), 118, Color("#c8b68f"))
+	draw_circle(Vector2(620, 870), 105, Color("#4eaccb"))
+	draw_arc(Vector2(620, 870), 105, 0, TAU, 64, Color("#b9eaf0"), 5.0)
+	draw_circle(Vector2(590, 840), 18, Color(0.75, 0.94, 0.96, 0.25))
+	draw_circle(Vector2(655, 895), 11, Color(0.75, 0.94, 0.96, 0.2))
+
+	# Small park clearings and flower patches.
+	draw_rect(Rect2(80, 820, 150, 112), Color("#83c276"))
+	for flower in [Vector2(102, 842), Vector2(146, 885), Vector2(198, 850), Vector2(176, 916), Vector2(119, 910)]:
+		draw_circle(flower, 4, Color("#f4d6e6"))
+		draw_circle(flower + Vector2(4, 2), 2, Color("#f6df9b"))
+
 	_draw_building(Vector2(250, 250), Vector2(210, 150), Color("#e8a36c"), "TOKO")
 	_draw_building(Vector2(1190, 240), Vector2(240, 170), Color("#d98787"), "RUMAH")
 	_draw_building(Vector2(300, 760), Vector2(260, 180), Color("#7fa8dc"), "KAFE")
 	_draw_building(Vector2(1210, 780), Vector2(220, 160), Color("#d8bf73"), "TOKO BAJU")
-	draw_circle(Vector2(620, 870), 105, Color("#5eb9d4"))
-	draw_arc(Vector2(620, 870), 105, 0, TAU, 64, Color("#d3f4f6"), 5.0)
-	for tree in [Vector2(130, 130), Vector2(500, 360), Vector2(680, 260), Vector2(1500, 180), Vector2(1510, 650), Vector2(1080, 980), Vector2(420, 1030), Vector2(1650, 1040)]:
-		draw_circle(tree + Vector2(3, 8), 23, Color(0, 0, 0, 0.16))
-		draw_circle(tree, 23, Color("#2f7545"))
-		draw_circle(tree + Vector2(-6, -6), 13, Color("#4e9a57"))
+
+	# Trees are clustered around the map edges and between buildings.
+	for tree in [
+		Vector2(130, 130), Vector2(190, 170), Vector2(500, 360), Vector2(680, 260),
+		Vector2(1500, 180), Vector2(1570, 220), Vector2(1510, 650), Vector2(1600, 700),
+		Vector2(1080, 980), Vector2(1160, 1030), Vector2(420, 1030), Vector2(1650, 1040),
+		Vector2(160, 680), Vector2(690, 1010), Vector2(1380, 480), Vector2(360, 430)
+	]:
+		_draw_tree(tree)
+
 	_draw_npc(Vector2(730, 450), Color("#e8c0a0"), Color("#8657b7"))
 	_draw_npc(Vector2(1040, 670), Color("#f1d1b1"), Color("#e06c75"))
 	_draw_npc(Vector2(580, 690), Color("#bd8a67"), Color("#4f7fc2"))
 	_draw_player()
 
+
+func _draw_tree(pos: Vector2) -> void:
+	draw_circle(pos + Vector2(3, 8), 24, Color(0, 0, 0, 0.16))
+	draw_circle(pos + Vector2(0, 3), 23, Color("#28643c"))
+	draw_circle(pos, 23, Color("#347b45"))
+	draw_circle(pos + Vector2(-7, -7), 14, Color("#54a45b"))
+	draw_circle(pos + Vector2(7, 4), 9, Color("#41934e"))
 func _draw_player() -> void:
 	if koi_texture != null:
 		var size := Vector2(76, 96)
