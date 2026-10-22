@@ -98,6 +98,11 @@ jobs:
           permissions/internet=true
           permissions/read_external_storage=true
           permissions/write_external_storage=true
+          permissions/read_media_images=true
+          permissions/read_media_video=false
+          permissions/read_media_audio=false
+          permissions/read_external_storage=true
+          permissions/write_external_storage=true
           permissions/custom_permissions=PackedStringArray("android.permission.READ_MEDIA_IMAGES")
           EOF
 
