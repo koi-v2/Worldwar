@@ -11,6 +11,7 @@ const IDLE_BOB_SPEED := 0.0
 var player_position := Vector2(900, 600)
 var held_directions: Dictionary = {}
 var status_label: Label
+var proximity_label: Label
 var koi_texture: Texture2D
 var walk_time := 0.0
 var walk_frame := 0
@@ -113,8 +114,9 @@ func _update_nearby_npc() -> void:
 		if player_position.distance_to(npc.position) <= 95.0:
 			nearby_npc_name = npc.name
 			break
-	if dialogue_label != null and not dialogue_open:
-		dialogue_label.text = "Tekan BICARA untuk ngobrol dengan %s" % nearby_npc_name if nearby_npc_name != "" else "Dekati penduduk untuk mengobrol"
+	if proximity_label != null:
+		proximity_label.text = "Tekan BICARA untuk ngobrol dengan %s" % nearby_npc_name if nearby_npc_name != "" else "Dekati penduduk untuk mengobrol"
+		proximity_label.visible = not dialogue_open
 
 func _build_dialogue_ui() -> void:
 	var canvas := get_node_or_null("DialogueLayer") as CanvasLayer
@@ -151,6 +153,9 @@ func _open_npc_dialogue() -> void:
 			dialogue_label.text = "Dekati penduduk terlebih dahulu."
 		return
 	dialogue_open = true
+	held_directions.clear()
+	if proximity_label != null:
+		proximity_label.visible = false
 	var canvas := get_node_or_null("DialogueLayer") as CanvasLayer
 	if canvas != null:
 		var panel := canvas.get_node_or_null("DialoguePanel") as PanelContainer
@@ -161,6 +166,7 @@ func _open_npc_dialogue() -> void:
 
 func _close_npc_dialogue() -> void:
 	dialogue_open = false
+	_update_nearby_npc()
 	var canvas := get_node_or_null("DialogueLayer") as CanvasLayer
 	if canvas != null:
 		var panel := canvas.get_node_or_null("DialoguePanel") as PanelContainer
@@ -244,12 +250,13 @@ func _build_hud() -> void:
 	status_label = Label.new()
 	status_label.text = "Kota Lumnia  |  Koin: %d" % coins
 	box.add_child(status_label)
-	var hint := Label.new()
-	hint.text = "Jelajahi kota • Prototype offline"
-	hint.position = Vector2(14, 84)
-	hint.add_theme_color_override("font_color", Color("#ffffff"))
-	hint.add_theme_font_size_override("font_size", 15)
-	canvas.add_child(hint)
+	proximity_label = Label.new()
+	proximity_label.text = "Dekati penduduk untuk mengobrol"
+	proximity_label.position = Vector2(14, 84)
+	proximity_label.add_theme_color_override("font_color", Color("#ffffff"))
+	proximity_label.add_theme_font_size_override("font_size", 15)
+	proximity_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	canvas.add_child(proximity_label)
 	_create_direction_button(canvas, "▲", "up", Vector2(100, 0))
 	_create_direction_button(canvas, "▼", "down", Vector2(100, 88))
 	_create_direction_button(canvas, "◀", "left", Vector2(12, 44))
