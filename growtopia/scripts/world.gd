@@ -25,6 +25,7 @@ var toast := ""
 var toast_time := 0.0
 var touch_start := Vector2.ZERO
 var hold_action := ""
+var punch_requested := false
 
 func _ready() -> void:
     _generate_world()
@@ -89,6 +90,9 @@ func _physics_process(delta: float) -> void:
     if jump_requested and _is_on_ground():
         velocity.y = -430.0
     jump_requested = false
+    if punch_requested:
+        _punch_block_in_front()
+    punch_requested = false
     _move_player(Vector2(velocity.x * delta, 0))
     _move_player(Vector2(0, velocity.y * delta))
     if player_pos.y > 1300:
@@ -163,21 +167,22 @@ func _draw_player(pos: Vector2) -> void:
 func _draw_hud(screen: Vector2) -> void:
     draw_rect(Rect2(14,14,250,48),Color(0.05,0.1,0.18,0.78))
     draw_string(ThemeDB.fallback_font,Vector2(28,44),"GROWWORLD  •  GODOT",HORIZONTAL_ALIGNMENT_LEFT,-1,22,Color.WHITE)
-    # Touch controls
-    _button(Rect2(24,screen.y-118,88,88),"◀")
-    _button(Rect2(120,screen.y-118,88,88),"▶")
-    _button(Rect2(screen.x-112,screen.y-118,88,88),"↑")
-    _button(Rect2(screen.x-222,screen.y-118,88,88),"⛏")
-    # Inventory hotbar
-    var bar_w := 4*72+12
+    # Inventory hotbar sits above the controls.
+    var slot_w := minf(76.0, (screen.x - 32.0) / 4.0)
+    var bar_w := slot_w * 4.0
     var bx := (screen.x-bar_w)/2
-    draw_rect(Rect2(bx-8,screen.y-91,bar_w+16,76),Color(0.05,0.1,0.18,0.82))
+    draw_rect(Rect2(bx-6,screen.y-166,bar_w+12,54),Color(0.05,0.1,0.18,0.86))
     for i in range(4):
-        var r := Rect2(bx+i*72,screen.y-82,64,58)
+        var r := Rect2(bx+i*slot_w,screen.y-160,slot_w-4,42)
         draw_rect(r,Color("#e8cb58") if i==selected_block else Color("#5287ad"))
         draw_rect(r.grow(-3),Color("#263e5b"))
-        draw_rect(Rect2(r.position+Vector2(12,9),Vector2(38,24)),block_colors[block_names[i]])
-        draw_string(ThemeDB.fallback_font,r.position+Vector2(7,49),str(inventory.get(block_names[i],0)),HORIZONTAL_ALIGNMENT_LEFT,-1,13,Color.WHITE)
+        draw_rect(Rect2(r.position+Vector2(7,5),Vector2(18,18)),block_colors[block_names[i]])
+        draw_string(ThemeDB.fallback_font,r.position+Vector2(5,36),str(inventory.get(block_names[i],0)),HORIZONTAL_ALIGNMENT_LEFT,-1,12,Color.WHITE)
+    # Growtopia-style touch controls: move, jump, and punch.
+    _button(Rect2(20,screen.y-102,72,72),"◀")
+    _button(Rect2(98,screen.y-102,72,72),"▶")
+    _button(Rect2(screen.x-174,screen.y-102,72,72),"↑")
+    _button(Rect2(screen.x-94,screen.y-102,72,72),"✊")
     if toast_time > 0:
         var tw := 360.0
         draw_rect(Rect2((screen.x-tw)/2,screen.y*0.2,tw,44),Color(0.04,0.1,0.17,0.9))
@@ -198,33 +203,35 @@ func _screen_to_world(pos: Vector2) -> Vector2:
 func _input(event: InputEvent) -> void:
     if event is InputEventKey and event.pressed and not event.echo:
         if event.keycode == KEY_SPACE or event.keycode == KEY_UP: jump_requested = true
-        if event.keycode == KEY_F: _break_nearby_block()
+        if event.keycode == KEY_F: _punch_block_in_front()
     if event is InputEventScreenTouch:
         if event.pressed:
             touch_start = event.position
             var screen := get_viewport_rect().size
-            if event.position.y > screen.y-135:
-                if event.position.x < 112: move_dir = -1
-                elif event.position.x < 216: move_dir = 1
-                elif event.position.x > screen.x-125: jump_requested = true
-                elif event.position.x > screen.x-235: _break_nearby_block()
-                else: _select_hotbar(event.position)
-            elif event.position.y < screen.y - 135:
+            if event.position.y > screen.y-120:
+                if event.position.x < 94: move_dir = -1
+                elif event.position.x < 174: move_dir = 1
+                elif event.position.x > screen.x-102: punch_requested = true
+                elif event.position.x > screen.x-182: jump_requested = true
+            elif event.position.y > screen.y-174 and event.position.y < screen.y-110:
+                _select_hotbar(event.position)
+            else:
                 _interact_with_world(event.position)
         else:
             move_dir = 0
     if event is InputEventScreenDrag:
         var screen := get_viewport_rect().size
-        if event.position.y > screen.y-135:
-            if event.position.x < 112: move_dir = -1
-            elif event.position.x < 216: move_dir = 1
+        if event.position.y > screen.y-120:
+            if event.position.x < 94: move_dir = -1
+            elif event.position.x < 174: move_dir = 1
             else: move_dir = 0
 
 func _select_hotbar(pos: Vector2) -> void:
     var screen := get_viewport_rect().size
-    var bx := (screen.x-(4*72+12))/2-8
-    if pos.y > screen.y-100 and pos.x >= bx:
-        selected_block = clampi(int((pos.x-bx)/72),0,3)
+    var slot_w := minf(76.0, (screen.x - 32.0) / 4.0)
+    var bx := (screen.x-(slot_w*4.0))/2.0
+    if pos.y > screen.y-174 and pos.y < screen.y-110 and pos.x >= bx:
+        selected_block = clampi(int((pos.x-bx)/slot_w),0,3)
 
 func _interact_with_world(screen_pos: Vector2) -> void:
     var world_pos := _screen_to_world(screen_pos)
@@ -276,3 +283,19 @@ func _place_block(tile_pos: Vector2i) -> void:
     toast = kind + " dipasang"
     toast_time = 1.0
     _save_world()
+
+
+func _punch_block_in_front() -> void:
+    var target := Vector2i(floori((player_pos.x + facing * (PLAYER_SIZE.x / 2.0 + TILE * 0.65)) / TILE), floori((player_pos.y - PLAYER_SIZE.y * 0.58) / TILE))
+    if not blocks.has(target):
+        target.y += 1
+    if blocks.has(target):
+        var kind: String = blocks[target]
+        blocks.erase(target)
+        inventory[kind] = int(inventory.get(kind, 0)) + 1
+        toast = kind + " dihancurkan +1"
+        toast_time = 1.0
+        _save_world()
+    else:
+        toast = "Tidak ada blok di depan"
+        toast_time = 0.7
