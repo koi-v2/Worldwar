@@ -30,6 +30,23 @@ var dialogue_canvas: CanvasLayer
 var dialogue_panel: PanelContainer
 var talk_button: Button
 var direction_buttons: Dictionary = {}
+var image_dialog: FileDialog
+var crop_panel: PanelContainer
+var crop_preview: TextureRect
+var crop_status: Label
+var crop_image: Image
+var crop_drag_start := Vector2.ZERO
+var crop_drag_end := Vector2.ZERO
+var crop_dragging := false
+var crop_selection := Rect2()
+var cropper_open := false
+var map_editor_enabled := false
+var selected_asset_texture: Texture2D
+var placed_assets: Array[Dictionary] = []
+var map_assets_dir := "user://map_assets"
+var map_layout_path := "user://koi_map_layout.json"
+var editor_button: Button
+var import_button: Button
 
 func _ready() -> void:
 	if ResourceLoader.exists(KOI_TEXTURE_PATH):
@@ -39,6 +56,8 @@ func _ready() -> void:
 	_load_game()
 	_build_hud()
 	_build_dialogue_ui()
+	_build_image_editor()
+	_load_placed_assets()
 	_layout_ui()
 	get_viewport().size_changed.connect(_layout_ui)
 	_update_camera(1.0)
@@ -241,6 +260,14 @@ func _draw() -> void:
 			draw_circle(flower + Vector2(6, 3), 4, Color("#ef91b4"))
 			draw_circle(flower + Vector2(-5, 4), 4, Color("#f7e9c9"))
 
+	# Cropped assets imported by the player.
+	for placed in placed_assets:
+		var texture: Texture2D = placed.get("texture") as Texture2D
+		if texture != null:
+			var p: Vector2 = placed.get("position", Vector2.ZERO)
+			var size: Vector2 = placed.get("size", Vector2(96, 96))
+			draw_texture_rect(texture, Rect2(p - size * 0.5, size), false)
+
 	# Existing residents and player.
 	_draw_npc(Vector2(730, 450), Color("#e8c0a0"), Color("#8657b7"))
 	_draw_npc(Vector2(1040, 670), Color("#f1d1b1"), Color("#e06c75"))
@@ -352,6 +379,17 @@ func _layout_ui() -> void:
 			var offset: Vector2 = item["offset"]
 			button.position = base + offset * 0.72
 			button.size = Vector2(58, 50)
+	if editor_button != null:
+		editor_button.position = Vector2(maxf(150.0, view_size.x - 300.0), 14)
+		editor_button.size = Vector2(130, 48)
+	if import_button != null:
+		import_button.position = Vector2(maxf(150.0, view_size.x - 160.0), 14)
+		import_button.size = Vector2(145, 48)
+	if crop_panel != null:
+		var crop_width := minf(620.0, view_size.x - 24.0)
+		var crop_height := minf(430.0, view_size.y - 100.0)
+		crop_panel.position = Vector2((view_size.x - crop_width) / 2.0, (view_size.y - crop_height) / 2.0)
+		crop_panel.size = Vector2(crop_width, crop_height)
 	if dialogue_panel != null:
 		var panel_width := minf(500.0, view_size.x - 24.0)
 		dialogue_panel.position = Vector2((view_size.x - panel_width) / 2.0, maxf(90.0, view_size.y - 150.0))
@@ -359,3 +397,218 @@ func _layout_ui() -> void:
 	if talk_button != null:
 		talk_button.position = Vector2(maxf(12.0, view_size.x - 126.0), view_size.y - 72.0)
 		talk_button.size = Vector2(112, 52)
+
+func _build_image_editor() -> void:
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(map_assets_dir))
+	image_dialog = FileDialog.new()
+	image_dialog.name = "MapImagePicker"
+	image_dialog.title = "Pilih gambar untuk map"
+	image_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	image_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	image_dialog.filters = PackedStringArray(["*.png ; PNG", "*.jpg, *.jpeg ; JPEG", "*.webp ; WebP"])
+	image_dialog.file_selected.connect(_on_map_image_selected)
+	add_child(image_dialog)
+
+	editor_button = Button.new()
+	editor_button.text = "EDITOR MAP"
+	editor_button.custom_minimum_size = Vector2(120, 48)
+	editor_button.pressed.connect(_toggle_map_editor)
+	hud_canvas.add_child(editor_button)
+
+	import_button = Button.new()
+	import_button.text = "PILIH GAMBAR"
+	import_button.custom_minimum_size = Vector2(130, 48)
+	import_button.visible = false
+	import_button.pressed.connect(_open_image_picker)
+	hud_canvas.add_child(import_button)
+
+	crop_panel = PanelContainer.new()
+	crop_panel.name = "CropPanel"
+	crop_panel.visible = false
+	crop_panel.z_index = 20
+	hud_canvas.add_child(crop_panel)
+	var column := VBoxContainer.new()
+	crop_panel.add_child(column)
+	var heading := Label.new()
+	heading.text = "POTONG GAMBAR — tarik jari di gambar"
+	column.add_child(heading)
+	crop_preview = TextureRect.new()
+	crop_preview.custom_minimum_size = Vector2(320, 220)
+	crop_preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	crop_preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	crop_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	crop_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	crop_preview.gui_input.connect(_on_crop_preview_input)
+	column.add_child(crop_preview)
+	crop_status = Label.new()
+	crop_status.text = "Pilih gambar, lalu tarik area yang ingin dipotong."
+	crop_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(crop_status)
+	var row := HBoxContainer.new()
+	column.add_child(row)
+	var save_crop := Button.new()
+	save_crop.text = "POTONG & PAKAI"
+	save_crop.pressed.connect(_save_crop_asset)
+	row.add_child(save_crop)
+	var cancel := Button.new()
+	cancel.text = "TUTUP"
+	cancel.pressed.connect(_close_crop_panel)
+	row.add_child(cancel)
+
+func _close_crop_panel() -> void:
+	crop_panel.visible = false
+	cropper_open = false
+
+func _toggle_map_editor() -> void:
+	map_editor_enabled = not map_editor_enabled
+	import_button.visible = map_editor_enabled
+	editor_button.text = "TUTUP EDITOR" if map_editor_enabled else "EDITOR MAP"
+	if map_editor_enabled:
+		crop_status.text = "Pilih gambar untuk dipotong. Setelah disimpan, ketuk map untuk menaruh objek."
+	else:
+		crop_panel.visible = false
+		cropper_open = false
+
+func _open_image_picker() -> void:
+	image_dialog.popup_centered_ratio(0.9)
+
+func _on_map_image_selected(path: String) -> void:
+	var loaded_image := Image.new()
+	var err := loaded_image.load(path)
+	if err != OK:
+		crop_status.text = "Gagal membuka gambar. Coba PNG, JPG, atau WebP."
+		crop_panel.visible = true
+		return
+	crop_image = loaded_image
+	crop_preview.texture = ImageTexture.create_from_image(crop_image)
+	crop_selection = Rect2()
+	crop_dragging = false
+	cropper_open = true
+	crop_panel.visible = true
+	crop_status.text = "Gambar %d×%d. Tarik jari untuk memilih bagian gambar." % [crop_image.get_width(), crop_image.get_height()]
+	_layout_ui()
+
+func _on_crop_preview_input(event: InputEvent) -> void:
+	if crop_image == null:
+		return
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			crop_drag_start = _crop_preview_to_image(event.position)
+			crop_drag_end = crop_drag_start
+			crop_dragging = true
+		else:
+			if crop_dragging:
+				crop_drag_end = _crop_preview_to_image(event.position)
+				crop_dragging = false
+				_update_crop_selection()
+	elif event is InputEventScreenDrag and crop_dragging:
+		crop_drag_end = _crop_preview_to_image(event.position)
+		_update_crop_selection()
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			crop_drag_start = _crop_preview_to_image(event.position)
+			crop_drag_end = crop_drag_start
+			crop_dragging = true
+		else:
+			if crop_dragging:
+				crop_drag_end = _crop_preview_to_image(event.position)
+				crop_dragging = false
+				_update_crop_selection()
+	elif event is InputEventMouseMotion and crop_dragging:
+		crop_drag_end = _crop_preview_to_image(event.position)
+		_update_crop_selection()
+
+func _crop_preview_to_image(local_pos: Vector2) -> Vector2:
+	if crop_image == null or crop_preview.size.x <= 0 or crop_preview.size.y <= 0:
+		return Vector2.ZERO
+	var image_size := Vector2(crop_image.get_size())
+	var scale_factor := minf(crop_preview.size.x / image_size.x, crop_preview.size.y / image_size.y)
+	var displayed_size := image_size * scale_factor
+	var image_origin := (crop_preview.size - displayed_size) * 0.5
+	return ((local_pos - image_origin) / scale_factor).clamp(Vector2.ZERO, image_size)
+
+func _update_crop_selection() -> void:
+	var top_left := Vector2(minf(crop_drag_start.x, crop_drag_end.x), minf(crop_drag_start.y, crop_drag_end.y))
+	var bottom_right := Vector2(maxf(crop_drag_start.x, crop_drag_end.x), maxf(crop_drag_start.y, crop_drag_end.y))
+	crop_selection = Rect2(top_left, bottom_right - top_left)
+	crop_status.text = "Area dipilih: %d×%d px. Tekan POTONG & PAKAI." % [int(crop_selection.size.x), int(crop_selection.size.y)]
+
+func _save_crop_asset() -> void:
+	if crop_image == null or crop_selection.size.x < 4 or crop_selection.size.y < 4:
+		crop_status.text = "Pilih area yang lebih besar dengan menarik jari di gambar."
+		return
+	var region := Rect2i(Vector2i(crop_selection.position), Vector2i(crop_selection.size))
+	region.position.x = clampi(region.position.x, 0, crop_image.get_width() - 1)
+	region.position.y = clampi(region.position.y, 0, crop_image.get_height() - 1)
+	region.size.x = clampi(region.size.x, 1, crop_image.get_width() - region.position.x)
+	region.size.y = clampi(region.size.y, 1, crop_image.get_height() - region.position.y)
+	var cropped := crop_image.get_region(region)
+	var filename := "crop_%d.png" % int(Time.get_unix_time_from_system())
+	var save_path := map_assets_dir.path_join(filename)
+	if cropped.save_png(save_path) != OK:
+		crop_status.text = "Gagal menyimpan potongan gambar."
+		return
+	selected_asset_texture = ImageTexture.create_from_image(cropped)
+	placed_assets.append({"texture": selected_asset_texture, "path": save_path, "position": Vector2(900, 600), "size": Vector2(96, 96)})
+	_save_map_layout()
+	crop_status.text = "Potongan tersimpan! Tutup panel, lalu ketuk lokasi map untuk menaruhnya."
+	crop_panel.visible = false
+	cropper_open = false
+	queue_redraw()
+
+func _input(event: InputEvent) -> void:
+	if not map_editor_enabled or cropper_open or selected_asset_texture == null:
+		return
+	var screen_pos := Vector2.ZERO
+	var pressed := false
+	if event is InputEventScreenTouch and event.pressed:
+		screen_pos = event.position
+		pressed = true
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		screen_pos = event.position
+		pressed = true
+	if pressed:
+		var world_pos := screen_pos - position
+		if world_pos.y > 95 and world_pos.x > 0 and world_pos.x < WORLD_SIZE.x and world_pos.y < WORLD_SIZE.y:
+			placed_assets.append({"texture": selected_asset_texture, "path": _selected_asset_path(), "position": world_pos, "size": Vector2(96, 96)})
+			_save_map_layout()
+			queue_redraw()
+			get_viewport().set_input_as_handled()
+
+func _selected_asset_path() -> String:
+	for placed in placed_assets:
+		if placed.get("texture") == selected_asset_texture:
+			var path := str(placed.get("path", ""))
+			if not path.is_empty():
+				return path
+	return ""
+
+func _save_map_layout() -> void:
+	var records: Array[Dictionary] = []
+	for placed in placed_assets:
+		records.append({"path": str(placed.get("path", "")), "x": (placed.get("position", Vector2.ZERO) as Vector2).x, "y": (placed.get("position", Vector2.ZERO) as Vector2).y, "w": (placed.get("size", Vector2(96, 96)) as Vector2).x, "h": (placed.get("size", Vector2(96, 96)) as Vector2).y})
+	var file := FileAccess.open(map_layout_path, FileAccess.WRITE)
+	if file != null:
+		file.store_string(JSON.stringify(records))
+
+func _load_placed_assets() -> void:
+	if not FileAccess.file_exists(map_layout_path):
+		return
+	var file := FileAccess.open(map_layout_path, FileAccess.READ)
+	if file == null:
+		return
+	var parsed = JSON.parse_string(file.get_as_text())
+	if not parsed is Array:
+		return
+	for record in parsed:
+		if not record is Dictionary:
+			continue
+		var path := str(record.get("path", ""))
+		if path.is_empty() or not FileAccess.file_exists(path):
+			continue
+		var img := Image.new()
+		if img.load(path) != OK:
+			continue
+		var texture := ImageTexture.create_from_image(img)
+		placed_assets.append({"texture": texture, "path": path, "position": Vector2(float(record.get("x", 900)), float(record.get("y", 600))), "size": Vector2(float(record.get("w", 96)), float(record.get("h", 96)))})
+		selected_asset_texture = texture
