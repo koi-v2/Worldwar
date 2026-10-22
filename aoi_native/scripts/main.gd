@@ -49,6 +49,8 @@ var editor_button: Button
 var import_button: Button
 
 func _ready() -> void:
+	if OS.has_feature("android"):
+		OS.request_permissions()
 	if ResourceLoader.exists(KOI_TEXTURE_PATH):
 		koi_texture = load(KOI_TEXTURE_PATH) as Texture2D
 	if ResourceLoader.exists(TILESET_PATH):
@@ -470,6 +472,8 @@ func _toggle_map_editor() -> void:
 		cropper_open = false
 
 func _open_image_picker() -> void:
+	if OS.has_feature("android"):
+		OS.request_permissions()
 	image_dialog.popup_centered_ratio(0.9)
 
 func _on_map_image_selected(path: String) -> void:
