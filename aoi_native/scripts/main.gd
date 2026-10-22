@@ -35,6 +35,12 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if (Input.is_key_pressed(KEY_E) or Input.is_key_pressed(KEY_ENTER)) and nearby_npc_name != "" and not dialogue_open:
 		_open_npc_dialogue()
+	if dialogue_open:
+		is_player_moving = false
+		walk_frame = 0
+		_update_camera(delta)
+		queue_redraw()
+		return
 	var direction := Vector2.ZERO
 	if Input.is_key_pressed(KEY_LEFT) or Input.is_key_pressed(KEY_A) or held_directions.has("left"):
 		direction.x -= 1.0
