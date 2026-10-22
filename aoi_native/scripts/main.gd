@@ -5,7 +5,8 @@ const PLAYER_SPEED := 230.0
 const KOI_TEXTURE_PATH := "res://assets/file_00000000072882079690a16cbdd8338a.png"
 const SPRITE_COLUMNS := 4
 const SPRITE_ROWS := 4
-const WALK_FPS := 7.0
+const WALK_FPS := 10.0
+const IDLE_BOB_SPEED := 0.0
 
 var player_position := Vector2(900, 600)
 var held_directions: Dictionary = {}
@@ -14,6 +15,7 @@ var koi_texture: Texture2D
 var walk_time := 0.0
 var walk_frame := 0
 var facing := "down"
+var is_player_moving := false
 
 func _ready() -> void:
 	if ResourceLoader.exists(KOI_TEXTURE_PATH):
@@ -31,14 +33,15 @@ func _process(delta: float) -> void:
 		direction.y -= 1.0
 	if Input.is_key_pressed(KEY_DOWN) or Input.is_key_pressed(KEY_S) or held_directions.has("down"):
 		direction.y += 1.0
-	if direction != Vector2.ZERO:
+	is_player_moving = direction != Vector2.ZERO
+	if is_player_moving:
 		player_position += direction.normalized() * PLAYER_SPEED * delta
-		walk_time += delta
-		walk_frame = int(walk_time * WALK_FPS) % 4
 		if absf(direction.x) > absf(direction.y):
 			facing = "right" if direction.x > 0 else "left"
 		else:
 			facing = "down" if direction.y > 0 else "up"
+		walk_time += delta
+		walk_frame = int(walk_time * WALK_FPS) % SPRITE_COLUMNS
 	else:
 		walk_frame = 0
 	player_position.x = clampf(player_position.x, 30.0, WORLD_SIZE.x - 30.0)
@@ -81,10 +84,10 @@ func _draw_player() -> void:
 			"left": row = 1
 			"right": row = 2
 			"up": row = 3
-		var frame := walk_frame if _is_moving() else 0
+		var frame := walk_frame if is_player_moving else 0
 		var source := Rect2(Vector2(frame, row) * cell, cell)
-		var bob := sin(walk_time * 12.0) * 2.0 if _is_moving() else 0.0
-		draw_texture_rect_region(koi_texture, Rect2(player_position - Vector2(size.x / 2.0, size.y / 2.0) + Vector2(0, bob), size), source)
+		# Keep the sprite anchored consistently; frame animation supplies the movement.
+		draw_texture_rect_region(koi_texture, Rect2(player_position - Vector2(size.x / 2.0, size.y / 2.0), size), source)
 	else:
 		draw_circle(player_position + Vector2(0, 8), 18, Color(0, 0, 0, 0.2))
 		draw_circle(player_position, 16, Color("#f5cda7"))
@@ -92,9 +95,6 @@ func _draw_player() -> void:
 		draw_circle(player_position + Vector2(0, -7), 12, Color("#4c342a"))
 	draw_rect(Rect2(player_position + Vector2(-24, -58), Vector2(48, 19)), Color("#26354a"))
 	draw_string(ThemeDB.fallback_font, player_position + Vector2(-19, -45), "Koi", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
-
-func _is_moving() -> bool:
-	return held_directions.size() > 0 or Input.is_key_pressed(KEY_LEFT) or Input.is_key_pressed(KEY_RIGHT) or Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_DOWN) or Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_S)
 
 func _draw_building(pos: Vector2, size: Vector2, color: Color, title: String) -> void:
 	draw_rect(Rect2(pos + Vector2(7, 9), size), Color(0, 0, 0, 0.18))
