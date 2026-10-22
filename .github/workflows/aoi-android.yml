@@ -15,6 +15,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
       - name: Setup Godot
         uses: chickensoft-games/setup-godot@v2
         with:
@@ -24,12 +30,11 @@ jobs:
       - name: Install Android SDK tools
         uses: android-actions/setup-android@v4
         with:
-          # "tools" is a retired SDK package; requesting it makes setup fail.
           packages: platform-tools
 
       - name: Install Android build packages
         run: |
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" "cmdline-tools;latest"
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" "cmdline-tools;latest" "ndk;23.2.8568313" "cmake;3.10.2.4988404"
 
       - name: Install Godot export templates
         run: |
@@ -38,6 +43,17 @@ jobs:
           mkdir -p /tmp/godot-templates
           unzip -q /tmp/godot-templates.tpz -d /tmp/godot-templates
           cp -r /tmp/godot-templates/templates/* "$HOME/.local/share/godot/export_templates/4.4.1.stable/"
+
+      - name: Configure Godot Android SDK paths
+        run: |
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "/usr/local/lib/android/sdk"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          EOF
 
       - name: Create Android export preset
         working-directory: aoi_native
@@ -78,7 +94,7 @@ jobs:
         working-directory: aoi_native
         run: |
           godot --headless --editor --path . --quit
-          godot --headless --path . --export-debug "Android" ../KoiWorld-android-debug.apk
+          godot --headless --verbose --path . --export-debug "Android" ../KoiWorld-android-debug.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
